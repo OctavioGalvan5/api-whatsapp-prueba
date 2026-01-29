@@ -57,7 +57,7 @@ def save_message(wa_message_id, phone_number, direction, message_type, content):
     except Exception as e:
         logger.error(f"Error guardando mensaje en BD: {e}")
 
-def save_status(wa_message_id, status, error_code=None, error_title=None, error_details=None):
+def save_status(wa_message_id, status, recipient_id=None, error_code=None, error_title=None, error_details=None):
     """Guarda un estado de mensaje en la base de datos."""
     from app import app
     from models import db, Message, MessageStatus
@@ -70,12 +70,16 @@ def save_status(wa_message_id, status, error_code=None, error_title=None, error_
                 # Crear mensaje placeholder para mensajes salientes
                 message = Message(
                     wa_message_id=wa_message_id,
-                    phone_number="outbound",  # Se actualizará con recipient_id
+                    phone_number=recipient_id or "unknown",
                     direction="outbound",
-                    message_type="unknown",
+                    message_type="text",
                     timestamp=datetime.utcnow()
                 )
                 db.session.add(message)
+                db.session.commit()
+            elif message.phone_number in ["outbound", "unknown"] and recipient_id:
+                # Actualizar el número si antes era placeholder
+                message.phone_number = recipient_id
                 db.session.commit()
             
             msg_status = MessageStatus(
@@ -164,7 +168,7 @@ def process_event(data):
                         logger.info(f"👁️‍🗨️ ¡El usuario {recipient} LEYÓ el mensaje!")
                     
                     # Guardar estado en base de datos
-                    save_status(msg_id, status_type, error_code, error_title, error_details)
+                    save_status(msg_id, status_type, recipient, error_code, error_title, error_details)
 
     # Finalmente, reenviar todo a Chatwoot para que su flujo no se rompa
     forward_to_chatwoot(data)
