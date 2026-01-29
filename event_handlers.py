@@ -145,11 +145,14 @@ def process_event(data):
             # --- MANEJO DE ESTADOS (SENT, DELIVERED, READ, FAILED) ---
             if "statuses" in value:
                 for status in value["statuses"]:
+                    # DEBUG: Ver todo el objeto status
+                    logger.info(f"📋 STATUS COMPLETO: {json.dumps(status, indent=2)}")
+                    
                     recipient = status.get("recipient_id")
                     status_type = status.get("status")  # sent, delivered, read, failed
                     msg_id = status.get("id")
                     
-                    logger.info(f"ACTUALIZACIÓN DE ESTADO: {status_type} para {recipient}")
+                    logger.info(f"ACTUALIZACIÓN DE ESTADO: {status_type} para {recipient} (msg_id: {msg_id})")
                     
                     # Extraer errores si existen
                     error_code = None
