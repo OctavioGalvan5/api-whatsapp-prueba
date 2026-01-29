@@ -14,9 +14,15 @@ class Message(db.Model):
     message_type = db.Column(db.String(20), nullable=False)  # text, image, audio, etc.
     content = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    
     # Relación con estados
-    statuses = db.relationship('MessageStatus', backref='message', lazy=True)
+    statuses = db.relationship('MessageStatus', backref='message', lazy=True, order_by='MessageStatus.timestamp')
+    
+    @property
+    def latest_status(self):
+        """Obtiene el último estado del mensaje."""
+        if self.statuses:
+            return self.statuses[-1].status
+        return None
     
     def to_dict(self):
         return {
