@@ -156,74 +156,67 @@ def chatwoot_webhook():
     Endpoint para recibir webhooks de Chatwoot.
     Captura mensajes salientes enviados por agentes.
     """
-    import json as json_module
-    
     try:
         data = request.json
         if not data:
             return "No data received", 400
         
         event = data.get("event")
-        
-        # DEBUG: Log completo del evento
         logger.info(f"📬 CHATWOOT WEBHOOK: {event}")
-        logger.info(f"📋 CHATWOOT DATA: {json_module.dumps(data, indent=2, default=str)[:2000]}")
         
         # Manejar mensaje creado o actualizado
         if event in ["message_created", "message_updated"]:
-            message_data = data.get("message", {})
+            # En Chatwoot, el contenido viene en el nivel raíz
+            content = data.get("content", "")
             conversation = data.get("conversation", {})
             
-            # Solo mensajes salientes (de agente o bot)
-            message_type_cw = message_data.get("message_type")  # 0=incoming, 1=outgoing
+            # Obtener el message_type desde messages[0] dentro de conversation
+            messages = conversation.get("messages", [])
+            message_type_cw = None
+            source_id = None
             
-            logger.info(f"📝 message_type: {message_type_cw}, content: {message_data.get('content', '')[:100]}")
+            if messages:
+                first_msg = messages[0]
+                message_type_cw = first_msg.get("message_type")
+                source_id = first_msg.get("source_id")
             
-            if message_type_cw == 1:  # Outgoing message
-                content = message_data.get("content", "")
-                
-                # Obtener el número de teléfono del contacto
-                contact = conversation.get("meta", {}).get("sender", {})
-                phone_number = contact.get("phone_number", "").replace("+", "")
-                
-                # También intentar desde contact_inbox
-                if not phone_number:
-                    contact_inbox = conversation.get("contact_inbox", {})
-                    phone_number = contact_inbox.get("source_id", "").replace("+", "")
-                
-                # Obtener source_id si existe (es el wa_message_id)
-                source_id = message_data.get("source_id")
-                
+            # Obtener el número de teléfono desde contact_inbox
+            contact_inbox = conversation.get("contact_inbox", {})
+            phone_number = contact_inbox.get("source_id", "").replace("+", "")
+            
+            logger.info(f"📝 message_type: {message_type_cw}, content: {content[:100] if content else 'N/A'}")
+            
+            # Solo mensajes salientes (message_type=1 en Chatwoot)
+            if message_type_cw == 1 and content:
                 logger.info(f"📤 MENSAJE SALIENTE: '{content[:50]}...' para {phone_number} (source_id: {source_id})")
                 
-                if content:  # Solo procesar si hay contenido
-                    # Si tenemos source_id, actualizar el mensaje existente
-                    if source_id:
-                        existing = Message.query.filter_by(wa_message_id=source_id).first()
-                        if existing:
-                            if not existing.content:
-                                existing.content = content
-                            if phone_number and existing.phone_number in ["outbound", "unknown"]:
-                                existing.phone_number = phone_number
-                            db.session.commit()
-                            logger.info(f"✅ Contenido actualizado para mensaje: {source_id}")
-                        else:
-                            # Crear el mensaje si no existe
-                            new_msg = Message(
-                                wa_message_id=source_id,
-                                phone_number=phone_number or "unknown",
-                                direction="outbound",
-                                message_type="text",
-                                content=content,
-                                timestamp=datetime.utcnow()
-                            )
-                            db.session.add(new_msg)
-                            db.session.commit()
-                            logger.info(f"✅ Mensaje saliente creado con source_id: {source_id}")
+                # Si tenemos source_id (wa_message_id), actualizar o crear
+                if source_id:
+                    existing = Message.query.filter_by(wa_message_id=source_id).first()
+                    if existing:
+                        if not existing.content:
+                            existing.content = content
+                            logger.info(f"✅ Contenido actualizado para mensaje existente: {source_id}")
+                        if phone_number and existing.phone_number in ["outbound", "unknown"]:
+                            existing.phone_number = phone_number
+                        db.session.commit()
                     else:
-                        # Crear nuevo registro con ID de Chatwoot
-                        cw_msg_id = f"cw_{message_data.get('id', '')}"
-                        
+                        # Crear el mensaje
+                        new_msg = Message(
+                            wa_message_id=source_id,
+                            phone_number=phone_number or "unknown",
+                            direction="outbound",
+                            message_type="text",
+                            content=content,
+                            timestamp=datetime.utcnow()
+                        )
+                        db.session.add(new_msg)
+                        db.session.commit()
+                        logger.info(f"✅ Mensaje saliente creado con source_id: {source_id}")
+                else:
+                    # Si no hay source_id, crear con ID de Chatwoot
+                    if messages:
+                        cw_msg_id = f"cw_{messages[0].get('id', '')}"
                         existing = Message.query.filter_by(wa_message_id=cw_msg_id).first()
                         if not existing:
                             new_msg = Message(
@@ -236,7 +229,7 @@ def chatwoot_webhook():
                             )
                             db.session.add(new_msg)
                             db.session.commit()
-                            logger.info(f"✅ Mensaje saliente guardado: {cw_msg_id}")
+                            logger.info(f"✅ Mensaje saliente guardado con cw_id: {cw_msg_id}")
         
         return "OK", 200
         
