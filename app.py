@@ -323,6 +323,66 @@ def analytics():
         'top_contacts': [{'phone': c.phone_number, 'count': c.count} for c in top_contacts]
     }
     
+    # ========== ESTADÍSTICAS DE TEMPLATES ==========
+    # Templates más usados (buscamos mensajes tipo template)
+    template_stats = db.session.query(
+        Message.content,
+        func.count(Message.id).label('sent_count')
+    ).filter(
+        Message.message_type == 'template',
+        Message.direction == 'outbound'
+    ).group_by(Message.content).order_by(func.count(Message.id).desc()).limit(10).all()
+    
+    # Calcular tasa de lectura por template (necesitamos join con statuses)
+    template_performance = []
+    for template in template_stats:
+        # Contar templates leídos
+        read_count = db.session.query(func.count(Message.id)).filter(
+            Message.content == template.content,
+            Message.latest_status == 'read'
+        ).scalar() or 0
+        
+        read_rate = round((read_count / template.sent_count * 100) if template.sent_count > 0 else 0, 1)
+        
+        # Extraer nombre del template del contenido (primeras 50 chars)
+        template_name = template.content[:80] + '...' if len(template.content) > 80 else template.content
+        
+        template_performance.append({
+            'name': template_name,
+            'sent': template.sent_count,
+            'read': read_count,
+            'read_rate': read_rate
+        })
+    
+    # ========== MEJORES HORARIOS PARA LECTURA ==========
+    # Convertir datos de lectura por hora a un formato más útil
+    read_by_hour_dict = {int(h.hour) if h.hour else 0: h.count for h in read_by_hour}
+    sent_by_hour_dict = {int(h.hour) if h.hour else 0: h.count for h in sent_by_hour}
+    
+    # Calcular tasa de lectura por hora
+    hourly_read_rate = []
+    for hour in range(24):
+        sent_at_hour = sent_by_hour_dict.get(hour, 0)
+        read_at_hour = read_by_hour_dict.get(hour, 0)
+        rate = round((read_at_hour / sent_at_hour * 100) if sent_at_hour > 0 else 0, 1)
+        hourly_read_rate.append({
+            'hour': hour,
+            'sent': sent_at_hour,
+            'read': read_at_hour,
+            'rate': rate
+        })
+    
+    # Encontrar las mejores horas para enviar (mayor tasa de lectura)
+    # Solo considerar horas con al menos 5 mensajes enviados
+    best_hours = sorted(
+        [h for h in hourly_read_rate if h['sent'] >= 5],
+        key=lambda x: x['rate'],
+        reverse=True
+    )[:3]
+    
+    # Hora con más lecturas (no tasa, cantidad absoluta)
+    peak_read_hour = max(hourly_read_rate, key=lambda x: x['read']) if hourly_read_rate else None
+    
     # Insights
     peak_hour = max(sent_by_hour, key=lambda x: x.count) if sent_by_hour else None
     busiest_dow = dow_counts.index(max(dow_counts)) if dow_counts else 0
@@ -333,10 +393,18 @@ def analytics():
         'peak_hour_count': peak_hour.count if peak_hour else 0,
         'read_rate': round((read / outbound * 100) if outbound > 0 else 0, 1),
         'busiest_day': days_names[busiest_dow],
-        'avg_daily': round(total_messages / 30, 1) if total_messages > 0 else 0
+        'avg_daily': round(total_messages / 30, 1) if total_messages > 0 else 0,
+        'best_hours': best_hours,
+        'peak_read_hour': peak_read_hour['hour'] if peak_read_hour else 12,
+        'template_count': len(template_performance)
     }
     
-    return render_template('analytics.html', stats=stats, chart_data=chart_data, insights=insights)
+    return render_template('analytics.html', 
+                         stats=stats, 
+                         chart_data=chart_data, 
+                         insights=insights,
+                         template_performance=template_performance,
+                         hourly_read_rate=hourly_read_rate)
 
 @app.route("/api/stats")
 def api_stats():
