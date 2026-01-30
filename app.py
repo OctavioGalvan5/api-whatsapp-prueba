@@ -35,6 +35,9 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
+# Importar servicio de WhatsApp (después de crear app)
+from whatsapp_service import whatsapp_api
+
 @app.route("/", methods=["GET"])
 def index():
     return "WhatsApp Middleware is running!", 200
@@ -440,6 +443,116 @@ def chatwoot_webhook():
         logger.error(traceback.format_exc())
         return "Internal Server Error", 500
 
+# ==================== WhatsApp Settings ====================
+
+@app.route("/whatsapp-settings")
+def whatsapp_settings():
+    """Página de configuración y templates de WhatsApp."""
+    is_configured = whatsapp_api.is_configured()
+    
+    templates = []
+    phone_numbers = []
+    profile = {}
+    error = None
+    
+    if is_configured:
+        # Obtener templates
+        templates_result = whatsapp_api.get_templates()
+        if "error" in templates_result:
+            error = templates_result["error"]
+        templates = templates_result.get("templates", [])
+        
+        # Obtener números
+        numbers_result = whatsapp_api.get_phone_numbers()
+        phone_numbers = numbers_result.get("phone_numbers", [])
+        
+        # Obtener perfil
+        profile_result = whatsapp_api.get_business_profile()
+        profile = profile_result.get("profile", {})
+    
+    return render_template('whatsapp_settings.html',
+                         is_configured=is_configured,
+                         templates=templates,
+                         phone_numbers=phone_numbers,
+                         profile=profile,
+                         error=error)
+
+@app.route("/api/whatsapp/templates")
+def api_whatsapp_templates():
+    """API para obtener templates."""
+    return jsonify(whatsapp_api.get_templates())
+
+@app.route("/api/whatsapp/phone-numbers")
+def api_whatsapp_phone_numbers():
+    """API para obtener números de teléfono."""
+    return jsonify(whatsapp_api.get_phone_numbers())
+
+@app.route("/api/whatsapp/profile")
+def api_whatsapp_profile():
+    """API para obtener perfil del negocio."""
+    return jsonify(whatsapp_api.get_business_profile())
+
+@app.route("/api/whatsapp/send-template", methods=["POST"])
+def api_send_template():
+    """API para enviar mensaje con template."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    to_phone = data.get("to")
+    template_name = data.get("template_name")
+    language = data.get("language", "es_AR")
+    components = data.get("components")
+    
+    if not to_phone or not template_name:
+        return jsonify({"error": "to y template_name son requeridos"}), 400
+    
+    result = whatsapp_api.send_template_message(to_phone, template_name, language, components)
+    
+    if result.get("success"):
+        # Guardar mensaje en BD
+        new_msg = Message(
+            wa_message_id=result.get("message_id", f"template_{datetime.utcnow().timestamp()}"),
+            phone_number=to_phone,
+            direction="outbound",
+            message_type="template",
+            content=f"[Template: {template_name}]",
+            timestamp=datetime.utcnow()
+        )
+        db.session.add(new_msg)
+        db.session.commit()
+        
+    return jsonify(result)
+
+@app.route("/api/whatsapp/send-text", methods=["POST"])
+def api_send_text():
+    """API para enviar mensaje de texto."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    to_phone = data.get("to")
+    text = data.get("text")
+    
+    if not to_phone or not text:
+        return jsonify({"error": "to y text son requeridos"}), 400
+    
+    result = whatsapp_api.send_text_message(to_phone, text)
+    
+    if result.get("success"):
+        # Guardar mensaje en BD
+        new_msg = Message(
+            wa_message_id=result.get("message_id", f"text_{datetime.utcnow().timestamp()}"),
+            phone_number=to_phone,
+            direction="outbound",
+            message_type="text",
+            content=text,
+            timestamp=datetime.utcnow()
+        )
+        db.session.add(new_msg)
+        db.session.commit()
+        
+    return jsonify(result)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=Config.PORT, debug=True)
-
