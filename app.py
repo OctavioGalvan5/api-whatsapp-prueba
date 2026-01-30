@@ -1,6 +1,11 @@
-from flask import Flask, request, jsonify, render_template
+import logging
+import json
+import requests
+import io
+import pandas as pd
+from flask import Flask, request, jsonify, render_template, send_file
 from config import Config
-from models import db, Message, MessageStatus
+from models import db, Message, MessageStatus, Contact
 from event_handlers import process_event
 from sqlalchemy import func
 from datetime import datetime, timedelta, timezone
@@ -100,8 +105,9 @@ def dashboard():
     
     stats = {'total': total, 'sent': sent, 'read': read, 'failed': failed}
     
-    # Lista de contactos con estadísticas
-    contacts_query = db.session.query(
+    # Lista de contactos con estadísticas y datos CRM
+    # 1. Obtener estadísticas de mensajes por teléfono
+    stats_query = db.session.query(
         Message.phone_number,
         func.count(Message.id).label('message_count'),
         func.max(Message.timestamp).label('last_timestamp'),
@@ -110,23 +116,36 @@ def dashboard():
         Message.phone_number.notin_(['unknown', 'outbound', ''])
     ).group_by(Message.phone_number).order_by(func.max(Message.timestamp).desc()).all()
     
+    # 2. Obtener contactos para enriquecer la data
+    # Optimizamos trayendo solo los necesarios si hay muchos, pero para dashboard está bien traer los relevantes
+    phones_in_view = [s.phone_number for s in stats_query]
+    contacts_map = {}
+    if phones_in_view:
+        found_contacts = Contact.query.filter(Contact.phone_number.in_(phones_in_view)).all()
+        contacts_map = {c.phone_number: c for c in found_contacts}
+    
     contacts = []
-    for c in contacts_query:
+    for s in stats_query:
+        contact = contacts_map.get(s.phone_number)
         contacts.append({
-            'phone_number': c.phone_number,
-            'message_count': c.message_count,
-            'last_timestamp': c.last_timestamp,
-            'last_message': (c.last_message[:50] + '...') if c.last_message and len(c.last_message) > 50 else c.last_message
+            'phone_number': s.phone_number,
+            'message_count': s.message_count,
+            'last_timestamp': s.last_timestamp,
+            'last_message': (s.last_message[:50] + '...') if s.last_message and len(s.last_message) > 50 else s.last_message,
+            'name': contact.name if contact else None,
+            'tags': contact.tags if contact else []
         })
     
     # Si hay contacto seleccionado, obtener sus mensajes
     messages = []
     contact_stats = {}
     selected_contact = None
+    contact_details = None
     
     if selected_phone:
         selected_contact = selected_phone
         messages = Message.query.filter_by(phone_number=selected_phone).order_by(Message.timestamp.asc()).all()
+        contact_details = Contact.query.get(selected_phone)
         
         # Estadísticas del contacto
         outbound_msgs = [m for m in messages if m.direction == 'outbound']
@@ -324,38 +343,85 @@ def analytics():
     }
     
     # ========== ESTADÍSTICAS DE TEMPLATES ==========
-    # Templates más usados (buscamos mensajes tipo template)
-    template_stats = db.session.query(
-        Message.content,
-        func.count(Message.id).label('sent_count')
-    ).filter(
-        Message.message_type == 'template',
+    # Obtener todos los mensajes salientes
+    outbound_messages = Message.query.filter(
         Message.direction == 'outbound'
-    ).group_by(Message.content).order_by(func.count(Message.id).desc()).limit(10).all()
+    ).all()
     
-    # Calcular tasa de lectura por template (buscamos en MessageStatus)
+    # Obtener templates de la API para mapeo
+    templates_info = whatsapp_api.get_templates().get("templates", [])
+    
+    # Agrupar por "nombre" de template
+    stats_by_template = {} # key: template_name, value: {sent: 0, read: 0}
+    
+    import re
+    # Pre-calcular patrones de templates para mayor velocidad
+    template_patterns = []
+    for t in templates_info:
+        for comp in t.get("components", []):
+            if comp.get("type") == "BODY":
+                body = comp.get("text", "").strip()
+                if not body: continue
+                # Limpiar el escape de re.escape para que sea más flexible
+                # En lugar de re.escape completo, escapamos solo caracteres especiales pero no espacios
+                pattern = re.escape(body)
+                # Reemplazar variables {{n}} por un comodín
+                pattern = re.sub(r'\\\{\\\{\d+\\\}\\\}', '.*?', pattern)
+                # Permitir cualquier cantidad de espacios/newslines donde haya uno
+                pattern = re.sub(r'\\ ', r'\\s+', pattern)
+                pattern = re.sub(r'\\n', r'\\s*', pattern)
+                
+                template_patterns.append({
+                    'name': t.get("name"), 
+                    'regex': f".*{pattern}.*" # Permitir que esté contenido (por si hay Header/Footer)
+                })
+    
+    for msg in outbound_messages:
+        t_name = None
+        content = (msg.content or "").strip()
+        if not content: continue
+        
+        # 1. Prioridad: Mensajes ya marcados con [Template: nombre]
+        match_name = re.match(r'^\[Template: ([^\]]+)\]', content)
+        if match_name:
+            t_name = match_name.group(1)
+        
+        # 2. Si no, intentar por coincidencia de patrones (independiente de message_type)
+        if not t_name:
+            for tp in template_patterns:
+                try:
+                    if re.match(tp['regex'], content, re.DOTALL | re.IGNORECASE):
+                        t_name = tp['name']
+                        break
+                except: continue
+        
+        # 3. Si aún no hay nombre pero es tipo template, usar contenido truncado
+        if not t_name and msg.message_type == 'template':
+            t_name = content[:50] + "..." if len(content) > 50 else content
+        
+        # Si detectamos que es un template, sumar a stats
+        if t_name:
+            if t_name not in stats_by_template:
+                stats_by_template[t_name] = {'sent': 0, 'read': 0}
+            
+            stats_by_template[t_name]['sent'] += 1
+            is_read = any(s.status == 'read' for s in msg.statuses)
+            if is_read:
+                stats_by_template[t_name]['read'] += 1
+
+    # Convertir a lista para el template
     template_performance = []
-    for template in template_stats:
-        # Contar templates leídos - buscamos mensajes que tengan un status 'read' en MessageStatus
-        read_count = db.session.query(func.count(func.distinct(Message.id))).join(
-            MessageStatus, Message.wa_message_id == MessageStatus.wa_message_id
-        ).filter(
-            Message.content == template.content,
-            Message.message_type == 'template',
-            MessageStatus.status == 'read'
-        ).scalar() or 0
-        
-        read_rate = round((read_count / template.sent_count * 100) if template.sent_count > 0 else 0, 1)
-        
-        # Extraer nombre del template del contenido (primeras 80 chars)
-        template_name = template.content[:80] + '...' if len(template.content) > 80 else template.content
-        
+    for name, s in stats_by_template.items():
+        read_rate = round((s['read'] / s['sent'] * 100) if s['sent'] > 0 else 0, 1)
         template_performance.append({
-            'name': template_name,
-            'sent': template.sent_count,
-            'read': read_count,
+            'name': name,
+            'sent': s['sent'],
+            'read': s['read'],
             'read_rate': read_rate
         })
+    
+    # Ordenar por más enviados
+    template_performance = sorted(template_performance, key=lambda x: x['sent'], reverse=True)[:10]
     
     # ========== MEJORES HORARIOS PARA LECTURA ==========
     # Convertir datos de lectura por hora a un formato más útil
@@ -448,6 +514,244 @@ def api_stats():
         'success_rate': success_rate
     })
 
+def register_contact_if_new(phone_number, name=None):
+    """Registra un contacto si no existe."""
+    try:
+        if not phone_number or phone_number in ['unknown', 'outbound', '']:
+            return
+            
+        contact = Contact.query.get(phone_number)
+        if not contact:
+            new_contact = Contact(phone_number=phone_number, name=name)
+            db.session.add(new_contact)
+            db.session.commit()
+            logger.info(f"🆕 Nuevo contacto registrado: {phone_number}")
+        elif name and not contact.name:
+            contact.name = name
+            db.session.commit()
+    except Exception as e:
+        logger.error(f"Error registrando contacto auto: {e}")
+        db.session.rollback()
+
+# ==========================================
+# API CRM CONTACTOS
+# ==========================================
+
+@app.route("/api/contacts/<phone_number>", methods=["GET", "POST"])
+def api_contact_detail(phone_number):
+    """API para obtener o actualizar un contacto."""
+    contact = Contact.query.get(phone_number)
+    
+    if request.method == "POST":
+        data = request.json
+        if not contact:
+            contact = Contact(phone_number=phone_number)
+            db.session.add(contact)
+        
+        # Mapeo de campos
+        fields = ['name', 'first_name', 'last_name', 'notes', 
+                  'custom_field_1', 'custom_field_2', 'custom_field_3', 
+                  'custom_field_4', 'custom_field_5', 'custom_field_6', 'custom_field_7']
+        
+        for field in fields:
+            if field in data:
+                setattr(contact, field, data[field])
+                
+        if 'tags' in data:
+            contact.tags = data['tags']  # Debe ser una lista
+            
+        try:
+            db.session.commit()
+            logger.info(f"✅ Contacto actualizado: {phone_number}")
+            return jsonify({'success': True, 'contact': contact.to_dict()})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+            
+    # GET method
+    if not contact:
+        return jsonify({'found': False, 'details': {'phone_number': phone_number}})
+    
+    return jsonify({'found': True, 'details': contact.to_dict()})
+
+@app.route("/api/contacts/import", methods=["POST"])
+def api_import_contacts():
+    """Importar contactos desde Excel/CSV."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+        
+    try:
+        # Leer archivo
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(file)
+        else:
+            df = pd.read_excel(file)
+            
+        # Normalizar columnas
+        df.columns = [c.lower().strip() for c in df.columns]
+        
+        required = ['phone', 'phone_number', 'telefono', 'numero']
+        phone_col = next((c for c in df.columns if c in required), None)
+        
+        if not phone_col:
+            return jsonify({'error': 'Columna de teléfono no encontrada (phone, phone_number, telefono)'}), 400
+            
+        count = 0
+        updated = 0
+        
+        # Mapeo simple de nombres de columna a atributos del modelo
+        col_map = {
+            'name': 'name', 'nombre': 'name',
+            'first_name': 'first_name', 'nombre_pila': 'first_name',
+            'last_name': 'last_name', 'apellido': 'last_name',
+            'notes': 'notes', 'notas': 'notes',
+            'custom_1': 'custom_field_1', 'campo_1': 'custom_field_1',
+            'custom_2': 'custom_field_2', 'campo_2': 'custom_field_2',
+            'custom_3': 'custom_field_3', 'campo_3': 'custom_field_3',
+            'custom_4': 'custom_field_4', 'campo_4': 'custom_field_4',
+            'custom_5': 'custom_field_5', 'campo_5': 'custom_field_5',
+            'custom_6': 'custom_field_6', 'campo_6': 'custom_field_6',
+            'custom_7': 'custom_field_7', 'campo_7': 'custom_field_7'
+        }
+
+        for _, row in df.iterrows():
+            phone = str(row[phone_col]).replace('.0', '').strip()
+            
+            contact = Contact.query.get(phone)
+            if not contact:
+                contact = Contact(phone_number=phone)
+                db.session.add(contact)
+                count += 1
+            else:
+                updated += 1
+            
+            # Actualizar campos detectados
+            for col in df.columns:
+                if col in col_map:
+                    val = row.get(col)
+                    if pd.notna(val):
+                        setattr(contact, col_map[col], str(val))
+                        
+            # Tags special handling
+            tags_str = row.get('tags') or row.get('etiquetas')
+            if pd.notna(tags_str):
+                contact.tags = [t.strip() for t in str(tags_str).split(',')] if tags_str else []
+            
+        db.session.commit()
+        return jsonify({
+            'success': True, 
+            'message': f'Procesados {count + updated} contactos ({count} nuevos, {updated} actualizados)'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error importando contactos: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/contacts/export", methods=["GET"])
+def api_export_contacts():
+    # ... (code for export remains same) ...
+    """Exportar contactos a Excel."""
+    try:
+        contacts = Contact.query.all()
+        data = []
+        for c in contacts:
+            data.append({
+                'Telefono': c.phone_number,
+                'Nombre Completo': c.name,
+                'Nombre': c.first_name,
+                'Apellido': c.last_name,
+                'Campo 1': c.custom_field_1,
+                'Campo 2': c.custom_field_2,
+                'Campo 3': c.custom_field_3,
+                'Campo 4': c.custom_field_4,
+                'Campo 5': c.custom_field_5,
+                'Campo 6': c.custom_field_6,
+                'Campo 7': c.custom_field_7,
+                'Notas': c.notes,
+                'Etiquetas': ', '.join(c.tags) if c.tags else '',
+                'Fecha Creacion': c.created_at
+            })
+            
+        df = pd.DataFrame(data)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Contactos')
+            
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'contactos_crm_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exportando contactos: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/contacts")
+def contacts_page():
+    """Página para ver listado de contactos."""
+    contacts = Contact.query.order_by(Contact.created_at.desc()).all()
+    return render_template('contacts.html', contacts=contacts)
+
+@app.route("/tags")
+def tags_page():
+    """Página para ver etiquetas y estadísticas."""
+    # Obtener todas las etiquetas y contarlas
+    contacts = Contact.query.all()
+    tags_count = {}
+    for c in contacts:
+        if c.tags:
+            for tag in c.tags:
+                tag = tag.strip()
+                if tag:
+                    tags_count[tag] = tags_count.get(tag, 0) + 1
+    
+    # Ordenar por cantidad
+    sorted_tags = sorted(tags_count.items(), key=lambda item: item[1], reverse=True)
+    return render_template('tags.html', tags=sorted_tags, total_contacts=len(contacts))
+
+@app.route("/failed-messages")
+def failed_messages_page():
+    """Página para ver mensajes fallidos."""
+    # Buscar mensajes con estado 'failed' en su último status
+    # Hacemos un join con MessageStatus
+    
+    # Subquery para obtener el último status de cada mensaje
+    last_status_subquery = db.session.query(
+        MessageStatus.wa_message_id,
+        func.max(MessageStatus.timestamp).label('max_timestamp')
+    ).group_by(MessageStatus.wa_message_id).subquery()
+    
+    failed_msgs = db.session.query(Message, MessageStatus).join(
+        MessageStatus, Message.wa_message_id == MessageStatus.wa_message_id
+    ).join(
+        last_status_subquery, 
+        (MessageStatus.wa_message_id == last_status_subquery.c.wa_message_id) & 
+        (MessageStatus.timestamp == last_status_subquery.c.max_timestamp)
+    ).filter(
+        MessageStatus.status == 'failed'
+    ).order_by(Message.timestamp.desc()).all()
+    
+    # Enriquecer con nombre de contacto
+    enriched_failures = []
+    for msg, status in failed_msgs:
+        contact = Contact.query.get(msg.phone_number)
+        enriched_failures.append({
+            'message': msg,
+            'status': status,
+            'contact_name': contact.name if contact else None
+        })
+        
+    return render_template('failed_messages.html', failures=enriched_failures)
+
 @app.route("/chatwoot-webhook", methods=["POST"])
 def chatwoot_webhook():
     """
@@ -520,17 +824,43 @@ def chatwoot_webhook():
                     # Crear nuevo mensaje
                     # Usar source_id si está disponible, sino usar cw_id
                     msg_id = source_id if source_id else cw_id_str
+                    
+                    # Intentar detectar si el contenido es un template
+                    detected_type = "text"
+                    final_content = content
+                    
+                    try:
+                        templates_result = whatsapp_api.get_templates()
+                        for t in templates_result.get("templates", []):
+                            if t.get("status") == "APPROVED":
+                                for comp in t.get("components", []):
+                                    if comp.get("type") == "BODY":
+                                        template_body = comp.get("text", "")
+                                        # Limpieza básica para comparación (quitar variables {{1}}, etc)
+                                        import re
+                                        pattern = re.escape(template_body)
+                                        pattern = re.sub(r'\\\{\\\{\d+\\\}\\\}', '.*', pattern)
+                                        
+                                        if re.match(f"^{pattern}$", content, re.DOTALL):
+                                            detected_type = "template"
+                                            # Opcional: podríamos normalizar el contenido al template original
+                                            # pero mejor dejar el texto real enviado.
+                                            break
+                                if detected_type == "template": break
+                    except Exception as te:
+                        logger.error(f"Error detecting template in webhook: {te}")
+
                     new_msg = Message(
                         wa_message_id=msg_id,
                         phone_number=phone_number or "unknown",
                         direction="outbound",
-                        message_type="text",
-                        content=content,
+                        message_type=detected_type,
+                        content=final_content,
                         timestamp=datetime.utcnow()
                     )
                     db.session.add(new_msg)
                     db.session.commit()
-                    logger.info(f"✅ Mensaje saliente creado: {msg_id}")
+                    logger.info(f"✅ Mensaje saliente creado ({detected_type}): {msg_id}")
         
         return "OK", 200
         
@@ -591,7 +921,7 @@ def api_whatsapp_profile():
 
 @app.route("/api/whatsapp/send-template", methods=["POST"])
 def api_send_template():
-    """API para enviar mensaje con template."""
+    """API para enviar mensaje con template y variables dinámicas."""
     data = request.json
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -599,38 +929,93 @@ def api_send_template():
     to_phone = data.get("to")
     template_name = data.get("template_name")
     language = data.get("language", "es_AR")
-    components = data.get("components")
+    # variable_mapping es una lista de nombres de campos del contacto, ej: ['first_name', 'custom_field_1']
+    variable_mapping = data.get("variable_mapping", []) 
     
     if not to_phone or not template_name:
         return jsonify({"error": "to y template_name son requeridos"}), 400
     
-    # Obtener el contenido del template
-    template_content = f"[Template: {template_name}]"  # fallback
+    # Construir componentes si hay mapeo de variables
+    components = data.get("components") # Permitir componentes manuales si se envían
+    
+    if variable_mapping and not components:
+        contact = Contact.query.get(to_phone)
+        parameters = []
+        
+        for field in variable_mapping:
+            value = "-" # Fallback para evitar errores de API
+            
+            # Valores especiales
+            if field == 'phone_number':
+                value = to_phone
+            elif contact:
+                # Obtener valor del atributo del contacto
+                val = getattr(contact, field, None)
+                if val:
+                    value = str(val)
+            
+            parameters.append({
+                "type": "text",
+                "text": value
+            })
+            
+        if parameters:
+            components = [{
+                "type": "body",
+                "parameters": parameters
+            }]
+    
+    # Obtener el contenido del template para guardarlo en el historial
+    # Esto es una aproximación, ya que no tenemos el texto final renderizado por WhatsApp
+    template_content = f"[Template: {template_name}]"
     templates_result = whatsapp_api.get_templates()
     for t in templates_result.get("templates", []):
         if t.get("name") == template_name and t.get("language") == language:
-            # Extraer el body del template
             for comp in t.get("components", []):
                 if comp.get("type") == "BODY":
-                    template_content = comp.get("text", template_content)
+                    text = comp.get("text", "")
+                    # Intentar rellenar variables para el historial local
+                    if variable_mapping and contact:
+                        for i, field in enumerate(variable_mapping):
+                            val = getattr(contact, field, "") or "-"
+                            text = text.replace(f"{{{{{i+1}}}}}", str(val))
+                    template_content = text
                     break
             break
+            
+    # Fallback si por alguna razón el contenido está vacío
+    if not template_content:
+        template_content = f"[Template: {template_name}]"
     
     result = whatsapp_api.send_template_message(to_phone, template_name, language, components)
     
     if result.get("success"):
-        # Guardar mensaje en BD con el contenido real del template
-        new_msg = Message(
-            wa_message_id=result.get("message_id", f"template_{datetime.utcnow().timestamp()}"),
-            phone_number=to_phone,
-            direction="outbound",
-            message_type="template",
-            content=template_content,
-            timestamp=datetime.utcnow()
-        )
-        db.session.add(new_msg)
-        db.session.commit()
-        
+        wa_id = result.get("message_id")
+        if wa_id:
+            # Verificar si ya existe (creado por save_status en event_handlers.py por ejemplo)
+            existing = Message.query.filter_by(wa_message_id=wa_id).first()
+            if existing:
+                existing.content = template_content
+                existing.message_type = "template"
+                existing.phone_number = to_phone
+                logger.info(f"✅ Mensaje existente actualizado con contenido del template: {wa_id}")
+            else:
+                new_msg = Message(
+                    wa_message_id=wa_id,
+                    phone_number=to_phone,
+                    direction="outbound",
+                    message_type="template",
+                    content=template_content,
+                    timestamp=datetime.utcnow()
+                )
+                db.session.add(new_msg)
+            
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error al guardar mensaje en BD: {e}")
+    
     return jsonify(result)
 
 @app.route("/api/whatsapp/send-text", methods=["POST"])
@@ -649,18 +1034,31 @@ def api_send_text():
     result = whatsapp_api.send_text_message(to_phone, text)
     
     if result.get("success"):
-        # Guardar mensaje en BD
-        new_msg = Message(
-            wa_message_id=result.get("message_id", f"text_{datetime.utcnow().timestamp()}"),
-            phone_number=to_phone,
-            direction="outbound",
-            message_type="text",
-            content=text,
-            timestamp=datetime.utcnow()
-        )
-        db.session.add(new_msg)
-        db.session.commit()
-        
+        wa_id = result.get("message_id")
+        if wa_id:
+            # Verificar si ya existe (creado por save_status en event_handlers.py por ejemplo)
+            existing = Message.query.filter_by(wa_message_id=wa_id).first()
+            if existing:
+                existing.content = text
+                existing.phone_number = to_phone
+                logger.info(f"✅ Mensaje existente actualizado con texto: {wa_id}")
+            else:
+                new_msg = Message(
+                    wa_message_id=wa_id,
+                    phone_number=to_phone,
+                    direction="outbound",
+                    message_type="text",
+                    content=text,
+                    timestamp=datetime.utcnow()
+                )
+                db.session.add(new_msg)
+            
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error al guardar mensaje en BD: {e}")
+    
     return jsonify(result)
 
 if __name__ == "__main__":

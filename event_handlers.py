@@ -31,9 +31,9 @@ def forward_to_chatwoot(payload):
         logger.error(f"Excepción al conectar con Chatwoot: {e}")
 
 def save_message(wa_message_id, phone_number, direction, message_type, content):
-    """Guarda un mensaje en la base de datos."""
+    """Guarda un mensaje en la base de datos y registra el contacto."""
     from app import app
-    from models import db, Message
+    from models import db, Message, Contact
     
     try:
         with app.app_context():
@@ -42,6 +42,14 @@ def save_message(wa_message_id, phone_number, direction, message_type, content):
             if existing:
                 logger.info(f"Mensaje {wa_message_id} ya existe, omitiendo...")
                 return
+            
+            # --- AUTO REGISTRO DE CONTACTO ---
+            if phone_number and phone_number not in ['unknown', 'outbound', '']:
+                contact = Contact.query.get(phone_number)
+                if not contact:
+                    new_contact = Contact(phone_number=phone_number)
+                    db.session.add(new_contact)
+                    logger.info(f"🆕 Contacto auto-registrado: {phone_number}")
             
             message = Message(
                 wa_message_id=wa_message_id,

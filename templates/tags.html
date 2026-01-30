@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etiquetas - WhatsApp Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-card: #ffffff;
+            --accent-purple: #8b5cf6;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-btn {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover,
+        .nav-btn.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: var(--shadow);
+        }
+
+        .tags-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .tag-card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: transform 0.2s;
+        }
+
+        .tag-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .tag-info h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1rem;
+        }
+
+        .tag-count {
+            background: var(--bg-primary);
+            color: var(--accent-purple);
+            font-weight: 700;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 1.25rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div>
+                <h1>Gestión de Etiquetas</h1>
+                <p style="color: var(--text-secondary);">Total de contactos: {{ total_contacts }}</p>
+            </div>
+            <nav class="nav-buttons">
+                <a href="/dashboard" class="nav-btn">💬 Dashboard</a>
+                <a href="/contacts" class="nav-btn">👥 Contactos</a>
+                <a href="/tags" class="nav-btn active">🏷️ Etiquetas</a>
+                <a href="/failed-messages" class="nav-btn">⚠️ Fallidos</a>
+                <a href="/analytics" class="nav-btn">📊 Analytics</a>
+            </nav>
+        </header>
+
+        {% if tags %}
+        <div class="tags-grid">
+            {% for tag, count in tags %}
+            <div class="tag-card">
+                <div class="tag-info">
+                    <h3>🏷️ {{ tag }}</h3>
+                    <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">Contactos activos</p>
+                </div>
+                <div class="tag-count">{{ count }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 4rem; color: var(--text-secondary);">
+            <h2>No hay etiquetas creadas</h2>
+            <p>Añade etiquetas a tus contactos desde el Dashboard o la sección de Contactos.</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+
+</html>
