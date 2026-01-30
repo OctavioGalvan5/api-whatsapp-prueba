@@ -424,6 +424,84 @@
             </div>
         </div>
 
+        <!-- Template Performance -->
+        {% if template_performance %}
+        <div class="chart-card" style="margin-bottom: 2rem;">
+            <h3>📝 Rendimiento de Templates</h3>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border-color);">
+                            <th style="text-align: left; padding: 0.75rem; font-weight: 600;">Template</th>
+                            <th style="text-align: center; padding: 0.75rem; font-weight: 600;">Enviados</th>
+                            <th style="text-align: center; padding: 0.75rem; font-weight: 600;">Leídos</th>
+                            <th style="text-align: center; padding: 0.75rem; font-weight: 600;">Tasa de Lectura</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in template_performance %}
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td
+                                style="padding: 0.75rem; font-size: 0.875rem; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ t.name }}
+                            </td>
+                            <td style="text-align: center; padding: 0.75rem; font-weight: 500;">{{ t.sent }}</td>
+                            <td style="text-align: center; padding: 0.75rem; font-weight: 500;">{{ t.read }}</td>
+                            <td style="text-align: center; padding: 0.75rem;">
+                                <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                                    <span
+                                        style="width: 60px; height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden;">
+                                        <span
+                                            style="display: block; height: 100%; width: {{ t.read_rate }}%; background: {% if t.read_rate >= 70 %}var(--accent-green){% elif t.read_rate >= 40 %}var(--accent-orange){% else %}var(--accent-red){% endif %};"></span>
+                                    </span>
+                                    <strong
+                                        style="color: {% if t.read_rate >= 70 %}var(--accent-green){% elif t.read_rate >= 40 %}var(--accent-orange){% else %}var(--accent-red){% endif %};">{{
+                                        t.read_rate }}%</strong>
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Best Hours Section -->
+        <div class="charts-row">
+            <div class="chart-card">
+                <h3>🎯 Mejores Horarios para Enviar</h3>
+                <div style="padding: 1rem 0;">
+                    {% if insights.best_hours %}
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        {% for hour in insights.best_hours %}
+                        <div
+                            style="flex: 1; min-width: 150px; background: var(--bg-primary); border-radius: 12px; padding: 1rem; text-align: center;">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);">{{ hour.hour
+                                }}:00</div>
+                            <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.5rem;">
+                                {{ hour.rate }}% tasa de lectura
+                            </div>
+                            <div style="color: var(--text-secondary); font-size: 0.75rem;">
+                                ({{ hour.sent }} enviados, {{ hour.read }} leídos)
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p style="color: var(--text-secondary); text-align: center;">Se necesitan más datos para calcular
+                        los mejores horarios</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>📊 Tasa de Lectura por Hora</h3>
+                <div class="chart-container small">
+                    <canvas id="readRateByHourChart"></canvas>
+                </div>
+            </div>
+        </div>
+
         <!-- Insights -->
         <section class="insights-section">
             <h2>💡 Insights</h2>
@@ -439,7 +517,7 @@
                 <div class="insight-card">
                     <div class="insight-icon" style="background: rgba(139, 92, 246, 0.1);">👁</div>
                     <div>
-                        <h4>Tasa de Lectura</h4>
+                        <h4>Tasa de Lectura General</h4>
                         <p>El <strong>{{ insights.read_rate }}%</strong> de los mensajes enviados son leídos</p>
                     </div>
                 </div>
@@ -455,6 +533,20 @@
                     <div>
                         <h4>Promedio Diario</h4>
                         <p>Se envían en promedio <strong>{{ insights.avg_daily }}</strong> mensajes por día</p>
+                    </div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-icon" style="background: rgba(37, 211, 102, 0.1);">🎯</div>
+                    <div>
+                        <h4>Mejor Hora para Lecturas</h4>
+                        <p>Los mensajes se leen más a las <strong>{{ insights.peak_read_hour }}:00</strong></p>
+                    </div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-icon" style="background: rgba(139, 92, 246, 0.1);">📝</div>
+                    <div>
+                        <h4>Templates Usados</h4>
+                        <p>Se han usado <strong>{{ insights.template_count }}</strong> templates diferentes</p>
                     </div>
                 </div>
             </div>
@@ -640,6 +732,37 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: { x: { beginAtZero: true } }
+                }
+            });
+        }
+
+        // Read Rate by Hour Chart
+        const hourlyReadRate = {{ hourly_read_rate | tojson | safe }};
+        if (hourlyReadRate && hourlyReadRate.length > 0) {
+            new Chart(document.getElementById('readRateByHourChart'), {
+                type: 'line',
+                data: {
+                    labels: hourlyReadRate.map(h => `${h.hour}h`),
+                    datasets: [{
+                        label: 'Tasa de Lectura %',
+                        data: hourlyReadRate.map(h => h.rate),
+                        borderColor: colors.purple,
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: v => v + '%' }
+                        }
+                    }
                 }
             });
         }
