@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --accent-green: #25D366;
+            --accent-blue: #0ea5e9;
+            --accent-purple: #8b5cf6;
+            --accent-red: #ef4444;
+            --accent-orange: #f97316;
+            --accent-yellow: #eab308;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-green), #128C7E);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .nav-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        .nav-btn.primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .nav-btn.secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Alert Boxes */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .alert.warning {
+            background: rgba(234, 179, 8, 0.1);
+            border: 1px solid var(--accent-yellow);
+            color: #92400e;
+        }
+
+        .alert.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-red);
+            color: #991b1b;
+        }
+
+        .alert.success {
+            background: rgba(37, 211, 102, 0.1);
+            border: 1px solid var(--accent-green);
+            color: #166534;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Phone Numbers */
+        .phone-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+        }
+
+        .phone-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-green), #128C7E);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .phone-info h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .phone-info p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge.green {
+            background: rgba(37, 211, 102, 0.1);
+            color: var(--accent-green);
+        }
+
+        .badge.blue {
+            background: rgba(14, 165, 233, 0.1);
+            color: var(--accent-blue);
+        }
+
+        .badge.yellow {
+            background: rgba(234, 179, 8, 0.1);
+            color: #92400e;
+        }
+
+        .badge.red {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+        }
+
+        /* Templates Grid */
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1rem;
+        }
+
+        .template-card {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .template-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .template-category {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .template-body {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            padding: 0.75rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .template-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .template-lang {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn.primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn.primary:hover {
+            background: #128C7E;
+        }
+
+        .btn.secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Status badges */
+        .status-approved {
+            color: var(--accent-green);
+        }
+
+        .status-pending {
+            color: var(--accent-orange);
+        }
+
+        .status-rejected {
+            color: var(--accent-red);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Config Box */
+        .config-box {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .config-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .config-item:last-child {
+            border-bottom: none;
+        }
+
+        .config-item code {
+            background: var(--bg-card);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .templates-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">⚙️</div>
+                <div>
+                    <h1>WhatsApp Settings</h1>
+                    <p>Configuración, templates y envío de mensajes</p>
+                </div>
+            </div>
+            <div class="nav-buttons">
+                <a href="/dashboard" class="nav-btn secondary">💬 Conversaciones</a>
+                <a href="/analytics" class="nav-btn secondary">📊 Analytics</a>
+                <a href="/whatsapp-settings" class="nav-btn primary">⚙️ Settings</a>
+            </div>
+        </header>
+
+        {% if not is_configured %}
+        <div class="alert warning">
+            <span>⚠️</span>
+            <div>
+                <strong>API no configurada</strong>
+                <p>Configura las variables de entorno WHATSAPP_API_TOKEN y WHATSAPP_BUSINESS_ACCOUNT_ID</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🔧 Configuración Requerida</h2>
+            <div class="config-box">
+                <div class="config-item">
+                    <span>1.</span>
+                    <div>
+                        <strong>WHATSAPP_API_TOKEN</strong>
+                        <p>Token de acceso permanente de Meta Business</p>
+                    </div>
+                </div>
+                <div class="config-item">
+                    <span>2.</span>
+                    <div>
+                        <strong>WHATSAPP_BUSINESS_ACCOUNT_ID</strong>
+                        <p>ID de tu cuenta de WhatsApp Business (encontrado en Meta Business Suite)</p>
+                    </div>
+                </div>
+                <div class="config-item">
+                    <span>3.</span>
+                    <div>
+                        <strong>WHATSAPP_PHONE_NUMBER_ID</strong>
+                        <p>ID del número de teléfono (necesario para enviar mensajes)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+
+        {% if error %}
+        <div class="alert error">
+            <span>❌</span>
+            <div>
+                <strong>Error al conectar con la API</strong>
+                <p>{{ error }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Phone Numbers -->
+        {% if phone_numbers %}
+        <div class="card">
+            <h2>📱 Números de Teléfono</h2>
+            {% for phone in phone_numbers %}
+            <div class="phone-card">
+                <div class="phone-icon">📱</div>
+                <div class="phone-info" style="flex: 1;">
+                    <h3>{{ phone.display_phone_number }}</h3>
+                    <p>{{ phone.verified_name or 'Sin nombre verificado' }}</p>
+                </div>
+                <span
+                    class="badge {% if phone.quality_rating == 'GREEN' %}green{% elif phone.quality_rating == 'YELLOW' %}yellow{% else %}red{% endif %}">
+                    {{ phone.quality_rating or 'N/A' }}
+                </span>
+                <span class="badge blue">{{ phone.messaging_limit_tier or 'N/A' }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Templates -->
+        <div class="card">
+            <h2>📝 Message Templates ({{ templates|length }})</h2>
+
+            {% if templates %}
+            <div class="templates-grid">
+                {% for template in templates %}
+                <div class="template-card">
+                    <div class="template-header">
+                        <div>
+                            <div class="template-name">{{ template.name }}</div>
+                            <div class="template-category">{{ template.category }}</div>
+                        </div>
+                        <span
+                            class="badge {% if template.status == 'APPROVED' %}green{% elif template.status == 'PENDING' %}yellow{% else %}red{% endif %}">
+                            {{ template.status }}
+                        </span>
+                    </div>
+
+                    <div class="template-body">
+                        {% for comp in template.components %}
+                        {% if comp.type == 'BODY' %}
+                        {{ comp.text or '' }}
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <div class="template-footer">
+                        <span class="template-lang">🌐 {{ template.language }}</span>
+                        {% if template.status == 'APPROVED' %}
+                        <button class="btn primary"
+                            onclick="openSendModal('{{ template.name }}', '{{ template.language }}')">
+                            📤 Enviar
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <p>No hay templates configurados</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Quick Send -->
+        <div class="card">
+            <h2>📤 Envío Rápido</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Envía un mensaje de texto a cualquier número
+            </p>
+
+            <form id="quick-send-form"
+                style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 1rem; align-items: end;">
+                <div class="form-group" style="margin: 0;">
+                    <label>Número (con código país)</label>
+                    <input type="text" id="quick-phone" placeholder="5493874123456" required>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label>Mensaje</label>
+                    <input type="text" id="quick-message" placeholder="Escribe tu mensaje..." required>
+                </div>
+                <button type="submit" class="btn primary">Enviar</button>
+            </form>
+            <div id="send-result" style="margin-top: 1rem;"></div>
+        </div>
+
+        {% endif %}
+    </div>
+
+    <!-- Send Template Modal -->
+    <div class="modal" id="send-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📤 Enviar Template</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="send-template-form">
+                <input type="hidden" id="modal-template-name">
+                <input type="hidden" id="modal-template-lang">
+
+                <div class="form-group">
+                    <label>Template</label>
+                    <input type="text" id="modal-template-display" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Número de teléfono (con código de país, sin +)</label>
+                    <input type="text" id="modal-phone" placeholder="5493874123456" required>
+                </div>
+
+                <div id="modal-result"></div>
+
+                <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem;">
+                    Enviar Template
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openSendModal(templateName, lang) {
+            document.getElementById('modal-template-name').value = templateName;
+            document.getElementById('modal-template-lang').value = lang;
+            document.getElementById('modal-template-display').value = `${templateName} (${lang})`;
+            document.getElementById('modal-result').innerHTML = '';
+            document.getElementById('send-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('send-modal').classList.remove('active');
+        }
+
+        // Enviar template
+        document.getElementById('send-template-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const templateName = document.getElementById('modal-template-name').value;
+            const lang = document.getElementById('modal-template-lang').value;
+            const phone = document.getElementById('modal-phone').value;
+
+            const resultDiv = document.getElementById('modal-result');
+            resultDiv.innerHTML = '<p>Enviando...</p>';
+
+            try {
+                const response = await fetch('/api/whatsapp/send-template', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: phone,
+                        template_name: templateName,
+                        language: lang
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="alert success">✅ Mensaje enviado correctamente</div>`;
+                    setTimeout(closeModal, 2000);
+                } else {
+                    resultDiv.innerHTML = `<div class="alert error">❌ Error: ${data.error || 'Error desconocido'}</div>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="alert error">❌ Error de conexión</div>`;
+            }
+        });
+
+        // Quick send
+        document.getElementById('quick-send-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const phone = document.getElementById('quick-phone').value;
+            const message = document.getElementById('quick-message').value;
+            const resultDiv = document.getElementById('send-result');
+
+            resultDiv.innerHTML = '<p>Enviando...</p>';
+
+            try {
+                const response = await fetch('/api/whatsapp/send-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: phone, text: message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="alert success">✅ Mensaje enviado a ${phone}</div>`;
+                    document.getElementById('quick-message').value = '';
+                } else {
+                    resultDiv.innerHTML = `<div class="alert error">❌ Error: ${data.error || 'Error desconocido'}</div>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="alert error">❌ Error de conexión</div>`;
+            }
+        });
+    </script>
+</body>
+
+</html>
