@@ -441,6 +441,148 @@
         .toggle-charts:hover {
             transform: scale(1.1);
         }
+
+        /* Message Composer */
+        .message-composer {
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-color);
+            padding: 1rem;
+        }
+
+        .composer-status {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .composer-status.can-text {
+            color: var(--accent-green);
+        }
+
+        .composer-status.template-only {
+            color: var(--accent-orange);
+        }
+
+        .composer-form {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .composer-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .composer-input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+
+        .composer-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: var(--accent-green);
+            color: white;
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .composer-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+        }
+
+        .composer-btn:disabled {
+            background: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .template-selector {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .template-select {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .template-select:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+
+        .send-result {
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+        }
+
+        .send-result.success {
+            background: rgba(37, 211, 102, 0.1);
+            color: var(--accent-green);
+        }
+
+        .send-result.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+        }
+
+        .mode-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .mode-tab {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-tab.active {
+            background: var(--accent-green);
+            color: white;
+            border-color: var(--accent-green);
+        }
+
+        .mode-tab:hover:not(.active) {
+            background: var(--bg-secondary);
+        }
+
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 
@@ -560,6 +702,66 @@
                 </div>
                 {% endfor %}
             </div>
+
+            <!-- Message Composer -->
+            {% if whatsapp_configured and selected_contact %}
+            <div class="message-composer">
+                {% if can_send_free_text %}
+                <div class="composer-status can-text">
+                    ✅ Ventana de 24h activa - Puedes enviar mensajes libres
+                </div>
+                {% else %}
+                <div class="composer-status template-only">
+                    ⚠️ Sin mensajes recientes - Solo puedes enviar templates
+                </div>
+                {% endif %}
+
+                <div class="mode-tabs">
+                    <button class="mode-tab {% if can_send_free_text %}active{% endif %}" id="text-mode-btn"
+                        onclick="switchMode('text')" {% if not can_send_free_text %}disabled{% endif %}>
+                        ✉️ Texto Libre
+                    </button>
+                    <button class="mode-tab {% if not can_send_free_text %}active{% endif %}" id="template-mode-btn"
+                        onclick="switchMode('template')">
+                        📝 Template
+                    </button>
+                </div>
+
+                <!-- Text Mode -->
+                <div id="text-mode" class="{% if not can_send_free_text %}hidden{% endif %}">
+                    <form class="composer-form" onsubmit="sendTextMessage(event)">
+                        <input type="text" class="composer-input" id="message-input"
+                            placeholder="Escribe un mensaje...">
+                        <button type="submit" class="composer-btn">➤</button>
+                    </form>
+                </div>
+
+                <!-- Template Mode -->
+                <div id="template-mode" class="{% if can_send_free_text %}hidden{% endif %}">
+                    <form class="template-selector" onsubmit="sendTemplateMessage(event)">
+                        <select class="template-select" id="template-select">
+                            <option value="">-- Selecciona un template --</option>
+                            {% for t in templates %}
+                            <option value="{{ t.name }}" data-lang="{{ t.language }}">
+                                {{ t.name }} ({{ t.language }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="composer-btn">➤</button>
+                    </form>
+                </div>
+
+                <div id="send-result"></div>
+            </div>
+            {% elif selected_contact and not whatsapp_configured %}
+            <div class="message-composer">
+                <div class="composer-status">
+                    ⚠️ <a href="/whatsapp-settings" style="color: var(--accent-blue);">Configura la API de WhatsApp</a>
+                    para enviar mensajes
+                </div>
+            </div>
+            {% endif %}
+
             {% else %}
             <div class="empty-state">
                 <div class="empty-state-icon">💬</div>
@@ -588,6 +790,89 @@
         const chatMessages = document.getElementById('chat-messages');
         if (chatMessages) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Current contact
+        const currentPhone = "{{ selected_contact or '' }}";
+
+        // Switch between text and template mode
+        function switchMode(mode) {
+            document.getElementById('text-mode').classList.toggle('hidden', mode !== 'text');
+            document.getElementById('template-mode').classList.toggle('hidden', mode !== 'template');
+            document.getElementById('text-mode-btn').classList.toggle('active', mode === 'text');
+            document.getElementById('template-mode-btn').classList.toggle('active', mode === 'template');
+        }
+
+        // Send text message
+        async function sendTextMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text || !currentPhone) return;
+
+            const resultDiv = document.getElementById('send-result');
+            resultDiv.innerHTML = '<div class="send-result">Enviando...</div>';
+
+            try {
+                const response = await fetch('/api/whatsapp/send-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: currentPhone, text: text })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = '<div class="send-result success">✅ Mensaje enviado</div>';
+                    input.value = '';
+                    // Reload after a short delay to show the new message
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    resultDiv.innerHTML = `<div class="send-result error">❌ ${data.error || 'Error'}</div>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = '<div class="send-result error">❌ Error de conexión</div>';
+            }
+        }
+
+        // Send template message
+        async function sendTemplateMessage(e) {
+            e.preventDefault();
+            const select = document.getElementById('template-select');
+            const templateName = select.value;
+            const lang = select.options[select.selectedIndex]?.dataset.lang || 'es_AR';
+
+            if (!templateName || !currentPhone) {
+                alert('Selecciona un template');
+                return;
+            }
+
+            const resultDiv = document.getElementById('send-result');
+            resultDiv.innerHTML = '<div class="send-result">Enviando template...</div>';
+
+            try {
+                const response = await fetch('/api/whatsapp/send-template', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: currentPhone,
+                        template_name: templateName,
+                        language: lang
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = '<div class="send-result success">✅ Template enviado</div>';
+                    select.value = '';
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    resultDiv.innerHTML = `<div class="send-result error">❌ ${data.error || 'Error'}</div>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = '<div class="send-result error">❌ Error de conexión</div>';
+            }
         }
 
         // Auto refresh every 30 seconds

@@ -173,13 +173,39 @@ def dashboard():
         'direction_stats': {'inbound': inbound_count, 'outbound': outbound_count}
     }
     
+    # Verificar ventana de 24 horas para envío de mensajes
+    can_send_free_text = False
+    last_inbound_msg = None
+    templates = []
+    whatsapp_configured = whatsapp_api.is_configured()
+    
+    if selected_contact and whatsapp_configured:
+        # Buscar último mensaje entrante del contacto
+        twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+        last_inbound = Message.query.filter_by(
+            phone_number=selected_contact,
+            direction='inbound'
+        ).filter(Message.timestamp >= twenty_four_hours_ago).order_by(Message.timestamp.desc()).first()
+        
+        if last_inbound:
+            can_send_free_text = True
+            last_inbound_msg = last_inbound.timestamp
+        
+        # Obtener templates aprobados
+        templates_result = whatsapp_api.get_templates()
+        templates = [t for t in templates_result.get("templates", []) if t.get("status") == "APPROVED"]
+    
     return render_template('dashboard.html', 
                          stats=stats, 
                          contacts=contacts, 
                          messages=messages,
                          selected_contact=selected_contact,
                          contact_stats=contact_stats,
-                         chart_data=chart_data)
+                         chart_data=chart_data,
+                         can_send_free_text=can_send_free_text,
+                         last_inbound_msg=last_inbound_msg,
+                         templates=templates,
+                         whatsapp_configured=whatsapp_configured)
 
 @app.route("/analytics")
 def analytics():
