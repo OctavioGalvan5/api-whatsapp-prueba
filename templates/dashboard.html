@@ -10,20 +10,21 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a24;
-            --bg-chat: #0d1418;
+            --bg-primary: #f1f5f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-chat: #e2e8f0;
             --accent-green: #25D366;
             --accent-blue: #0ea5e9;
             --accent-purple: #8b5cf6;
             --accent-red: #ef4444;
             --accent-orange: #f97316;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --border-color: rgba(255, 255, 255, 0.08);
-            --msg-out: #005c4b;
-            --msg-in: #1f2c34;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --msg-out: #dcf8c6;
+            --msg-in: #ffffff;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         * {
@@ -82,7 +83,6 @@
         .stats-bar {
             display: flex;
             gap: 2rem;
-            margin-left: auto;
         }
 
         .stat-item {
@@ -99,6 +99,23 @@
             font-size: 0.75rem;
             color: var(--text-secondary);
             text-transform: uppercase;
+        }
+
+        .analytics-btn {
+            margin-left: auto;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, var(--accent-green), #128C7E);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .analytics-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
         }
 
         /* Sidebar */
@@ -305,6 +322,7 @@
             line-height: 1.4;
             white-space: pre-wrap;
             word-wrap: break-word;
+            color: var(--text-primary);
         }
 
         .message-meta {
@@ -314,7 +332,7 @@
             gap: 0.25rem;
             margin-top: 0.25rem;
             font-size: 0.65rem;
-            color: rgba(255, 255, 255, 0.6);
+            color: var(--text-secondary);
         }
 
         .message-status {
@@ -451,6 +469,7 @@
                     <div class="stat-label">Fallidos</div>
                 </div>
             </div>
+            <a href="/analytics" class="analytics-btn">📊 Analytics</a>
         </header>
 
         <aside class="sidebar">
@@ -548,36 +567,9 @@
         </main>
     </div>
 
-    <div class="charts-section" id="charts-section">
-        <div class="chart-card">
-            <div class="chart-title">📈 Mensajes por Día</div>
-            <div class="chart-container">
-                <canvas id="messagesPerDayChart"></canvas>
-            </div>
-        </div>
-        <div class="chart-card">
-            <div class="chart-title">🕐 Mensajes por Hora</div>
-            <div class="chart-container">
-                <canvas id="messagesPerHourChart"></canvas>
-            </div>
-        </div>
-        <div class="chart-card">
-            <div class="chart-title">📊 Entrantes vs Salientes</div>
-            <div class="chart-container">
-                <canvas id="directionChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <button class="toggle-charts" onclick="toggleCharts()" title="Ver gráficos">📊</button>
-
     <script>
         function selectContact(phone) {
             window.location.href = `/dashboard?phone=${encodeURIComponent(phone)}`;
-        }
-
-        function toggleCharts() {
-            document.getElementById('charts-section').classList.toggle('visible');
         }
 
         // Search filter
@@ -593,75 +585,6 @@
         const chatMessages = document.getElementById('chat-messages');
         if (chatMessages) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        // Initialize charts
-        const chartData = {{ chart_data | tojson | safe if chart_data else '{}' }};
-
-        if (chartData.messages_by_day) {
-            new Chart(document.getElementById('messagesPerDayChart'), {
-                type: 'line',
-                data: {
-                    labels: chartData.messages_by_day.map(d => d.date),
-                    datasets: [{
-                        label: 'Mensajes',
-                        data: chartData.messages_by_day.map(d => d.count),
-                        borderColor: '#25D366',
-                        backgroundColor: 'rgba(37, 211, 102, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { display: false }
-                    }
-                }
-            });
-        }
-
-        if (chartData.messages_by_hour) {
-            new Chart(document.getElementById('messagesPerHourChart'), {
-                type: 'bar',
-                data: {
-                    labels: chartData.messages_by_hour.map(d => `${d.hour}h`),
-                    datasets: [{
-                        data: chartData.messages_by_hour.map(d => d.count),
-                        backgroundColor: '#0ea5e9'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { display: false }
-                    }
-                }
-            });
-        }
-
-        if (chartData.direction_stats) {
-            new Chart(document.getElementById('directionChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Entrantes', 'Salientes'],
-                    datasets: [{
-                        data: [chartData.direction_stats.inbound, chartData.direction_stats.outbound],
-                        backgroundColor: ['#0ea5e9', '#25D366']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
         }
 
         // Auto refresh every 30 seconds

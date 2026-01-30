@@ -163,6 +163,123 @@ def dashboard():
                          contact_stats=contact_stats,
                          chart_data=chart_data)
 
+@app.route("/analytics")
+def analytics():
+    """Página de analytics con estadísticas detalladas."""
+    # Estadísticas generales
+    total_messages = Message.query.count()
+    outbound = Message.query.filter_by(direction='outbound').count()
+    inbound = Message.query.filter_by(direction='inbound').count()
+    
+    read = db.session.query(func.count(MessageStatus.id)).filter(
+        MessageStatus.status == 'read'
+    ).scalar() or 0
+    delivered = db.session.query(func.count(MessageStatus.id)).filter(
+        MessageStatus.status == 'delivered'
+    ).scalar() or 0
+    sent = db.session.query(func.count(MessageStatus.id)).filter(
+        MessageStatus.status == 'sent'
+    ).scalar() or 0
+    failed = db.session.query(func.count(MessageStatus.id)).filter(
+        MessageStatus.status == 'failed'
+    ).scalar() or 0
+    
+    stats = {
+        'total_messages': total_messages,
+        'outbound': outbound,
+        'inbound': inbound,
+        'read': read,
+        'delivered': delivered,
+        'sent': sent,
+        'failed': failed
+    }
+    
+    # Datos para gráficos - últimos 30 días
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    
+    # Mensajes por día con dirección
+    messages_by_day = db.session.query(
+        func.date(Message.timestamp).label('date'),
+        Message.direction,
+        func.count(Message.id).label('count')
+    ).filter(Message.timestamp >= thirty_days_ago).group_by(
+        func.date(Message.timestamp), Message.direction
+    ).all()
+    
+    # Formatear datos por día
+    day_data = {}
+    for row in messages_by_day:
+        date_str = str(row.date) if row.date else ''
+        if date_str not in day_data:
+            day_data[date_str] = {'date': date_str, 'inbound': 0, 'outbound': 0}
+        if row.direction == 'inbound':
+            day_data[date_str]['inbound'] = row.count
+        else:
+            day_data[date_str]['outbound'] = row.count
+    
+    # Mensajes enviados por hora
+    sent_by_hour = db.session.query(
+        func.extract('hour', Message.timestamp).label('hour'),
+        func.count(Message.id).label('count')
+    ).filter(Message.direction == 'outbound').group_by(
+        func.extract('hour', Message.timestamp)
+    ).order_by('hour').all()
+    
+    # Mensajes leídos por hora
+    read_by_hour = db.session.query(
+        func.extract('hour', MessageStatus.timestamp).label('hour'),
+        func.count(MessageStatus.id).label('count')
+    ).filter(MessageStatus.status == 'read').group_by(
+        func.extract('hour', MessageStatus.timestamp)
+    ).order_by('hour').all()
+    
+    # Mensajes por día de la semana
+    by_day_of_week = db.session.query(
+        func.extract('dow', Message.timestamp).label('dow'),
+        func.count(Message.id).label('count')
+    ).group_by(func.extract('dow', Message.timestamp)).all()
+    
+    dow_counts = [0] * 7
+    for row in by_day_of_week:
+        if row.dow is not None:
+            idx = int(row.dow)
+            # Ajustar para que lunes sea 0
+            idx = (idx - 1) % 7
+            dow_counts[idx] = row.count
+    
+    # Top contactos
+    top_contacts = db.session.query(
+        Message.phone_number,
+        func.count(Message.id).label('count')
+    ).filter(
+        Message.phone_number.notin_(['unknown', 'outbound', ''])
+    ).group_by(Message.phone_number).order_by(func.count(Message.id).desc()).limit(5).all()
+    
+    chart_data = {
+        'messages_by_day': sorted(day_data.values(), key=lambda x: x['date']),
+        'status_dist': {'read': read, 'delivered': delivered, 'sent': sent, 'failed': failed},
+        'sent_by_hour': [{'hour': int(h.hour) if h.hour else 0, 'count': h.count} for h in sent_by_hour],
+        'read_by_hour': [{'hour': int(h.hour) if h.hour else 0, 'count': h.count} for h in read_by_hour],
+        'by_day_of_week': dow_counts,
+        'direction': {'inbound': inbound, 'outbound': outbound},
+        'top_contacts': [{'phone': c.phone_number, 'count': c.count} for c in top_contacts]
+    }
+    
+    # Insights
+    peak_hour = max(sent_by_hour, key=lambda x: x.count) if sent_by_hour else None
+    busiest_dow = dow_counts.index(max(dow_counts)) if dow_counts else 0
+    days_names = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    
+    insights = {
+        'peak_hour': int(peak_hour.hour) if peak_hour and peak_hour.hour else 12,
+        'peak_hour_count': peak_hour.count if peak_hour else 0,
+        'read_rate': round((read / outbound * 100) if outbound > 0 else 0, 1),
+        'busiest_day': days_names[busiest_dow],
+        'avg_daily': round(total_messages / 30, 1) if total_messages > 0 else 0
+    }
+    
+    return render_template('analytics.html', stats=stats, chart_data=chart_data, insights=insights)
+
 @app.route("/api/stats")
 def api_stats():
     """API endpoint para obtener estadísticas en JSON."""
