@@ -6,4 +6,4 @@ flask-sqlalchemy==3.1.1
 psycopg2-binary==2.9.9
 pytz
 pandas
-openpyxl==2024.1
+openpyxl>=3.1.2
