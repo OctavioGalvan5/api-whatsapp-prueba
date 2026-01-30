@@ -333,18 +333,21 @@ def analytics():
         Message.direction == 'outbound'
     ).group_by(Message.content).order_by(func.count(Message.id).desc()).limit(10).all()
     
-    # Calcular tasa de lectura por template (necesitamos join con statuses)
+    # Calcular tasa de lectura por template (buscamos en MessageStatus)
     template_performance = []
     for template in template_stats:
-        # Contar templates leídos
-        read_count = db.session.query(func.count(Message.id)).filter(
+        # Contar templates leídos - buscamos mensajes que tengan un status 'read' en MessageStatus
+        read_count = db.session.query(func.count(func.distinct(Message.id))).join(
+            MessageStatus, Message.wa_message_id == MessageStatus.message_id
+        ).filter(
             Message.content == template.content,
-            Message.latest_status == 'read'
+            Message.message_type == 'template',
+            MessageStatus.status == 'read'
         ).scalar() or 0
         
         read_rate = round((read_count / template.sent_count * 100) if template.sent_count > 0 else 0, 1)
         
-        # Extraer nombre del template del contenido (primeras 50 chars)
+        # Extraer nombre del template del contenido (primeras 80 chars)
         template_name = template.content[:80] + '...' if len(template.content) > 80 else template.content
         
         template_performance.append({
