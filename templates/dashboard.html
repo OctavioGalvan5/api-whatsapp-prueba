@@ -504,12 +504,12 @@
             </div>
 
             <div class="chat-messages" id="chat-messages">
-                {% set last_date = None %}
+                {% set ns = namespace(last_date='') %}
                 {% for msg in messages %}
                 {% set msg_date = msg.timestamp.strftime('%d/%m/%Y') if msg.timestamp else '' %}
-                {% if msg_date != last_date %}
+                {% if msg_date != ns.last_date %}
                 <div class="date-separator"><span>{{ msg_date }}</span></div>
-                {% set last_date = msg_date %}
+                {% set ns.last_date = msg_date %}
                 {% endif %}
 
                 <div class="message {{ msg.direction }}">
