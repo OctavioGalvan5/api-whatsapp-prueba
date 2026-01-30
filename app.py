@@ -338,7 +338,7 @@ def analytics():
     for template in template_stats:
         # Contar templates leídos - buscamos mensajes que tengan un status 'read' en MessageStatus
         read_count = db.session.query(func.count(func.distinct(Message.id))).join(
-            MessageStatus, Message.wa_message_id == MessageStatus.message_id
+            MessageStatus, Message.wa_message_id == MessageStatus.wa_message_id
         ).filter(
             Message.content == template.content,
             Message.message_type == 'template',
