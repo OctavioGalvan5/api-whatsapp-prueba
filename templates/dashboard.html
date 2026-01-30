@@ -486,7 +486,7 @@
                     <div class="contact-preview">{{ contact.last_message or 'Sin mensajes' }}</div>
                     <div class="contact-meta">
                         <span>{{ contact.message_count }} mensajes</span>
-                        <span class="contact-badge">{{ contact.last_timestamp.strftime('%d/%m %H:%M') if
+                        <span class="contact-badge">{{ (contact.last_timestamp|to_argentina).strftime('%d/%m %H:%M') if
                             contact.last_timestamp else '' }}</span>
                     </div>
                 </div>
@@ -525,7 +525,8 @@
             <div class="chat-messages" id="chat-messages">
                 {% set ns = namespace(last_date='') %}
                 {% for msg in messages %}
-                {% set msg_date = msg.timestamp.strftime('%d/%m/%Y') if msg.timestamp else '' %}
+                {% set msg_argentina = msg.timestamp|to_argentina %}
+                {% set msg_date = msg_argentina.strftime('%d/%m/%Y') if msg_argentina else '' %}
                 {% if msg_date != ns.last_date %}
                 <div class="date-separator"><span>{{ msg_date }}</span></div>
                 {% set ns.last_date = msg_date %}
@@ -534,7 +535,7 @@
                 <div class="message {{ msg.direction }}">
                     <div class="message-content">{{ msg.content or '[Sin contenido]' }}</div>
                     <div class="message-meta">
-                        <span>{{ msg.timestamp.strftime('%H:%M') if msg.timestamp else '' }}</span>
+                        <span>{{ msg_argentina.strftime('%H:%M') if msg_argentina else '' }}</span>
                         {% if msg.direction == 'outbound' %}
                         {% if msg.latest_status == 'read' %}
                         <span class="message-status read">✓✓</span>

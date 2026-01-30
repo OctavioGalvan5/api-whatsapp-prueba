@@ -3,11 +3,26 @@ from config import Config
 from models import db, Message, MessageStatus
 from event_handlers import process_event
 from sqlalchemy import func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
+import pytz
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
+
+# Zona horaria de Argentina
+ARGENTINA_TZ = pytz.timezone('America/Argentina/Buenos_Aires')
+
+# Filtro Jinja2 para convertir UTC a hora Argentina
+@app.template_filter('to_argentina')
+def to_argentina_filter(dt):
+    """Convierte datetime UTC a hora de Argentina."""
+    if dt is None:
+        return ''
+    # Si el datetime es naive, asumir que es UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ARGENTINA_TZ)
 
 # Configuración de la base de datos
 app.config['SQLALCHEMY_DATABASE_URI'] = Config.DATABASE_URL
