@@ -166,6 +166,9 @@ def dashboard():
 @app.route("/analytics")
 def analytics():
     """Página de analytics con estadísticas detalladas."""
+    # Zona horaria de Argentina
+    ARGENTINA_TZ = 'America/Argentina/Buenos_Aires'
+    
     # Estadísticas generales
     total_messages = Message.query.count()
     outbound = Message.query.filter_by(direction='outbound').count()
@@ -197,14 +200,16 @@ def analytics():
     # Datos para gráficos - últimos 30 días
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
     
-    # Mensajes por día con dirección
-    messages_by_day = db.session.query(
-        func.date(Message.timestamp).label('date'),
-        Message.direction,
-        func.count(Message.id).label('count')
-    ).filter(Message.timestamp >= thirty_days_ago).group_by(
-        func.date(Message.timestamp), Message.direction
-    ).all()
+    # Mensajes por día (hora Argentina) - usando SQL directo para timezone
+    messages_by_day = db.session.execute(db.text(f"""
+        SELECT 
+            DATE(timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}') as date,
+            direction,
+            COUNT(*) as count
+        FROM whatsapp_messages
+        WHERE timestamp >= :since
+        GROUP BY DATE(timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}'), direction
+    """), {'since': thirty_days_ago}).fetchall()
     
     # Formatear datos por día
     day_data = {}
@@ -217,27 +222,36 @@ def analytics():
         else:
             day_data[date_str]['outbound'] = row.count
     
-    # Mensajes enviados por hora
-    sent_by_hour = db.session.query(
-        func.extract('hour', Message.timestamp).label('hour'),
-        func.count(Message.id).label('count')
-    ).filter(Message.direction == 'outbound').group_by(
-        func.extract('hour', Message.timestamp)
-    ).order_by('hour').all()
+    # Mensajes enviados por hora (hora Argentina)
+    sent_by_hour = db.session.execute(db.text(f"""
+        SELECT 
+            EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')::int as hour,
+            COUNT(*) as count
+        FROM whatsapp_messages
+        WHERE direction = 'outbound'
+        GROUP BY EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')
+        ORDER BY hour
+    """)).fetchall()
     
-    # Mensajes leídos por hora
-    read_by_hour = db.session.query(
-        func.extract('hour', MessageStatus.timestamp).label('hour'),
-        func.count(MessageStatus.id).label('count')
-    ).filter(MessageStatus.status == 'read').group_by(
-        func.extract('hour', MessageStatus.timestamp)
-    ).order_by('hour').all()
+    # Mensajes leídos por hora (hora Argentina)
+    read_by_hour = db.session.execute(db.text(f"""
+        SELECT 
+            EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')::int as hour,
+            COUNT(*) as count
+        FROM whatsapp_message_statuses
+        WHERE status = 'read'
+        GROUP BY EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')
+        ORDER BY hour
+    """)).fetchall()
     
-    # Mensajes por día de la semana
-    by_day_of_week = db.session.query(
-        func.extract('dow', Message.timestamp).label('dow'),
-        func.count(Message.id).label('count')
-    ).group_by(func.extract('dow', Message.timestamp)).all()
+    # Mensajes por día de la semana (hora Argentina)
+    by_day_of_week = db.session.execute(db.text(f"""
+        SELECT 
+            EXTRACT(DOW FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')::int as dow,
+            COUNT(*) as count
+        FROM whatsapp_messages
+        GROUP BY EXTRACT(DOW FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')
+    """)).fetchall()
     
     dow_counts = [0] * 7
     for row in by_day_of_week:
