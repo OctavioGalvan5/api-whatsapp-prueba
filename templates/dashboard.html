@@ -583,6 +583,193 @@
         .hidden {
             display: none !important;
         }
+
+        /* --- CRM STYLES --- */
+        .contact-name {
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+            color: var(--text-primary);
+        }
+
+        .contact-phone-small {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-top: 0.4rem;
+        }
+
+        .tag-badge {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .crm-actions {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0.4rem;
+            border-radius: 8px;
+            transition: background 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            animation: modalSlideIn 0.3s ease-out;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            background: var(--bg-secondary);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #128C7E;
+        }
+
+        /* Header User Info */
+        .chat-user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-user-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .chat-user-phone {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 
@@ -611,27 +798,71 @@
                     <div class="stat-label">Fallidos</div>
                 </div>
             </div>
-            <a href="/analytics" class="analytics-btn">📊 Analytics</a>
-            <a href="/whatsapp-settings" class="analytics-btn"
-                style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">⚙️ Settings</a>
+            <div style="margin-left: auto; display: flex; gap: 0.5rem;">
+                <a href="/dashboard" class="analytics-btn"
+                    style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">💬
+                    Dashboard</a>
+                <a href="/contacts" class="analytics-btn"
+                    style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">👥
+                    Contactos</a>
+                <a href="/tags" class="analytics-btn"
+                    style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">🏷️
+                    Etiquetas</a>
+                <a href="/failed-messages" class="analytics-btn"
+                    style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">⚠️
+                    Fallidos</a>
+                <a href="/analytics" class="analytics-btn">📊 Analytics</a>
+                <a href="/whatsapp-settings" class="analytics-btn"
+                    style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">⚙️ Settings</a>
+            </div>
         </header>
 
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="search-box">
-                    <input type="text" id="search-input" placeholder="🔍 Buscar por número...">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                    <div class="search-box" style="flex: 1;">
+                        <input type="text" id="search-input" placeholder="🔍 Buscar...">
+                    </div>
+                    <div style="display: flex; gap: 0.2rem;">
+                        <button class="icon-btn" onclick="openImportModal()" title="Importar Contactos">📥</button>
+                        <a href="/api/contacts/export" class="icon-btn" title="Exportar Contactos"
+                            style="text-decoration: none; display: flex; align-items: center; justify-content: center;">📤</a>
+                    </div>
                 </div>
             </div>
             <div class="contacts-list" id="contacts-list">
                 {% for contact in contacts %}
-                <div class="contact-item {% if loop.first %}active{% endif %}" data-phone="{{ contact.phone_number }}"
-                    onclick="selectContact('{{ contact.phone_number }}')">
-                    <div class="contact-phone">{{ contact.phone_number }}</div>
-                    <div class="contact-preview">{{ contact.last_message or 'Sin mensajes' }}</div>
-                    <div class="contact-meta">
-                        <span>{{ contact.message_count }} mensajes</span>
-                        <span class="contact-badge">{{ (contact.last_timestamp|to_argentina).strftime('%d/%m %H:%M') if
-                            contact.last_timestamp else '' }}</span>
+                <div class="contact-item {% if loop.first and not selected_contact %}active{% endif %}"
+                    data-phone="{{ contact.phone_number }}" data-name="{{ contact.name or '' }}"
+                    data-tags="{{ contact.tags|join(',') }}" onclick="selectContact('{{ contact.phone_number }}')">
+
+                    <div class="contact-info-wrapper">
+                        {% if contact.name %}
+                        <div class="contact-name">{{ contact.name }}</div>
+                        <div class="contact-phone-small">{{ contact.phone_number }}</div>
+                        {% else %}
+                        <div class="contact-phone">{{ contact.phone_number }}</div>
+                        {% endif %}
+
+                        <div class="contact-preview">{{ contact.last_message or 'Sin mensajes' }}</div>
+
+                        {% if contact.tags %}
+                        <div class="tags-container">
+                            {% for tag in contact.tags[:3] %}
+                            <span class="tag-badge">{{ tag }}</span>
+                            {% endfor %}
+                            {% if contact.tags|length > 3 %}
+                            <span class="tag-badge">+{{ contact.tags|length - 3 }}</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <div class="contact-meta">
+                            <span>{{ contact.message_count }} msgs</span>
+                            <span class="contact-badge">{{ (contact.last_timestamp|to_argentina).strftime('%d/%m %H:%M')
+                                if
+                                contact.last_timestamp else '' }}</span>
+                        </div>
                     </div>
                 </div>
                 {% else %}
@@ -645,11 +876,39 @@
         <main class="main-content">
             {% if selected_contact %}
             <div class="chat-header">
-                <div class="chat-avatar">👤</div>
-                <div class="chat-info">
-                    <h2>{{ selected_contact }}</h2>
-                    <p>{{ contact_stats.message_count }} mensajes</p>
+                {% if selected_contact %}
+                <div class="chat-user-info">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="chat-user-name" style="font-size: 1.1rem;">
+                            {{ contact_details.name if contact_details and contact_details.name else selected_contact }}
+                        </span>
+                        <button class="icon-btn" onclick="openContactModal()" title="Editar Contacto"
+                            style="font-size: 0.9rem; padding: 2px 6px;">✏️</button>
+                    </div>
+
+                    {% if contact_details and contact_details.name %}
+                    <span class="chat-user-phone">{{ selected_contact }}</span>
+                    {% endif %}
+
+                    {% if contact_details and contact_details.tags %}
+                    <div class="tags-container" style="margin-top: 2px;">
+                        {% for tag in contact_details.tags %}
+                        <span class="tag-badge">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if contact_details and contact_details.notes %}
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; font-style: italic;">
+                        📝 {{ contact_details.notes }}
+                    </div>
+                    {% endif %}
                 </div>
+                {% else %}
+                <div class="chat-user-info">
+                    <span class="chat-user-name">Selecciona un chat</span>
+                </div>
+                {% endif %}
                 <div class="chat-status">
                     <div class="status-item">
                         <div class="status-dot sent"></div>
@@ -836,6 +1095,7 @@
         }
 
         // Send template message
+        // Send template message
         async function sendTemplateMessage(e) {
             e.preventDefault();
             const select = document.getElementById('template-select');
@@ -847,6 +1107,10 @@
                 return;
             }
 
+            // Recolectar mapeo de variables
+            const variableInputs = document.querySelectorAll('.template-variable-select');
+            const variableMapping = Array.from(variableInputs).map(input => input.value);
+
             const resultDiv = document.getElementById('send-result');
             resultDiv.innerHTML = '<div class="send-result">Enviando template...</div>';
 
@@ -857,7 +1121,8 @@
                     body: JSON.stringify({
                         to: currentPhone,
                         template_name: templateName,
-                        language: lang
+                        language: lang,
+                        variable_mapping: variableMapping
                     })
                 });
 
@@ -866,6 +1131,7 @@
                 if (data.success) {
                     resultDiv.innerHTML = '<div class="send-result success">✅ Template enviado</div>';
                     select.value = '';
+                    document.getElementById('template-variables-container').innerHTML = ''; // Limpiar variables
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     resultDiv.innerHTML = `<div class="send-result error">❌ ${data.error || 'Error'}</div>`;
@@ -875,8 +1141,201 @@
             }
         }
 
+        // Detectar cambio de template para mostrar inputs de variables
+        document.getElementById('template-select').addEventListener('change', function () {
+            const container = document.getElementById('template-variables-container');
+            if (!container) return; // Si no existe el container, salir
+
+            container.innerHTML = '';
+
+            const selectedOption = this.options[this.selectedIndex];
+            if (!selectedOption.value) return;
+
+            // Obtener el cuerpo del template (esto requiere que pasemos el body en los atributos del option)
+            // Como no lo tenemos disponible directamente aquí de forma limpia,
+            // vamos a hacer una estimación basada en el conteo de {{N}} o
+            // IDEALMENTE: Deberíamos haber pasado los componentes al renderizar el select.
+
+            // Hack temporal: Asumir que el backend envía el texto del body en un data-body attribute
+            const bodyText = selectedOption.dataset.body || "";
+            // Usamos new RegExp con concatenación de strings para romper la secuencia que Jinja2 detecta
+            const regexPattern = '{' + '{(\\d+)}' + '}';
+            const matches = bodyText.match(new RegExp(regexPattern, 'g'));
+
+            if (matches) {
+                // Eliminar duplicados y ordenar
+                const uniqueVars = [...new Set(matches)].sort();
+
+                uniqueVars.forEach((v, index) => {
+                    const varNum = index + 1; // 1, 2, 3...
+
+                    const div = document.createElement('div');
+                    div.className = 'variable-mapping-row';
+                    div.style.marginBottom = '0.5rem';
+                    div.innerHTML = `
+                        <label style="font-size: 0.8rem; display: block;">Variable ${'{' + '{'}${varNum}${'}' + '}'}:</label>
+                        <select class="template-variable-select form-input" style="width: 100%; padding: 4px;">
+                            <option value="">-- Texto Libre (vacío) --</option>
+                            <option value="name">Nombre Completo</option>
+                            <option value="first_name">Nombre (Pila)</option>
+                            <option value="last_name">Apellido</option>
+                            <option value="phone_number">Teléfono</option>
+                            <option value="custom_field_1">Caract. 1</option>
+                            <option value="custom_field_2">Caract. 2</option>
+                            <option value="custom_field_3">Caract. 3</option>
+                            <option value="custom_field_4">Caract. 4</option>
+                            <option value="custom_field_5">Caract. 5</option>
+                            <option value="custom_field_6">Caract. 6</option>
+                            <option value="custom_field_7">Caract. 7</option>
+                        </select>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+        });
+
         // Auto refresh every 30 seconds
         setTimeout(() => location.reload(), 30000);
+    </script>
+
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Editar Contacto</h3>
+                <button class="icon-btn" onclick="closeModal('contactModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="text" id="edit-phone" class="form-input" readonly disabled
+                        style="background: var(--bg-primary);">
+                </div>
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" id="edit-name" class="form-input" placeholder="Nombre del contacto">
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <textarea id="edit-notes" class="form-input" rows="3"
+                        placeholder="Notas sobre el cliente..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Etiquetas (separadas por coma)</label>
+                    <input type="text" id="edit-tags" class="form-input" placeholder="ej: vip, pendiente, nuevo">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('contactModal')">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveContact()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="importModal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Importar Contactos</h3>
+                <button class="icon-btn" onclick="closeModal('importModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    Sube un archivo Excel (.xlsx) o CSV con las columnas: <b>telefono</b>, <b>nombre</b>, <b>notas</b>,
+                    <b>etiquetas</b>.
+                </p>
+                <div class="form-group">
+                    <label>Archivo</label>
+                    <input type="file" id="import-file" class="form-input" accept=".xlsx, .csv">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('importModal')">Cancelar</button>
+                <button class="btn btn-primary" onclick="uploadContacts()">Importar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openContactModal() {
+            const phone = new URLSearchParams(window.location.search).get('phone');
+            if (!phone) return;
+
+            // Cargar datos actuales
+            fetch(`/api/contacts/${phone}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.details) {
+                        document.getElementById('edit-phone').value = phone;
+                        document.getElementById('edit-name').value = data.details.name || '';
+                        document.getElementById('edit-notes').value = data.details.notes || '';
+                        document.getElementById('edit-tags').value = (data.details.tags || []).join(', ');
+                        document.getElementById('contactModal').classList.remove('hidden');
+                    }
+                });
+        }
+
+        function openImportModal() {
+            document.getElementById('importModal').classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function saveContact() {
+            const phone = document.getElementById('edit-phone').value;
+            const name = document.getElementById('edit-name').value;
+            const notes = document.getElementById('edit-notes').value;
+            const tagsStr = document.getElementById('edit-tags').value;
+            const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
+
+            fetch(`/api/contacts/${phone}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name,
+                    notes,
+                    tags
+                })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error guardando contacto');
+                    }
+                });
+        }
+
+        function uploadContacts() {
+            const fileInput = document.getElementById('import-file');
+            if (!fileInput.files[0]) return alert('Selecciona un archivo');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            fetch('/api/contacts/import', {
+                method: 'POST',
+                body: formData
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                });
+        }
+
+        // Búsqueda de contactos (Initialización si no se hizo arriba)
+        // Ya está manejada arriba, pero verificamos si hay código duplicado.
+        // El bloque de búsqueda de arriba (línea 1026) es suficiente.
     </script>
 </body>
 

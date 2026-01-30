@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contactos - WhatsApp Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-card: #ffffff;
+            --accent-green: #25D366;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-btn {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover,
+        .nav-btn.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: var(--shadow);
+        }
+
+        .contacts-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .search-box {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: var(--bg-primary);
+        }
+
+        .tag-badge {
+            display: inline-block;
+            background: #f1f5f9;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-right: 0.25rem;
+            color: var(--text-secondary);
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0.25rem;
+            transition: transform 0.2s;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* Modal Styles (Reused) */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div>
+                <h1>Contactos</h1>
+                <p style="color: var(--text-secondary);">Gestión de clientes y prospectos</p>
+            </div>
+            <nav class="nav-buttons">
+                <a href="/dashboard" class="nav-btn">💬 Dashboard</a>
+                <a href="/contacts" class="nav-btn active">👥 Contactos</a>
+                <a href="/tags" class="nav-btn">🏷️ Etiquetas</a>
+                <a href="/failed-messages" class="nav-btn">⚠️ Fallidos</a>
+                <a href="/analytics" class="nav-btn">📊 Analytics</a>
+            </nav>
+        </header>
+
+        <div class="contacts-card">
+            <div class="search-box">
+                <input type="text" id="search-input" class="search-input"
+                    placeholder="🔍 Buscar por nombre, teléfono o etiqueta...">
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table id="contacts-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Teléfono</th>
+                            <th>Etiquetas</th>
+                            <th>Notas</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contact in contacts %}
+                        <tr class="contact-row"
+                            data-search="{{ contact.name or '' }} {{ contact.phone_number }} {{ (contact.tags or [])|join(' ') }}">
+                            <td>{{ contact.name or '-' }}</td>
+                            <td>{{ contact.phone_number }}</td>
+                            <td>
+                                {% if contact.tags %}
+                                {% for tag in contact.tags %}
+                                <span class="tag-badge">{{ tag }}</span>
+                                {% endfor %}
+                                {% endif %}
+                            </td>
+                            <td
+                                style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ contact.notes or '-' }}
+                            </td>
+                            <td>
+                                <a href="/dashboard?phone={{ contact.phone_number }}" class="action-btn"
+                                    title="Ir al chat">💬</a>
+                                <button class="action-btn" onclick="openEditModal('{{ contact.phone_number }}')"
+                                    title="Editar">✏️</button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 2rem;">No hay contactos registrados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="contactModal" class="modal-overlay hidden">
+        <div class="modal">
+            <h3 style="margin-top: 0;">Editar Contacto</h3>
+            <div class="form-group">
+                <label>Teléfono</label>
+                <input type="text" id="edit-phone" class="form-input" readonly disabled>
+            </div>
+            <div class="form-group">
+                <label>Nombre</label>
+                <input type="text" id="edit-name" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea id="edit-notes" class="form-input" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Etiquetas (separadas por coma)</label>
+                <input type="text" id="edit-tags" class="form-input">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem;">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveContact()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Search functionality
+        document.getElementById('search-input').addEventListener('input', function (e) {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('.contact-row').forEach(row => {
+                const text = row.dataset.search.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        });
+
+        // Modal functions
+        function openEditModal(phone) {
+            fetch(`/api/contacts/${phone}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.details) {
+                        document.getElementById('edit-phone').value = phone;
+                        document.getElementById('edit-name').value = data.details.name || '';
+                        document.getElementById('edit-notes').value = data.details.notes || '';
+                        document.getElementById('edit-tags').value = (data.details.tags || []).join(', ');
+                        document.getElementById('contactModal').classList.remove('hidden');
+                    }
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('contactModal').classList.add('hidden');
+        }
+
+        function saveContact() {
+            const phone = document.getElementById('edit-phone').value;
+            const name = document.getElementById('edit-name').value;
+            const notes = document.getElementById('edit-notes').value;
+            const tags = document.getElementById('edit-tags').value.split(',').map(t => t.trim()).filter(t => t);
+
+            fetch(`/api/contacts/${phone}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, notes, tags })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error saving contact');
+                    }
+                });
+        }
+    </script>
+</body>
+
+</html>
