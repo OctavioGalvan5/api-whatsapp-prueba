@@ -533,16 +533,28 @@ def api_send_template():
     if not to_phone or not template_name:
         return jsonify({"error": "to y template_name son requeridos"}), 400
     
+    # Obtener el contenido del template
+    template_content = f"[Template: {template_name}]"  # fallback
+    templates_result = whatsapp_api.get_templates()
+    for t in templates_result.get("templates", []):
+        if t.get("name") == template_name and t.get("language") == language:
+            # Extraer el body del template
+            for comp in t.get("components", []):
+                if comp.get("type") == "BODY":
+                    template_content = comp.get("text", template_content)
+                    break
+            break
+    
     result = whatsapp_api.send_template_message(to_phone, template_name, language, components)
     
     if result.get("success"):
-        # Guardar mensaje en BD
+        # Guardar mensaje en BD con el contenido real del template
         new_msg = Message(
             wa_message_id=result.get("message_id", f"template_{datetime.utcnow().timestamp()}"),
             phone_number=to_phone,
             direction="outbound",
             message_type="template",
-            content=f"[Template: {template_name}]",
+            content=template_content,
             timestamp=datetime.utcnow()
         )
         db.session.add(new_msg)
