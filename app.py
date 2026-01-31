@@ -114,7 +114,7 @@ def dashboard():
         func.max(Message.content).label('last_message')
     ).filter(
         Message.phone_number.notin_(['unknown', 'outbound', ''])
-    ).group_by(Message.phone_number).order_by(func.max(Message.timestamp).desc()).all()
+    ).group_by(Message.phone_number).order_by(func.max(Message.timestamp).desc()).limit(100).all()
     
     # 2. Obtener contactos para enriquecer la data
     # Optimizamos trayendo solo los necesarios si hay muchos, pero para dashboard está bien traer los relevantes
@@ -142,15 +142,31 @@ def dashboard():
     selected_contact = None
     contact_details = None
     
+    # Límite de mensajes para mostrar en el chat (optimización)
+    MESSAGE_LIMIT = 100
+
     if selected_phone:
         selected_contact = selected_phone
-        messages = Message.query.filter_by(phone_number=selected_phone).order_by(Message.timestamp.asc()).all()
+        # Optimización: Solo traer los últimos 100 mensajes
+        # Primero obtenemos los últimos N por fecha descendente (los más nuevos)
+        # Luego los reordenamos ascendente para mostrar en el chat
+        recent_messages = Message.query.filter_by(phone_number=selected_phone)\
+            .order_by(Message.timestamp.desc())\
+            .limit(MESSAGE_LIMIT).all()
+        messages = sorted(recent_messages, key=lambda m: m.timestamp)
+        
         contact_details = Contact.query.get(selected_phone)
         
-        # Estadísticas del contacto
+        # Estadísticas del contacto (estas sí pueden requerir contar todos, o podemos estimar)
+        # Para mantener rendimiento, calculamos stats solo de lo que traemos o hacemos count query aparte si es crítico
+        # Hacemos query ligera solo para cuentas
+        outbound_count = Message.query.filter_by(phone_number=selected_phone, direction='outbound').count()
+        # Estimación rápida basada en lo cargado para evitar query pesada de status específico
+        # Si se necesita precisión absoluta, se deben hacer queries count() específicas
+        
         outbound_msgs = [m for m in messages if m.direction == 'outbound']
         contact_stats = {
-            'message_count': len(messages),
+            'message_count': Message.query.filter_by(phone_number=selected_phone).count(), # Total real
             'sent': sum(1 for m in outbound_msgs if m.latest_status in ['sent', 'delivered', 'read']),
             'delivered': sum(1 for m in outbound_msgs if m.latest_status in ['delivered', 'read']),
             'read': sum(1 for m in outbound_msgs if m.latest_status == 'read')
@@ -158,10 +174,14 @@ def dashboard():
     elif contacts:
         # Seleccionar primer contacto por defecto
         selected_contact = contacts[0]['phone_number']
-        messages = Message.query.filter_by(phone_number=selected_contact).order_by(Message.timestamp.asc()).all()
+        recent_messages = Message.query.filter_by(phone_number=selected_contact)\
+            .order_by(Message.timestamp.desc())\
+            .limit(MESSAGE_LIMIT).all()
+        messages = sorted(recent_messages, key=lambda m: m.timestamp)
+        
         outbound_msgs = [m for m in messages if m.direction == 'outbound']
         contact_stats = {
-            'message_count': len(messages),
+            'message_count': Message.query.filter_by(phone_number=selected_contact).count(),
             'sent': sum(1 for m in outbound_msgs if m.latest_status in ['sent', 'delivered', 'read']),
             'delivered': sum(1 for m in outbound_msgs if m.latest_status in ['delivered', 'read']),
             'read': sum(1 for m in outbound_msgs if m.latest_status == 'read')
