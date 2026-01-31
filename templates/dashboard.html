@@ -1032,9 +1032,195 @@
     </div>
 
     <script>
-        function selectContact(phone) {
-            window.location.href = `/dashboard?phone=${encodeURIComponent(phone)}`;
+        // Current contact variable
+        let currentPhone = "{{ selected_contact or '' }}";
+
+        async function selectContact(phone) {
+            // Helper para recargar la página si algo falla (Fallback)
+            const fallbackToReload = () => {
+                console.log('AJAX falló, recargando página...');
+                window.location.href = `/dashboard?phone=${encodeURIComponent(phone)}`;
+            };
+
+            // 0. Validación de seguridad
+            if (!document.getElementById('chat-messages')) {
+                fallbackToReload();
+                return;
+            }
+
+            // UI Feedback inmediato (Mostrar selección)
+            document.querySelectorAll('.contact-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.phone === phone) {
+                    item.classList.add('active');
+                }
+            });
+
+            // Mostrar estado de carga
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) chatMessages.style.opacity = '0.5';
+
+            try {
+                // intentamos cargar via API
+                const response = await fetch(`/api/messages/${encodeURIComponent(phone)}`);
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentPhone = phone;
+                    renderChat(data);
+
+                    // Actualizar URL solo si todo salió bien
+                    const newUrl = `/dashboard?phone=${encodeURIComponent(phone)}`;
+                    history.pushState({ phone: phone }, '', newUrl);
+                } else {
+                    // Si la API dice que falló, usamos fallback
+                    console.error('API Error:', data.error);
+                    fallbackToReload();
+                    return;
+                }
+
+                if (chatMessages) chatMessages.style.opacity = '1';
+
+            } catch (err) {
+                console.error('Error en navegación AJAX:', err);
+                fallbackToReload();
+            }
         }
+
+        function renderChat(data) {
+            // Actualizar Header
+            const contact = data.contact || { phone_number: currentPhone };
+
+            // Actualizar nombre y teléfono
+            const nameEl = document.querySelector('.chat-user-name');
+            const phoneEl = document.querySelector('.chat-user-phone');
+
+            if (nameEl) nameEl.textContent = contact.name || currentPhone;
+            if (phoneEl) phoneEl.textContent = contact.name ? currentPhone : '';
+
+            // Actualizar Tags
+            const tagsContainer = document.querySelector('.chat-user-info .tags-container');
+            if (tagsContainer) {
+                if (contact.tags && contact.tags.length > 0) {
+                    tagsContainer.innerHTML = contact.tags.map(tag => `<span class="tag-badge">${tag}</span>`).join('');
+                } else {
+                    tagsContainer.innerHTML = '';
+                }
+            }
+
+            // Actualizar Notas
+            // (Simplificado: buscamos el div de notas si existe, o lo creamos si es necesario)
+            // Para simplificar, asumimos que se actualiza si ya existe la estructura
+
+            // Actualizar Stats
+            if (data.stats) {
+                const statsContainer = document.querySelector('.chat-status');
+                if (statsContainer) {
+                    statsContainer.innerHTML = `
+                        <div class="status-item"><div class="status-dot sent"></div><span>${data.stats.sent} enviados</span></div>
+                        <div class="status-item"><div class="status-dot delivered"></div><span>${data.stats.delivered} entregados</span></div>
+                        <div class="status-item"><div class="status-dot read"></div><span>${data.stats.read} leídos</span></div>
+                    `;
+                }
+            }
+
+            // Renderizar Mensajes
+            const messagesContainer = document.getElementById('chat-messages');
+            if (messagesContainer) {
+                if (!data.messages || data.messages.length === 0) {
+                    messagesContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">💬</div>
+                            <p>No hay mensajes en esta conversación</p>
+                        </div>
+                     `;
+                } else {
+                    let html = '';
+                    let lastDate = '';
+
+                    data.messages.forEach(msg => {
+                        // Separador de fecha
+                        if (msg.date !== lastDate) {
+                            html += `<div class="date-separator"><span>${msg.date}</span></div>`;
+                            lastDate = msg.date;
+                        }
+
+                        // Mensaje
+                        const isOutbound = msg.direction === 'outbound';
+                        let statusIcon = '';
+
+                        if (isOutbound) {
+                            if (msg.status === 'read') statusIcon = '<span class="message-status read">✓✓</span>';
+                            else if (msg.status === 'delivered') statusIcon = '<span class="message-status delivered">✓✓</span>';
+                            else if (msg.status === 'sent') statusIcon = '<span class="message-status sent">✓</span>';
+                            else if (msg.status === 'failed') statusIcon = '<span class="message-status failed">✗</span>';
+                            else statusIcon = '<span class="message-status sent">⏳</span>';
+                        }
+
+                        html += `
+                            <div class="message ${msg.direction}">
+                                <div class="message-content">${msg.content || '[Sin contenido]'}</div>
+                                <div class="message-meta">
+                                    <span>${msg.time}</span>
+                                    ${statusIcon}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    messagesContainer.innerHTML = html;
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            }
+
+            // Actualizar Composer
+            const composer = document.querySelector('.message-composer');
+            if (composer) {
+                // Actualizar estado de ventana 24h
+                const statusDiv = composer.querySelector('.composer-status');
+                const textModeBtn = document.getElementById('text-mode-btn');
+                const textMode = document.getElementById('text-mode');
+                const templateMode = document.getElementById('template-mode');
+
+                if (data.can_send_free_text) {
+                    if (statusDiv) {
+                        statusDiv.className = 'composer-status can-text';
+                        statusDiv.innerHTML = '✅ Ventana de 24h activa - Puedes enviar mensajes libres';
+                    }
+                    if (textModeBtn) {
+                        textModeBtn.disabled = false;
+                        textModeBtn.classList.add('active'); // Activar por defecto si se puede
+                    }
+                    // Cambiar a modo texto automáticamente
+                    switchMode('text');
+                } else {
+                    if (statusDiv) {
+                        statusDiv.className = 'composer-status template-only';
+                        statusDiv.innerHTML = '⚠️ Sin mensajes recientes - Solo puedes enviar templates';
+                    }
+                    if (textModeBtn) {
+                        textModeBtn.disabled = true;
+                        textModeBtn.classList.remove('active');
+                    }
+                    // Cambiar a modo template automáticamente
+                    switchMode('template');
+                }
+            } else {
+                // Si estaba en empty state global y ahora seleccionamos un chat, habría que recargar la página 
+                // porque el composer no existe en el DOM inicial del empty state.
+                // Para simplificar esta iteración: Si no hay composer (porque venimos de "Selecciona una conversación"), recargamos.
+                if (!document.querySelector('.message-composer') && data.whatsapp_configured) {
+                    location.reload();
+                }
+            }
+        }
+
+
 
         // Search filter
         document.getElementById('search-input').addEventListener('input', function (e) {
@@ -1050,9 +1236,6 @@
         if (chatMessages) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-
-        // Current contact
-        const currentPhone = "{{ selected_contact or '' }}";
 
         // Switch between text and template mode
         function switchMode(mode) {

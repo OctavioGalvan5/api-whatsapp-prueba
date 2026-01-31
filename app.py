@@ -715,6 +715,93 @@ def api_export_contacts():
         logger.error(f"Error exportando contactos: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route("/api/messages/<phone>")
+def api_get_messages(phone):
+    """API para obtener mensajes de un contacto (optimizado para AJAX)."""
+    try:
+        # Límite de mensajes
+        MESSAGE_LIMIT = 100
+        
+        # Obtener mensajes recientes
+        recent_messages = Message.query.filter_by(phone_number=phone)\
+            .order_by(Message.timestamp.desc())\
+            .limit(MESSAGE_LIMIT).all()
+        
+        # Reordenar cronológicamente
+        messages = sorted(recent_messages, key=lambda m: m.timestamp)
+        
+        # Obtener info de contacto
+        contact = Contact.query.get(phone)
+        contact_dict = contact.to_dict() if contact else None
+        
+        # Calcular stats básicos
+        outbound_msgs = [m for m in messages if m.direction == 'outbound']
+        stats = {
+            'sent': sum(1 for m in outbound_msgs if m.latest_status in ['sent', 'delivered', 'read']),
+            'delivered': sum(1 for m in outbound_msgs if m.latest_status in ['delivered', 'read']),
+            'read': sum(1 for m in outbound_msgs if m.latest_status == 'read')
+        }
+        
+        # Verificar ventana de 24hs
+        can_send_free_text = False
+        last_inbound_msg = None
+        
+        whatsapp_configured = whatsapp_api.is_configured()
+        if whatsapp_configured:
+            twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+            # Solo buscamos en lo que ya trajimos para ser rápidos, 
+            # o hacemos query específica si no hay inbound recientes en los últimos 100
+            
+            # Buscar en los mensajes cargados primero
+            inbound_loaded = [m for m in messages if m.direction == 'inbound']
+            if inbound_loaded:
+                last_msg = inbound_loaded[-1] # El más reciente de los cargados
+                if last_msg.timestamp >= twenty_four_hours_ago:
+                    can_send_free_text = True
+                    last_inbound_msg = last_msg.timestamp
+            
+            # Si no encontramos en los últimos 100, quizás hay uno anterior pero dentro de 24h
+            if not can_send_free_text:
+                # Query específica rápida
+                last_inbound = Message.query.filter_by(
+                    phone_number=phone,
+                    direction='inbound'
+                ).filter(Message.timestamp >= twenty_four_hours_ago).order_by(Message.timestamp.desc()).first()
+                
+                if last_inbound:
+                    can_send_free_text = True
+                    last_inbound_msg = last_inbound.timestamp
+
+        # Serializar mensajes
+        messages_data = []
+        for m in messages:
+            # Convertir a hora argentina
+            dt_arg = to_argentina_filter(m.timestamp)
+            time_str = dt_arg.strftime('%H:%M') if dt_arg else ''
+            date_str = dt_arg.strftime('%d/%m/%Y') if dt_arg else ''
+            
+            messages_data.append({
+                'id': m.id,
+                'content': m.content,
+                'direction': m.direction,
+                'time': time_str,
+                'date': date_str,
+                'status': m.latest_status
+            })
+
+        return jsonify({
+            'success': True,
+            'contact': contact_dict,
+            'messages': messages_data,
+            'stats': stats,
+            'can_send_free_text': can_send_free_text,
+            'whatsapp_configured': whatsapp_configured
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching messages API: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route("/contacts")
 def contacts_page():
     """Página para ver listado de contactos."""
