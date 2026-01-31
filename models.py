@@ -9,11 +9,11 @@ class Message(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     wa_message_id = db.Column(db.String(100), unique=True, nullable=True)
-    phone_number = db.Column(db.String(20), nullable=False)
+    phone_number = db.Column(db.String(20), nullable=False, index=True)
     direction = db.Column(db.String(10), nullable=False)  # 'inbound' o 'outbound'
     message_type = db.Column(db.String(20), nullable=False)  # text, image, audio, etc.
     content = db.Column(db.Text, nullable=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     # Relación con estados
     statuses = db.relationship('MessageStatus', backref='message', lazy=True, order_by='MessageStatus.timestamp')
     
@@ -43,7 +43,7 @@ class MessageStatus(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     wa_message_id = db.Column(db.String(100), db.ForeignKey('whatsapp_messages.wa_message_id'), nullable=False)
-    status = db.Column(db.String(20), nullable=False)  # sent, delivered, read, failed
+    status = db.Column(db.String(20), nullable=False, index=True)  # sent, delivered, read, failed
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     error_code = db.Column(db.String(50), nullable=True)
     error_title = db.Column(db.String(200), nullable=True)
