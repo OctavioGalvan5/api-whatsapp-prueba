@@ -1,1524 +1,804 @@
 <!DOCTYPE html>
-<html lang="es">
+<html class="light" lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>WhatsApp CRM</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec25",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102212",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
     <style>
-        :root {
-            --bg-primary: #f1f5f9;
-            --bg-secondary: #ffffff;
-            --bg-card: #ffffff;
-            --bg-chat: #e2e8f0;
-            --accent-green: #25D366;
-            --accent-blue: #0ea5e9;
-            --accent-purple: #8b5cf6;
-            --accent-red: #ef4444;
-            --accent-orange: #f97316;
-            --text-primary: #0f172a;
-            --text-secondary: #64748b;
-            --border-color: #e2e8f0;
-            --msg-out: #dcf8c6;
-            --msg-in: #ffffff;
-            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
         }
 
-        .dashboard {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            grid-template-rows: auto 1fr;
-            height: 100vh;
+        .message-shadow {
+            box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
         }
 
-        /* Header */
-        .header {
-            grid-column: 1 / -1;
-            background: var(--bg-card);
-            padding: 1rem 2rem;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 2rem;
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
         }
 
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
         }
 
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--accent-green), #128C7E);
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
             border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
         }
 
-        .logo h1 {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        .stats-bar {
-            display: flex;
-            gap: 2rem;
-        }
-
-        .stat-item {
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--accent-green);
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-        }
-
-        .analytics-btn {
-            margin-left: auto;
-            padding: 0.75rem 1.5rem;
-            background: linear-gradient(135deg, var(--accent-green), #128C7E);
-            color: white;
-            text-decoration: none;
-            border-radius: 10px;
-            font-weight: 500;
-            font-size: 0.875rem;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .analytics-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
-        }
-
-        /* Sidebar */
-        .sidebar {
-            background: var(--bg-secondary);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .sidebar-header {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 0.875rem;
-        }
-
-        .search-box input::placeholder {
-            color: var(--text-secondary);
-        }
-
-        .search-box input:focus {
-            outline: none;
-            border-color: var(--accent-green);
-        }
-
-        .contacts-list {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .contact-item {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .contact-item:hover {
-            background: var(--bg-card);
-        }
-
-        .contact-item.active {
-            background: var(--bg-card);
-            border-left: 3px solid var(--accent-green);
-        }
-
-        .contact-phone {
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-        }
-
-        .contact-preview {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .contact-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            margin-top: 0.5rem;
-        }
-
-        .contact-badge {
-            background: var(--accent-green);
-            color: white;
-            padding: 0.125rem 0.5rem;
-            border-radius: 10px;
-            font-size: 0.65rem;
-        }
-
-        /* Main Content */
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            background: var(--bg-chat);
-            overflow: hidden;
-        }
-
-        .chat-header {
-            padding: 1rem 1.5rem;
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .chat-avatar {
-            width: 45px;
-            height: 45px;
-            background: var(--accent-green);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-        }
-
-        .chat-info h2 {
-            font-size: 1rem;
-            font-weight: 600;
-        }
-
-        .chat-info p {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-
-        .chat-status {
-            margin-left: auto;
-            display: flex;
-            gap: 1rem;
-        }
-
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        .status-dot.sent {
-            background: var(--accent-blue);
-        }
-
-        .status-dot.delivered {
-            background: var(--accent-green);
-        }
-
-        .status-dot.read {
-            background: var(--accent-purple);
-        }
-
-        .status-dot.failed {
-            background: var(--accent-red);
-        }
-
-        /* Chat Messages */
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .message {
-            max-width: 65%;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            position: relative;
-            animation: fadeIn 0.2s ease;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .message.inbound {
-            background: var(--msg-in);
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-        }
-
-        .message.outbound {
-            background: var(--msg-out);
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-        }
-
-        .message-content {
-            font-size: 0.9rem;
-            line-height: 1.4;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            color: var(--text-primary);
-        }
-
-        .message-meta {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            gap: 0.25rem;
-            margin-top: 0.25rem;
-            font-size: 0.65rem;
-            color: var(--text-secondary);
-        }
-
-        .message-status {
-            font-size: 0.75rem;
-        }
-
-        .message-status.sent {
-            color: var(--text-secondary);
-        }
-
-        .message-status.delivered {
-            color: var(--accent-blue);
-        }
-
-        .message-status.read {
-            color: var(--accent-blue);
-        }
-
-        .message-status.failed {
-            color: var(--accent-red);
-        }
-
-        .date-separator {
-            text-align: center;
-            padding: 1rem;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        .date-separator span {
-            background: var(--bg-card);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-        }
-
-        /* Empty State */
-        .empty-state {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-secondary);
-        }
-
-        .empty-state-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-
-        /* Charts Section */
-        .charts-section {
-            position: fixed;
-            bottom: 0;
-            left: 320px;
-            right: 0;
-            height: 200px;
-            background: var(--bg-card);
-            border-top: 1px solid var(--border-color);
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            padding: 1rem;
-            transform: translateY(100%);
-            transition: transform 0.3s ease;
-        }
-
-        .charts-section.visible {
-            transform: translateY(0);
-        }
-
-        .chart-card {
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            padding: 0.75rem;
-        }
-
-        .chart-title {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-        }
-
-        .chart-container {
-            height: 130px;
-        }
-
-        .toggle-charts {
-            position: fixed;
-            bottom: 1rem;
-            right: 1rem;
-            width: 50px;
-            height: 50px;
-            background: var(--accent-green);
-            border: none;
-            border-radius: 50%;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
-            z-index: 100;
-            transition: transform 0.2s;
-        }
-
-        .toggle-charts:hover {
-            transform: scale(1.1);
-        }
-
-        /* Message Composer */
-        .message-composer {
-            background: var(--bg-card);
-            border-top: 1px solid var(--border-color);
-            padding: 1rem;
-        }
-
-        .composer-status {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .composer-status.can-text {
-            color: var(--accent-green);
-        }
-
-        .composer-status.template-only {
-            color: var(--accent-orange);
-        }
-
-        .composer-form {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .composer-input {
-            flex: 1;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
-            font-size: 0.9rem;
-            font-family: inherit;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-        }
-
-        .composer-input:focus {
-            outline: none;
-            border-color: var(--accent-green);
-        }
-
-        .composer-btn {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            border: none;
-            background: var(--accent-green);
-            color: white;
-            font-size: 1.25rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .composer-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
-        }
-
-        .composer-btn:disabled {
-            background: var(--text-secondary);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .template-selector {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        .template-select {
-            flex: 1;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            font-size: 0.9rem;
-            font-family: inherit;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-        }
-
-        .template-select:focus {
-            outline: none;
-            border-color: var(--accent-green);
-        }
-
-        .send-result {
-            padding: 0.5rem;
-            margin-top: 0.5rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-        }
-
-        .send-result.success {
-            background: rgba(37, 211, 102, 0.1);
-            color: var(--accent-green);
-        }
-
-        .send-result.error {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--accent-red);
-        }
-
-        .mode-tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .mode-tab {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-primary);
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .mode-tab.active {
-            background: var(--accent-green);
-            color: white;
-            border-color: var(--accent-green);
-        }
-
-        .mode-tab:hover:not(.active) {
-            background: var(--bg-secondary);
-        }
-
+        /* Utility for hiding/showing modes */
         .hidden {
             display: none !important;
-        }
-
-        /* --- CRM STYLES --- */
-        .contact-name {
-            font-weight: 600;
-            margin-bottom: 0.2rem;
-            color: var(--text-primary);
-        }
-
-        .contact-phone-small {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-
-        .tags-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.3rem;
-            margin-top: 0.4rem;
-        }
-
-        .tag-badge {
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            font-size: 0.7rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-        }
-
-        .crm-actions {
-            display: flex;
-            gap: 0.5rem;
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .icon-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 1.1rem;
-            padding: 0.4rem;
-            border-radius: 8px;
-            transition: background 0.2s;
-            color: var(--text-secondary);
-        }
-
-        .icon-btn:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            backdrop-filter: blur(2px);
-        }
-
-        .modal {
-            background: var(--bg-primary);
-            border-radius: 16px;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            overflow: hidden;
-            animation: modalSlideIn 0.3s ease-out;
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-        }
-
-        @keyframes modalSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .modal-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h3 {
-            margin: 0;
-            font-size: 1.25rem;
-        }
-
-        .modal-body {
-            padding: 1.5rem;
-        }
-
-        .modal-footer {
-            padding: 1rem 1.5rem;
-            background: var(--bg-secondary);
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.75rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            font-family: inherit;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--accent-green);
-        }
-
-        .btn {
-            padding: 0.6rem 1.2rem;
-            border-radius: 8px;
-            border: none;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: var(--text-secondary);
-            border: 1px solid var(--border-color);
-        }
-
-        .btn-secondary:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-        }
-
-        .btn-primary {
-            background: var(--accent-green);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #128C7E;
-        }
-
-        /* Header User Info */
-        .chat-user-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .chat-user-name {
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .chat-user-phone {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
         }
     </style>
 </head>
 
-<body>
-    <div class="dashboard">
-        <header class="header">
-            <div class="logo">
-                <div class="logo-icon">💬</div>
-                <h1>WhatsApp Dashboard</h1>
+<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white h-screen flex overflow-hidden">
+    <!-- Left Sidebar (30%) -->
+    <aside
+        class="w-[30%] min-w-[320px] max-w-[450px] border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-[#152a17]">
+        <!-- Sidebar Header -->
+        <div class="p-4 flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <div
+                            class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 bg-primary flex items-center justify-center text-white font-bold text-xl">
+                            CRM
+                        </div>
+                        <div
+                            class="absolute bottom-0 right-0 size-3 bg-primary border-2 border-white dark:border-[#152a17] rounded-full">
+                        </div>
+                    </div>
+                    <div class="flex flex-col">
+                        <h1 class="text-[#111812] dark:text-white text-base font-semibold leading-tight">CRM Workspace
+                        </h1>
+                        <p class="text-[#618965] dark:text-primary/70 text-xs font-medium">Online</p>
+                    </div>
+                </div>
+                <div class="flex gap-1">
+                    <a href="/contacts"
+                        class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                        title="Manage Contacts">
+                        <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
+                    </a>
+                </div>
             </div>
-            <div class="stats-bar">
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-total">{{ stats.total }}</div>
-                    <div class="stat-label">Total</div>
+
+            <!-- Search Bar -->
+            <div class="relative">
+                <label class="flex flex-col w-full">
+                    <div class="flex w-full items-stretch rounded-xl h-10">
+                        <div
+                            class="text-gray-400 flex bg-gray-100 dark:bg-gray-800 items-center justify-center pl-4 rounded-l-xl">
+                            <span class="material-symbols-outlined text-[20px]">search</span>
+                        </div>
+                        <input id="search-input"
+                            class="form-input flex w-full border-none bg-gray-100 dark:bg-gray-800 focus:ring-0 h-full placeholder:text-gray-400 px-4 rounded-r-xl pl-2 text-sm font-normal"
+                            placeholder="Buscar conversación..." value="" />
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Conversation List -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar" id="contacts-list">
+            {% for contact in contacts %}
+            <div onclick="selectContact('{{ contact.phone_number }}')" data-phone="{{ contact.phone_number }}"
+                class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4  {% if selected_contact == contact.phone_number %}bg-primary/10 dark:bg-primary/20 border-primary active{% else %}bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent{% endif %}">
+
+                <div
+                    class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+                    {{ contact.name[0] if contact.name else contact.phone_number[-2:] }}
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value" style="color: var(--accent-blue)">{{ stats.sent }}</div>
-                    <div class="stat-label">Enviados</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" style="color: var(--accent-purple)">{{ stats.read }}</div>
-                    <div class="stat-label">Leídos</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" style="color: var(--accent-red)">{{ stats.failed }}</div>
-                    <div class="stat-label">Fallidos</div>
+
+                <div class="flex flex-col justify-center flex-1 min-w-0">
+                    <div class="flex justify-between items-center">
+                        <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or
+                            contact.phone_number }}</p>
+                        <p class="text-[10px] text-gray-400">{{ (contact.last_timestamp|to_argentina).strftime('%H:%M')
+                            if contact.last_timestamp else '' }}</p>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}
+                        </p>
+                        <!-- Badge placeholder if we had unread counts -->
+                    </div>
                 </div>
             </div>
-            <div style="margin-left: auto; display: flex; gap: 0.5rem;">
-                <a href="/dashboard" class="analytics-btn"
-                    style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">💬
-                    Dashboard</a>
-                <a href="/contacts" class="analytics-btn"
-                    style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">👥
-                    Contactos</a>
-                <a href="/tags" class="analytics-btn"
-                    style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">🏷️
-                    Etiquetas</a>
-                <a href="/failed-messages" class="analytics-btn"
-                    style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">⚠️
-                    Fallidos</a>
-                <a href="/analytics" class="analytics-btn">📊 Analytics</a>
-                <a href="/whatsapp-settings" class="analytics-btn"
-                    style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">⚙️ Settings</a>
+            {% else %}
+            <div class="p-8 text-center text-gray-400 text-sm">No hay conversaciones</div>
+            {% endfor %}
+        </div>
+
+        <!-- Sidebar Bottom Navigation -->
+        <div
+            class="p-2 border-t border-gray-100 dark:border-gray-800 flex justify-between bg-gray-50 dark:bg-[#0c1a0e]">
+            <a href="/dashboard" class="flex flex-col items-center gap-1 px-4 py-2 text-primary">
+                <span class="material-symbols-outlined">chat</span>
+                <span class="text-[10px] font-bold">Chats</span>
+            </a>
+            <a href="/contacts"
+                class="flex flex-col items-center gap-1 px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <span class="material-symbols-outlined">group</span>
+                <span class="text-[10px] font-medium">Contactos</span>
+            </a>
+            <a href="/campaigns"
+                class="flex flex-col items-center gap-1 px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <span class="material-symbols-outlined">campaign</span>
+                <span class="text-[10px] font-medium">Campañas</span>
+            </a>
+            <a href="/analytics"
+                class="flex flex-col items-center gap-1 px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <span class="material-symbols-outlined">bar_chart</span>
+                <span class="text-[10px] font-medium">Stats</span>
+            </a>
+            <a href="/whatsapp-settings"
+                class="flex flex-col items-center gap-1 px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <span class="material-symbols-outlined">settings</span>
+                <span class="text-[10px] font-medium">Config</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Chat Area (70%) -->
+    <main class="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
+        {% if selected_contact %}
+        <!-- Chat Header -->
+        <header
+            class="h-16 bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 z-10">
+            <div class="flex items-center gap-3">
+                <div
+                    class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-10 w-10 bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
+                    {{ contact_details.name[0] if contact_details and contact_details.name else selected_contact[-2:] }}
+                </div>
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2">
+                        <h2 class="chat-user-name text-[#111812] dark:text-white text-base font-semibold">
+                            {{ contact_details.name if contact_details and contact_details.name else selected_contact }}
+                        </h2>
+                        {% if contact_details and contact_details.tags %}
+                        <div class="flex gap-1">
+                            {% for tag in contact_details.tags %}
+                            <span
+                                class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">{{
+                                tag }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <p class="chat-user-phone text-xs text-gray-500 dark:text-gray-400">{{ selected_contact }}</p>
+                </div>
+            </div>
+            <!-- Header Actions -->
+            <div class="flex items-center gap-2">
+                <!-- Stats in header -->
+                <div class="hidden md:flex gap-3 mr-4 text-xs text-gray-500">
+                    <div class="chat-stat-sent flex items-center gap-1"><span
+                            class="w-2 h-2 rounded-full bg-blue-500"></span> {{ contact_stats.sent if contact_stats else
+                        0 }} sent</div>
+                    <div class="chat-stat-delivered flex items-center gap-1"><span
+                            class="w-2 h-2 rounded-full bg-green-500"></span> {{ contact_stats.delivered if
+                        contact_stats else 0 }} deliv</div>
+                    <div class="chat-stat-read flex items-center gap-1"><span
+                            class="w-2 h-2 rounded-full bg-purple-500"></span> {{ contact_stats.read if contact_stats
+                        else 0 }} read</div>
+                </div>
+                <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                    <span class="material-symbols-outlined text-gray-500">more_vert</span>
+                </button>
             </div>
         </header>
 
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-                    <div class="search-box" style="flex: 1;">
-                        <input type="text" id="search-input" placeholder="🔍 Buscar...">
-                    </div>
-                    <div style="display: flex; gap: 0.2rem;">
-                        <button class="icon-btn" onclick="openImportModal()" title="Importar Contactos">📥</button>
-                        <a href="/api/contacts/export" class="icon-btn" title="Exportar Contactos"
-                            style="text-decoration: none; display: flex; align-items: center; justify-content: center;">📤</a>
-                    </div>
+        <!-- Message List -->
+        <div id="chat-messages"
+            class="flex-1 overflow-y-auto p-4 md:px-8 lg:px-12 flex flex-col gap-4 custom-scrollbar">
+            {% set ns = namespace(last_date='') %}
+            {% for msg in messages %}
+            {% set msg_argentina = msg.timestamp|to_argentina %}
+            {% set msg_date = msg_argentina.strftime('%d/%m/%Y') if msg_argentina else '' %}
+
+            {% if msg_date != ns.last_date %}
+            <div class="flex justify-center my-4 date-separator">
+                <span
+                    class="bg-white/90 dark:bg-gray-800/90 text-[11px] font-semibold text-gray-500 dark:text-gray-400 py-1 px-4 rounded-full shadow-sm">{{
+                    msg_date }}</span>
+            </div>
+            {% set ns.last_date = msg_date %}
+            {% endif %}
+
+            {% if msg.direction == 'inbound' %}
+            <div class="flex flex-col items-start max-w-[80%]">
+                <div
+                    class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
+                    <p>{{ msg.content or '[Sin contenido]' }}</p>
+                    <div class="text-[10px] text-gray-400 text-right mt-1">{{ msg_argentina.strftime('%H:%M') if
+                        msg_argentina else '' }}</div>
                 </div>
             </div>
-            <div class="contacts-list" id="contacts-list">
-                {% for contact in contacts %}
-                <div class="contact-item {% if loop.first and not selected_contact %}active{% endif %}"
-                    data-phone="{{ contact.phone_number }}" data-name="{{ contact.name or '' }}"
-                    data-tags="{{ contact.tags|join(',') }}" onclick="selectContact('{{ contact.phone_number }}')">
-
-                    <div class="contact-info-wrapper">
-                        {% if contact.name %}
-                        <div class="contact-name">{{ contact.name }}</div>
-                        <div class="contact-phone-small">{{ contact.phone_number }}</div>
-                        {% else %}
-                        <div class="contact-phone">{{ contact.phone_number }}</div>
-                        {% endif %}
-
-                        <div class="contact-preview">{{ contact.last_message or 'Sin mensajes' }}</div>
-
-                        {% if contact.tags %}
-                        <div class="tags-container">
-                            {% for tag in contact.tags[:3] %}
-                            <span class="tag-badge">{{ tag }}</span>
-                            {% endfor %}
-                            {% if contact.tags|length > 3 %}
-                            <span class="tag-badge">+{{ contact.tags|length - 3 }}</span>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        <div class="contact-meta">
-                            <span>{{ contact.message_count }} msgs</span>
-                            <span class="contact-badge">{{ (contact.last_timestamp|to_argentina).strftime('%d/%m %H:%M')
-                                if
-                                contact.last_timestamp else '' }}</span>
-                        </div>
-                    </div>
-                </div>
-                {% else %}
-                <div class="empty-state" style="padding: 2rem;">
-                    <p>No hay conversaciones</p>
-                </div>
-                {% endfor %}
-            </div>
-        </aside>
-
-        <main class="main-content">
-            {% if selected_contact %}
-            <div class="chat-header">
-                {% if selected_contact %}
-                <div class="chat-user-info">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span class="chat-user-name" style="font-size: 1.1rem;">
-                            {{ contact_details.name if contact_details and contact_details.name else selected_contact }}
+            {% else %}
+            <div class="flex flex-col items-end max-w-[80%] self-end">
+                <div
+                    class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
+                    <p>{{ msg.content or '[Sin contenido]' }}</p>
+                    <div class="flex items-center justify-end gap-1 mt-1">
+                        <span class="text-[10px] text-white/80">{{ msg_argentina.strftime('%H:%M') if msg_argentina else
+                            '' }}</span>
+                        <span class="material-symbols-outlined text-[14px] text-white">
+                            {% if msg.latest_status == 'read' %}done_all{% elif msg.latest_status == 'delivered'
+                            %}done_all{% else %}check{% endif %}
                         </span>
-                        <button class="icon-btn" onclick="openContactModal()" title="Editar Contacto"
-                            style="font-size: 0.9rem; padding: 2px 6px;">✏️</button>
                     </div>
-
-                    {% if contact_details and contact_details.name %}
-                    <span class="chat-user-phone">{{ selected_contact }}</span>
-                    {% endif %}
-
-                    {% if contact_details and contact_details.tags %}
-                    <div class="tags-container" style="margin-top: 2px;">
-                        {% for tag in contact_details.tags %}
-                        <span class="tag-badge">{{ tag }}</span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-
-                    {% if contact_details and contact_details.notes %}
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; font-style: italic;">
-                        📝 {{ contact_details.notes }}
-                    </div>
-                    {% endif %}
-                </div>
-                {% else %}
-                <div class="chat-user-info">
-                    <span class="chat-user-name">Selecciona un chat</span>
-                </div>
-                {% endif %}
-                <div class="chat-status">
-                    <div class="status-item">
-                        <div class="status-dot sent"></div>
-                        <span>{{ contact_stats.sent }} enviados</span>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-dot delivered"></div>
-                        <span>{{ contact_stats.delivered }} entregados</span>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-dot read"></div>
-                        <span>{{ contact_stats.read }} leídos</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="chat-messages" id="chat-messages">
-                {% set ns = namespace(last_date='') %}
-                {% for msg in messages %}
-                {% set msg_argentina = msg.timestamp|to_argentina %}
-                {% set msg_date = msg_argentina.strftime('%d/%m/%Y') if msg_argentina else '' %}
-                {% if msg_date != ns.last_date %}
-                <div class="date-separator"><span>{{ msg_date }}</span></div>
-                {% set ns.last_date = msg_date %}
-                {% endif %}
-
-                <div class="message {{ msg.direction }}">
-                    <div class="message-content">{{ msg.content or '[Sin contenido]' }}</div>
-                    <div class="message-meta">
-                        <span>{{ msg_argentina.strftime('%H:%M') if msg_argentina else '' }}</span>
-                        {% if msg.direction == 'outbound' %}
-                        {% if msg.latest_status == 'read' %}
-                        <span class="message-status read">✓✓</span>
-                        {% elif msg.latest_status == 'delivered' %}
-                        <span class="message-status delivered">✓✓</span>
-                        {% elif msg.latest_status == 'sent' %}
-                        <span class="message-status sent">✓</span>
-                        {% elif msg.latest_status == 'failed' %}
-                        <span class="message-status failed">✗</span>
-                        {% else %}
-                        <span class="message-status sent">⏳</span>
-                        {% endif %}
-                        {% endif %}
-                    </div>
-                </div>
-                {% else %}
-                <div class="empty-state">
-                    <div class="empty-state-icon">💬</div>
-                    <p>No hay mensajes en esta conversación</p>
-                </div>
-                {% endfor %}
-            </div>
-
-            <!-- Message Composer -->
-            {% if whatsapp_configured and selected_contact %}
-            <div class="message-composer">
-                {% if can_send_free_text %}
-                <div class="composer-status can-text">
-                    ✅ Ventana de 24h activa - Puedes enviar mensajes libres
-                </div>
-                {% else %}
-                <div class="composer-status template-only">
-                    ⚠️ Sin mensajes recientes - Solo puedes enviar templates
-                </div>
-                {% endif %}
-
-                <div class="mode-tabs">
-                    <button class="mode-tab {% if can_send_free_text %}active{% endif %}" id="text-mode-btn"
-                        onclick="switchMode('text')" {% if not can_send_free_text %}disabled{% endif %}>
-                        ✉️ Texto Libre
-                    </button>
-                    <button class="mode-tab {% if not can_send_free_text %}active{% endif %}" id="template-mode-btn"
-                        onclick="switchMode('template')">
-                        📝 Template
-                    </button>
-                </div>
-
-                <!-- Text Mode -->
-                <div id="text-mode" class="{% if not can_send_free_text %}hidden{% endif %}">
-                    <form class="composer-form" onsubmit="sendTextMessage(event)">
-                        <input type="text" class="composer-input" id="message-input"
-                            placeholder="Escribe un mensaje...">
-                        <button type="submit" class="composer-btn">➤</button>
-                    </form>
-                </div>
-
-                <!-- Template Mode -->
-                <div id="template-mode" class="{% if can_send_free_text %}hidden{% endif %}">
-                    <form class="template-selector" onsubmit="sendTemplateMessage(event)">
-                        <select class="template-select" id="template-select">
-                            <option value="">-- Selecciona un template --</option>
-                            {% for t in templates %}
-                            <option value="{{ t.name }}" data-lang="{{ t.language }}">
-                                {{ t.name }} ({{ t.language }})
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <button type="submit" class="composer-btn">➤</button>
-                    </form>
-                </div>
-
-                <div id="send-result"></div>
-            </div>
-            {% elif selected_contact and not whatsapp_configured %}
-            <div class="message-composer">
-                <div class="composer-status">
-                    ⚠️ <a href="/whatsapp-settings" style="color: var(--accent-blue);">Configura la API de WhatsApp</a>
-                    para enviar mensajes
                 </div>
             </div>
             {% endif %}
 
             {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon">💬</div>
-                <h3>Selecciona una conversación</h3>
-                <p>Elige un contacto del panel izquierdo</p>
+            <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
+                <span class="material-symbols-outlined text-6xl opacity-20">chat_bubble_outline</span>
+                <p class="mt-2 text-sm">No hay mensajes</p>
             </div>
-            {% endif %}
-        </main>
-    </div>
+            {% endfor %}
+        </div>
+
+        <!-- Message Footer -->
+        <footer class="p-4 bg-white dark:bg-[#152a17] border-t border-gray-200 dark:border-gray-800 message-composer">
+            <div class="max-w-4xl mx-auto flex flex-col gap-3">
+                {% if whatsapp_configured %}
+
+                {% if not can_send_free_text %}
+                <div
+                    class="text-xs text-orange-500 font-medium px-1 flex items-center gap-1 composer-status template-only">
+                    <span class="material-symbols-outlined text-sm">warning</span>
+                    Fuera de la ventana de 24h. Envía un template.
+                </div>
+                {% else %}
+                <div class="text-xs text-green-500 font-medium px-1 flex items-center gap-1 composer-status can-text">
+                    <span class="material-symbols-outlined text-sm">check_circle</span>
+                    Ventana de 24h activa.
+                </div>
+                {% endif %}
+
+                <!-- Composer Controls -->
+                <div class="flex items-center justify-between">
+                    <div class="flex h-8 items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-fit">
+                        <label
+                            class="flex cursor-pointer h-full items-center justify-center rounded-md px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-gray-700 has-[:checked]:shadow-sm text-xs font-semibold text-gray-500 dark:text-gray-400 has-[:checked]:text-primary transition-all">
+                            <span>Texto</span>
+                            <input class="invisible w-0" name="composer-mode" type="radio" value="text"
+                                id="text-mode-btn" onclick="switchMode('text')" {% if not can_send_free_text
+                                %}disabled{% endif %} {% if can_send_free_text %}checked{% endif %} />
+                        </label>
+                        <label
+                            class="flex cursor-pointer h-full items-center justify-center rounded-md px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-gray-700 has-[:checked]:shadow-sm text-xs font-semibold text-gray-500 dark:text-gray-400 has-[:checked]:text-primary transition-all">
+                            <span>Template</span>
+                            <input class="invisible w-0" name="composer-mode" type="radio" value="template"
+                                id="template-mode-btn" onclick="switchMode('template')" {% if not can_send_free_text
+                                %}checked{% endif %} />
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Text Mode Input -->
+                <div id="text-mode" class="{% if not can_send_free_text %}hidden{% endif %}">
+                    <form class="flex items-end gap-3" onsubmit="sendTextMessage(event)">
+                        <div
+                            class="flex-1 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 p-2 focus-within:border-primary transition-colors">
+                            <input id="message-input" type="text"
+                                class="w-full bg-transparent border-none focus:ring-0 text-sm text-[#111812] dark:text-gray-200 placeholder:text-gray-400 resize-none min-h-[40px] custom-scrollbar"
+                                placeholder="Escribe un mensaje..." />
+                        </div>
+                        <button type="submit"
+                            class="bg-primary text-white size-11 rounded-xl flex items-center justify-center hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all shrink-0">
+                            <span class="material-symbols-outlined fill-1">send</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Template Mode Input -->
+                <div id="template-mode" class="{% if can_send_free_text %}hidden{% endif %}">
+                    <form class="flex flex-col gap-3" onsubmit="sendTemplateMessage(event)">
+                        <div class="flex items-center gap-3">
+                            <select id="template-select"
+                                class="flex-1 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-3 px-4 focus:border-primary focus:ring-0">
+                                <option value="">-- Seleccionar Template --</option>
+                                {% for t in templates %}
+                                <option value="{{ t.name }}" data-lang="{{ t.language }}">{{ t.name }} ({{ t.language
+                                    }})</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit"
+                                class="bg-primary text-white size-11 rounded-xl flex items-center justify-center hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all shrink-0">
+                                <span class="material-symbols-outlined fill-1">send</span>
+                            </button>
+                        </div>
+                        <div id="template-variables-container" class="grid grid-cols-2 gap-2">
+                            <!-- Variables will be injected here -->
+                        </div>
+                    </form>
+                </div>
+
+                <div id="send-result" class="text-xs font-medium pt-1"></div>
+
+                {% else %}
+                <div class="text-center p-4 bg-gray-100 rounded-lg text-sm text-gray-500">
+                    WhatsApp API no configurada. <a href="/whatsapp-settings"
+                        class="text-primary underline">Configurar</a>
+                </div>
+                {% endif %}
+            </div>
+        </footer>
+        {% else %}
+        <!-- Empty State -->
+        <div class="flex-1 flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0c1a0e] text-gray-400">
+            <div class="bg-white dark:bg-[#152a17] p-8 rounded-full shadow-sm mb-4">
+                <span class="material-symbols-outlined text-6xl text-primary">chat</span>
+            </div>
+            <h3 class="text-lg font-semibold text-[#111812] dark:text-white">WhatsApp CRM</h3>
+            <p class="text-sm mt-2">Selecciona una conversación para comenzar</p>
+        </div>
+        {% endif %}
+    </main>
 
     <script>
-        // Current contact variable
+        // Serialize templates to JS
+        const allTemplates = {{ templates | tojson | safe }};
+
         let currentPhone = "{{ selected_contact or '' }}";
+        let currentContactName = ''; // Para evitar XSS en onclick
+        const templateVarCache = {}; // Preservar variables de plantilla por contacto
+
+        // Helper para escapar HTML (previene XSS)
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        function saveTemplateVars(phone) {
+            const inputs = document.querySelectorAll('#template-variables-container input');
+            if (inputs.length === 0) return;
+            const vars = {};
+            inputs.forEach(input => { vars[input.name] = input.value; });
+            templateVarCache[phone] = vars;
+        }
+
+        function restoreTemplateVars(phone) {
+            const cached = templateVarCache[phone];
+            if (!cached) return;
+            setTimeout(() => {
+                const inputs = document.querySelectorAll('#template-variables-container input');
+                inputs.forEach(input => {
+                    if (cached[input.name] !== undefined) input.value = cached[input.name];
+                });
+            }, 50);
+        }
+
+        // Agregar mensaje localmente sin recargar
+        function appendMessageLocally(text) {
+            const container = document.getElementById('chat-messages');
+            if (!container) return;
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+            const div = document.createElement('div');
+            div.className = 'flex flex-col items-end max-w-[80%] self-end';
+            div.innerHTML = `
+                <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
+                    <p>${escapeHtml(text)}</p>
+                    <div class="flex items-center justify-end gap-1 mt-1">
+                        <span class="text-[10px] text-white/80">${timeStr}</span>
+                        <span class="material-symbols-outlined text-[14px] text-white">check</span>
+                    </div>
+                </div>`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
 
         async function selectContact(phone) {
-            // Helper para recargar la página si algo falla (Fallback)
             const fallbackToReload = () => {
-                console.log('AJAX falló, recargando página...');
                 window.location.href = `/dashboard?phone=${encodeURIComponent(phone)}`;
             };
 
-            // 0. Validación de seguridad
             if (!document.getElementById('chat-messages')) {
                 fallbackToReload();
                 return;
             }
 
-            // UI Feedback inmediato (Mostrar selección)
+            // Guardar variables de plantilla antes de cambiar
+            if (currentPhone) saveTemplateVars(currentPhone);
+
+            // Visual update sidebar
             document.querySelectorAll('.contact-item').forEach(item => {
-                item.classList.remove('active');
+                item.classList.remove('bg-primary/10', 'dark:bg-primary/20', 'border-primary', 'active');
+                item.classList.add('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50', 'border-transparent');
                 if (item.dataset.phone === phone) {
-                    item.classList.add('active');
+                    item.classList.remove('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50', 'border-transparent');
+                    item.classList.add('bg-primary/10', 'dark:bg-primary/20', 'border-primary', 'active');
                 }
             });
 
-            // Mostrar estado de carga
+            // Mostrar loading spinner
             const chatMessages = document.getElementById('chat-messages');
-            if (chatMessages) chatMessages.style.opacity = '0.5';
+            chatMessages.innerHTML = `
+                <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
+                    <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <p class="mt-3 text-sm">Cargando mensajes...</p>
+                </div>`;
 
             try {
-                // intentamos cargar via API
-                const response = await fetch(`/api/messages/${encodeURIComponent(phone)}`);
+                const newUrl = `/dashboard?phone=${encodeURIComponent(phone)}`;
+                history.pushState({ phone: phone }, '', newUrl);
 
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
+                const response = await fetch(`/api/messages/${encodeURIComponent(phone)}`);
+                if (!response.ok) throw new Error('Network response not ok');
 
                 const data = await response.json();
-
                 if (data.success) {
                     currentPhone = phone;
                     renderChat(data);
-
-                    // Actualizar URL solo si todo salió bien
-                    const newUrl = `/dashboard?phone=${encodeURIComponent(phone)}`;
-                    history.pushState({ phone: phone }, '', newUrl);
+                    restoreTemplateVars(phone);
                 } else {
-                    // Si la API dice que falló, usamos fallback
-                    console.error('API Error:', data.error);
                     fallbackToReload();
                     return;
                 }
-
-                if (chatMessages) chatMessages.style.opacity = '1';
-
             } catch (err) {
-                console.error('Error en navegación AJAX:', err);
+                console.error(err);
                 fallbackToReload();
             }
         }
 
         function renderChat(data) {
-            // Actualizar Header
-            const contact = data.contact || { phone_number: currentPhone };
-
-            // Actualizar nombre y teléfono
+            const contact = data.contact || { phone_number: currentPhone, name: currentPhone };
             const nameEl = document.querySelector('.chat-user-name');
             const phoneEl = document.querySelector('.chat-user-phone');
 
             if (nameEl) nameEl.textContent = contact.name || currentPhone;
-            if (phoneEl) phoneEl.textContent = contact.name ? currentPhone : '';
+            if (phoneEl) phoneEl.textContent = currentPhone;
 
-            // Actualizar Tags
-            const tagsContainer = document.querySelector('.chat-user-info .tags-container');
-            if (tagsContainer) {
-                if (contact.tags && contact.tags.length > 0) {
-                    tagsContainer.innerHTML = contact.tags.map(tag => `<span class="tag-badge">${tag}</span>`).join('');
-                } else {
-                    tagsContainer.innerHTML = '';
-                }
+            // Guardar nombre para uso seguro (evita XSS en onclick)
+            currentContactName = contact.name || '';
+
+            // Update Edit Button — sin embeber el nombre en el string
+            const headerActions = document.querySelector('header .flex.items-center.gap-2');
+            if (headerActions) {
+                const editBtn = headerActions.querySelector('button');
+                if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
             }
 
-            // Actualizar Notas
-            // (Simplificado: buscamos el div de notas si existe, o lo creamos si es necesario)
-            // Para simplificar, asumimos que se actualiza si ya existe la estructura
-
-            // Actualizar Stats
-            if (data.stats) {
-                const statsContainer = document.querySelector('.chat-status');
-                if (statsContainer) {
-                    statsContainer.innerHTML = `
-                        <div class="status-item"><div class="status-dot sent"></div><span>${data.stats.sent} enviados</span></div>
-                        <div class="status-item"><div class="status-dot delivered"></div><span>${data.stats.delivered} entregados</span></div>
-                        <div class="status-item"><div class="status-dot read"></div><span>${data.stats.read} leídos</span></div>
-                    `;
-                }
-            }
-
-            // Renderizar Mensajes
-            const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
+            // Render Messages
+            const container = document.getElementById('chat-messages');
+            if (container) {
                 if (!data.messages || data.messages.length === 0) {
-                    messagesContainer.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">💬</div>
-                            <p>No hay mensajes en esta conversación</p>
-                        </div>
-                     `;
+                    container.innerHTML = `
+                        <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
+                            <span class="material-symbols-outlined text-6xl opacity-20">chat_bubble_outline</span>
+                            <p class="mt-2 text-sm">No hay mensajes</p>
+                        </div>`;
                 } else {
                     let html = '';
                     let lastDate = '';
 
                     data.messages.forEach(msg => {
-                        // Separador de fecha
                         if (msg.date !== lastDate) {
-                            html += `<div class="date-separator"><span>${msg.date}</span></div>`;
+                            html += `
+                            <div class="flex justify-center my-4 date-separator">
+                                <span class="bg-white/90 dark:bg-gray-800/90 text-[11px] font-semibold text-gray-500 dark:text-gray-400 py-1 px-4 rounded-full shadow-sm">${escapeHtml(msg.date)}</span>
+                            </div>`;
                             lastDate = msg.date;
                         }
 
-                        // Mensaje
-                        const isOutbound = msg.direction === 'outbound';
-                        let statusIcon = '';
-
-                        if (isOutbound) {
-                            if (msg.status === 'read') statusIcon = '<span class="message-status read">✓✓</span>';
-                            else if (msg.status === 'delivered') statusIcon = '<span class="message-status delivered">✓✓</span>';
-                            else if (msg.status === 'sent') statusIcon = '<span class="message-status sent">✓</span>';
-                            else if (msg.status === 'failed') statusIcon = '<span class="message-status failed">✗</span>';
-                            else statusIcon = '<span class="message-status sent">⏳</span>';
-                        }
-
-                        html += `
-                            <div class="message ${msg.direction}">
-                                <div class="message-content">${msg.content || '[Sin contenido]'}</div>
-                                <div class="message-meta">
-                                    <span>${msg.time}</span>
-                                    ${statusIcon}
+                        const content = escapeHtml(msg.content || '[Sin contenido]');
+                        if (msg.direction === 'inbound') {
+                            html += `
+                            <div class="flex flex-col items-start max-w-[80%]">
+                                <div class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
+                                    <p>${content}</p>
+                                    <div class="text-[10px] text-gray-400 text-right mt-1">${msg.time}</div>
                                 </div>
-                            </div>
-                        `;
+                            </div>`;
+                        } else {
+                            let icon = 'check';
+                            if (msg.status === 'read') icon = 'done_all';
+                            else if (msg.status === 'delivered') icon = 'done_all';
+
+                            html += `
+                            <div class="flex flex-col items-end max-w-[80%] self-end">
+                                <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
+                                    <p>${content}</p>
+                                    <div class="flex items-center justify-end gap-1 mt-1">
+                                        <span class="text-[10px] text-white/80">${msg.time}</span>
+                                        <span class="material-symbols-outlined text-[14px] text-white">${icon}</span>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }
                     });
-
-                    messagesContainer.innerHTML = html;
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    container.innerHTML = html;
+                    container.scrollTop = container.scrollHeight;
                 }
             }
 
-            // Actualizar Composer
-            const composer = document.querySelector('.message-composer');
-            if (composer) {
-                // Actualizar estado de ventana 24h
-                const statusDiv = composer.querySelector('.composer-status');
-                const textModeBtn = document.getElementById('text-mode-btn');
-                const textMode = document.getElementById('text-mode');
-                const templateMode = document.getElementById('template-mode');
+            // Update Composer State
+            updateComposerState(data.can_send_free_text);
+        }
 
-                if (data.can_send_free_text) {
-                    if (statusDiv) {
-                        statusDiv.className = 'composer-status can-text';
-                        statusDiv.innerHTML = '✅ Ventana de 24h activa - Puedes enviar mensajes libres';
-                    }
-                    if (textModeBtn) {
-                        textModeBtn.disabled = false;
-                        textModeBtn.classList.add('active'); // Activar por defecto si se puede
-                    }
-                    // Cambiar a modo texto automáticamente
-                    switchMode('text');
-                } else {
-                    if (statusDiv) {
-                        statusDiv.className = 'composer-status template-only';
-                        statusDiv.innerHTML = '⚠️ Sin mensajes recientes - Solo puedes enviar templates';
-                    }
-                    if (textModeBtn) {
-                        textModeBtn.disabled = true;
-                        textModeBtn.classList.remove('active');
-                    }
-                    // Cambiar a modo template automáticamente
-                    switchMode('template');
-                }
+        function updateComposerState(canSendText) {
+            const statusDivs = document.querySelectorAll('.composer-status');
+            const textBtn = document.getElementById('text-mode-btn');
+
+            // Hide all statuses first
+            statusDivs.forEach(d => d.classList.add('hidden'));
+
+            if (canSendText) {
+                // Show 'can-text' status
+                const okDiv = document.querySelector('.composer-status.can-text');
+                if (okDiv) okDiv.classList.remove('hidden');
+
+                if (textBtn) textBtn.disabled = false;
+                switchMode('text');
             } else {
-                // Si estaba en empty state global y ahora seleccionamos un chat, habría que recargar la página 
-                // porque el composer no existe en el DOM inicial del empty state.
-                // Para simplificar esta iteración: Si no hay composer (porque venimos de "Selecciona una conversación"), recargamos.
-                if (!document.querySelector('.message-composer') && data.whatsapp_configured) {
-                    location.reload();
-                }
+                // Show 'template-only' status
+                const warnDiv = document.querySelector('.composer-status.template-only');
+                if (warnDiv) warnDiv.classList.remove('hidden');
+
+                if (textBtn) textBtn.disabled = true;
+                switchMode('template');
             }
         }
 
-
-
-        // Search filter
-        document.getElementById('search-input').addEventListener('input', function (e) {
-            const search = e.target.value.toLowerCase();
-            document.querySelectorAll('.contact-item').forEach(item => {
-                const phone = item.dataset.phone.toLowerCase();
-                item.style.display = phone.includes(search) ? '' : 'none';
-            });
-        });
-
-        // Scroll to bottom of chat
-        const chatMessages = document.getElementById('chat-messages');
-        if (chatMessages) {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        // Switch between text and template mode
         function switchMode(mode) {
             document.getElementById('text-mode').classList.toggle('hidden', mode !== 'text');
             document.getElementById('template-mode').classList.toggle('hidden', mode !== 'template');
-            document.getElementById('text-mode-btn').classList.toggle('active', mode === 'text');
-            document.getElementById('template-mode-btn').classList.toggle('active', mode === 'template');
+
+            // Visual toggle of radio buttons is handled by browser native radio behavior usually, 
+            // but we might need to force check if they are custom styled.
+            // In this design, they are radio inputs.
+            const radios = document.getElementsByName('composer-mode');
+            radios.forEach(r => {
+                if (r.value === mode) r.checked = true;
+            });
         }
 
-        // Send text message
         async function sendTextMessage(e) {
             e.preventDefault();
             const input = document.getElementById('message-input');
             const text = input.value.trim();
-            if (!text || !currentPhone) return;
+            if (!text) return;
 
-            const resultDiv = document.getElementById('send-result');
-            resultDiv.innerHTML = '<div class="send-result">Enviando...</div>';
+            if (!currentPhone) {
+                alert('Error: No se ha seleccionado ningún teléfono (currentPhone is empty)');
+                return;
+            }
+
+            const resDiv = document.getElementById('send-result');
+            resDiv.innerHTML = 'Enviando...';
+            resDiv.className = 'text-xs text-gray-500 pt-1';
 
             try {
+                console.log('Sending text to:', currentPhone, 'Content:', text);
                 const response = await fetch('/api/whatsapp/send-text', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ to: currentPhone, text: text })
                 });
 
+                if (!response.ok) {
+                    const textErr = await response.text();
+                    throw new Error(`Server error: ${response.status} ${textErr}`);
+                }
+
                 const data = await response.json();
 
                 if (data.success) {
-                    resultDiv.innerHTML = '<div class="send-result success">✅ Mensaje enviado</div>';
+                    resDiv.innerHTML = 'Enviado ✓';
+                    resDiv.className = 'text-xs text-green-500 pt-1';
+                    appendMessageLocally(text);
                     input.value = '';
-                    // Reload after a short delay to show the new message
-                    setTimeout(() => location.reload(), 1500);
+                    setTimeout(() => { resDiv.innerHTML = ''; }, 2000);
                 } else {
-                    resultDiv.innerHTML = `<div class="send-result error">❌ ${data.error || 'Error'}</div>`;
+                    resDiv.innerHTML = 'Error: ' + (data.error || 'Unknown');
+                    resDiv.className = 'text-xs text-red-500 pt-1';
+                    alert('Error enviando mensaje: ' + (data.error || 'Unknown'));
                 }
-            } catch (err) {
-                resultDiv.innerHTML = '<div class="send-result error">❌ Error de conexión</div>';
+            } catch (e) {
+                console.error(e);
+                resDiv.innerHTML = 'Error: ' + e.message;
+                resDiv.className = 'text-xs text-red-500 pt-1';
+                alert('Error de conexión o servidor: ' + e.message);
             }
         }
 
-        // Send template message
-        // Send template message
+        // Template Selection Logic
+        document.getElementById('template-select').addEventListener('change', function (e) {
+            const templateName = e.target.value;
+            const container = document.getElementById('template-variables-container');
+            container.innerHTML = '';
+
+            if (!templateName) return;
+
+            const template = allTemplates.find(t => t.name === templateName);
+            if (!template) return;
+
+            // Find BODY component
+            const bodyComp = template.components.find(c => c.type === 'BODY');
+            if (bodyComp && bodyComp.text) {
+                const matches = bodyComp.text.match(/\{\{\d+\}\}/g);
+                if (matches) {
+                    // Deduplicate
+                    const vars = [...new Set(matches)];
+                    vars.forEach((v, index) => {
+                        const varNum = v.replace(/[\{\}]/g, '');
+                        const div = document.createElement('div');
+                        div.className = 'flex flex-col';
+                        div.innerHTML = `
+                            <label class="text-[10px] text-gray-500 uppercase font-bold">Variable {{ '{{' }}${varNum}{{ '}}' }}</label>
+                            <input type="text" name="var_${varNum}" class="rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-2 px-3 focus:border-primary focus:ring-0" placeholder="Valor para variable ${varNum}">
+                         `;
+                        container.appendChild(div);
+                    });
+                }
+            }
+        });
+
         async function sendTemplateMessage(e) {
             e.preventDefault();
             const select = document.getElementById('template-select');
             const templateName = select.value;
-            const lang = select.options[select.selectedIndex]?.dataset.lang || 'es_AR';
+            const lang = select.options[select.selectedIndex]?.dataset.lang || 'es';
 
-            if (!templateName || !currentPhone) {
-                alert('Selecciona un template');
+            if (!templateName) return;
+            if (!currentPhone) {
+                alert('Error: Selecciona un contacto primero.');
                 return;
             }
 
-            // Recolectar mapeo de variables
-            const variableInputs = document.querySelectorAll('.template-variable-select');
-            const variableMapping = Array.from(variableInputs).map(input => input.value);
+            // Collect variables
+            const components = [];
+            const inputs = document.querySelectorAll('#template-variables-container input');
+            if (inputs.length > 0) {
+                const params = [];
+                inputs.forEach(input => {
+                    params.push({
+                        type: "text",
+                        text: input.value
+                    });
+                });
+                components.push({
+                    type: "body",
+                    parameters: params
+                });
+            }
 
-            const resultDiv = document.getElementById('send-result');
-            resultDiv.innerHTML = '<div class="send-result">Enviando template...</div>';
+            const resDiv = document.getElementById('send-result');
+            resDiv.innerHTML = 'Enviando template...';
+            resDiv.className = 'text-xs text-gray-500 pt-1';
 
             try {
+                const payload = {
+                    to: currentPhone,
+                    template_name: templateName,
+                    language: lang,
+                    components: components // Send raw components structure
+                };
+
+                // BACKEND COMPATIBILITY CHECK:
+                // The backend likely expects 'variable_mapping' or 'components'.
+                // Based on whatsapp_service.py: send_template_message(..., components=components)
+                // And app.py: we need to check how it handles arguments.
+
                 const response = await fetch('/api/whatsapp/send-template', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: currentPhone,
-                        template_name: templateName,
-                        language: lang,
-                        variable_mapping: variableMapping
-                    })
+                    body: JSON.stringify(payload)
                 });
+
+                if (!response.ok) {
+                    const textErr = await response.text();
+                    throw new Error(`Server error: ${response.status} ${textErr}`);
+                }
 
                 const data = await response.json();
-
                 if (data.success) {
-                    resultDiv.innerHTML = '<div class="send-result success">✅ Template enviado</div>';
+                    resDiv.innerHTML = 'Template enviado ✓';
+                    resDiv.className = 'text-xs text-green-500 pt-1';
+                    appendMessageLocally(`[Template: ${templateName}]`);
                     select.value = '';
-                    document.getElementById('template-variables-container').innerHTML = ''; // Limpiar variables
-                    setTimeout(() => location.reload(), 1500);
+                    document.getElementById('template-variables-container').innerHTML = '';
+                    setTimeout(() => { resDiv.innerHTML = ''; }, 2000);
                 } else {
-                    resultDiv.innerHTML = `<div class="send-result error">❌ ${data.error || 'Error'}</div>`;
+                    resDiv.innerHTML = 'Error: ' + (data.error || 'Unknown');
+                    resDiv.className = 'text-xs text-red-500 pt-1';
                 }
-            } catch (err) {
-                resultDiv.innerHTML = '<div class="send-result error">❌ Error de conexión</div>';
+            } catch (e) {
+                console.error(e);
+                resDiv.innerHTML = 'Error de conexión: ' + e.message;
+                resDiv.className = 'text-xs text-red-500 pt-1';
             }
         }
 
-        // Detectar cambio de template para mostrar inputs de variables
-        document.getElementById('template-select').addEventListener('change', function () {
-            const container = document.getElementById('template-variables-container');
-            if (!container) return; // Si no existe el container, salir
-
-            container.innerHTML = '';
-
-            const selectedOption = this.options[this.selectedIndex];
-            if (!selectedOption.value) return;
-
-            // Obtener el cuerpo del template (esto requiere que pasemos el body en los atributos del option)
-            // Como no lo tenemos disponible directamente aquí de forma limpia,
-            // vamos a hacer una estimación basada en el conteo de {{N}} o
-            // IDEALMENTE: Deberíamos haber pasado los componentes al renderizar el select.
-
-            // Hack temporal: Asumir que el backend envía el texto del body en un data-body attribute
-            const bodyText = selectedOption.dataset.body || "";
-            // Usamos new RegExp con concatenación de strings para romper la secuencia que Jinja2 detecta
-            const regexPattern = '{' + '{(\\d+)}' + '}';
-            const matches = bodyText.match(new RegExp(regexPattern, 'g'));
-
-            if (matches) {
-                // Eliminar duplicados y ordenar
-                const uniqueVars = [...new Set(matches)].sort();
-
-                uniqueVars.forEach((v, index) => {
-                    const varNum = index + 1; // 1, 2, 3...
-
-                    const div = document.createElement('div');
-                    div.className = 'variable-mapping-row';
-                    div.style.marginBottom = '0.5rem';
-                    div.innerHTML = `
-                        <label style="font-size: 0.8rem; display: block;">Variable ${'{' + '{'}${varNum}${'}' + '}'}:</label>
-                        <select class="template-variable-select form-input" style="width: 100%; padding: 4px;">
-                            <option value="">-- Texto Libre (vacío) --</option>
-                            <option value="name">Nombre Completo</option>
-                            <option value="first_name">Nombre (Pila)</option>
-                            <option value="last_name">Apellido</option>
-                            <option value="phone_number">Teléfono</option>
-                            <option value="custom_field_1">Caract. 1</option>
-                            <option value="custom_field_2">Caract. 2</option>
-                            <option value="custom_field_3">Caract. 3</option>
-                            <option value="custom_field_4">Caract. 4</option>
-                            <option value="custom_field_5">Caract. 5</option>
-                            <option value="custom_field_6">Caract. 6</option>
-                            <option value="custom_field_7">Caract. 7</option>
-                        </select>
-                    `;
-                    container.appendChild(div);
-                });
+        async function editContactName(phone) {
+            const newName = prompt("Editar nombre del contacto:", currentContactName);
+            if (newName !== null && newName !== currentContactName) {
+                try {
+                    const response = await fetch(`/api/contacts/${encodeURIComponent(phone)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newName })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        currentContactName = newName;
+                        document.querySelector('.chat-user-name').textContent = newName;
+                        const listItem = document.querySelector(`.contact-item[data-phone="${phone}"] p.font-semibold`);
+                        if (listItem) listItem.textContent = newName;
+                    } else {
+                        alert("Error actualizando nombre: " + data.error);
+                    }
+                } catch (e) {
+                    alert("Error de conexión: " + e.message);
+                }
             }
+        }
+
+        // Search
+        document.getElementById('search-input').addEventListener('input', function (e) {
+            const val = e.target.value.toLowerCase();
+            document.querySelectorAll('.contact-item').forEach(item => {
+                const phone = item.dataset.phone.toLowerCase();
+                const name = item.querySelector('p.font-semibold')?.textContent?.toLowerCase() || '';
+                item.style.display = (phone.includes(val) || name.includes(val)) ? 'flex' : 'none';
+            });
         });
 
-        // Auto refresh every 30 seconds
-        setTimeout(() => location.reload(), 30000);
-    </script>
+        // Auto-scroll
+        const msgs = document.getElementById('chat-messages');
+        if (msgs) msgs.scrollTop = msgs.scrollHeight;
 
-    <!-- Contact Modal -->
-    <div id="contactModal" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Editar Contacto</h3>
-                <button class="icon-btn" onclick="closeModal('contactModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Teléfono</label>
-                    <input type="text" id="edit-phone" class="form-input" readonly disabled
-                        style="background: var(--bg-primary);">
-                </div>
-                <div class="form-group">
-                    <label>Nombre</label>
-                    <input type="text" id="edit-name" class="form-input" placeholder="Nombre del contacto">
-                </div>
-                <div class="form-group">
-                    <label>Notas</label>
-                    <textarea id="edit-notes" class="form-input" rows="3"
-                        placeholder="Notas sobre el cliente..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Etiquetas (separadas por coma)</label>
-                    <input type="text" id="edit-tags" class="form-input" placeholder="ej: vip, pendiente, nuevo">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('contactModal')">Cancelar</button>
-                <button class="btn btn-primary" onclick="saveContact()">Guardar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Import Modal -->
-    <div id="importModal" class="modal-overlay hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Importar Contactos</h3>
-                <button class="icon-btn" onclick="closeModal('importModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
-                    Sube un archivo Excel (.xlsx) o CSV con las columnas: <b>telefono</b>, <b>nombre</b>, <b>notas</b>,
-                    <b>etiquetas</b>.
-                </p>
-                <div class="form-group">
-                    <label>Archivo</label>
-                    <input type="file" id="import-file" class="form-input" accept=".xlsx, .csv">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('importModal')">Cancelar</button>
-                <button class="btn btn-primary" onclick="uploadContacts()">Importar</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function openContactModal() {
-            const phone = new URLSearchParams(window.location.search).get('phone');
-            if (!phone) return;
-
-            // Cargar datos actuales
-            fetch(`/api/contacts/${phone}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.details) {
-                        document.getElementById('edit-phone').value = phone;
-                        document.getElementById('edit-name').value = data.details.name || '';
-                        document.getElementById('edit-notes').value = data.details.notes || '';
-                        document.getElementById('edit-tags').value = (data.details.tags || []).join(', ');
-                        document.getElementById('contactModal').classList.remove('hidden');
-                    }
-                });
+        // Initial setup for Edit button (seguro contra XSS)
+        if (currentPhone) {
+            const nameEl = document.querySelector('.chat-user-name');
+            currentContactName = nameEl ? nameEl.textContent.trim() : '';
+            const headerActions = document.querySelector('header .flex.items-center.gap-2');
+            if (headerActions) {
+                const editBtn = headerActions.querySelector('button');
+                if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
+            }
         }
 
-        function openImportModal() {
-            document.getElementById('importModal').classList.remove('hidden');
-        }
+        // Polling inteligente: actualiza solo el chat cada 30s sin recargar la página
+        setInterval(() => {
+            if (currentPhone) {
+                fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
+                    .then(r => r.json())
+                    .then(data => { if (data.success) renderChat(data); })
+                    .catch(() => {}); // Silencioso si falla
+            }
+        }, 30000);
 
-        function closeModal(id) {
-            document.getElementById(id).classList.add('hidden');
-        }
-
-        function saveContact() {
-            const phone = document.getElementById('edit-phone').value;
-            const name = document.getElementById('edit-name').value;
-            const notes = document.getElementById('edit-notes').value;
-            const tagsStr = document.getElementById('edit-tags').value;
-            const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
-
-            fetch(`/api/contacts/${phone}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    name,
-                    notes,
-                    tags
-                })
-            })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Error guardando contacto');
-                    }
-                });
-        }
-
-        function uploadContacts() {
-            const fileInput = document.getElementById('import-file');
-            if (!fileInput.files[0]) return alert('Selecciona un archivo');
-
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-
-            fetch('/api/contacts/import', {
-                method: 'POST',
-                body: formData
-            })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        location.reload();
-                    } else {
-                        alert('Error: ' + data.error);
-                    }
-                });
-        }
-
-        // Búsqueda de contactos (Initialización si no se hizo arriba)
-        // Ya está manejada arriba, pero verificamos si hay código duplicado.
-        // El bloque de búsqueda de arriba (línea 1026) es suficiente.
     </script>
 </body>
 

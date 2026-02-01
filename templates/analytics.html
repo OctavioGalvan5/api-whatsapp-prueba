@@ -1,559 +1,338 @@
 <!DOCTYPE html>
-<html lang="es">
+<html class="light" lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics - WhatsApp Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Analytics - WhatsApp CRM</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec25",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102212",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
     <style>
-        :root {
-            --bg-primary: #f8fafc;
-            --bg-secondary: #ffffff;
-            --bg-card: #ffffff;
-            --accent-green: #25D366;
-            --accent-blue: #0ea5e9;
-            --accent-purple: #8b5cf6;
-            --accent-red: #ef4444;
-            --accent-orange: #f97316;
-            --accent-yellow: #eab308;
-            --text-primary: #0f172a;
-            --text-secondary: #64748b;
-            --border-color: #e2e8f0;
-            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        /* Header */
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .logo {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, var(--accent-green), #128C7E);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            color: white;
-        }
-
-        .header h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-        }
-
-        .header p {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .nav-btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 500;
-            text-decoration: none;
-            transition: all 0.2s;
-            font-size: 0.875rem;
-        }
-
-        .nav-btn.primary {
-            background: var(--accent-green);
-            color: white;
-        }
-
-        .nav-btn.secondary {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-        }
-
-        .nav-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-        }
-
-        .stat-card .icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .stat-card .icon.green {
-            background: rgba(37, 211, 102, 0.1);
-        }
-
-        .stat-card .icon.blue {
-            background: rgba(14, 165, 233, 0.1);
-        }
-
-        .stat-card .icon.purple {
-            background: rgba(139, 92, 246, 0.1);
-        }
-
-        .stat-card .icon.red {
-            background: rgba(239, 68, 68, 0.1);
-        }
-
-        .stat-card .icon.orange {
-            background: rgba(249, 115, 22, 0.1);
-        }
-
-        .stat-card .value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-card .label {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-
-        .stat-card .change {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            margin-top: 0.5rem;
-        }
-
-        .stat-card .change.up {
-            background: rgba(37, 211, 102, 0.1);
-            color: var(--accent-green);
-        }
-
-        .stat-card .change.down {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--accent-red);
-        }
-
-        /* Charts Grid */
-        .charts-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .chart-card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-        }
-
-        .chart-card h3 {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .chart-container {
-            height: 300px;
-            position: relative;
-        }
-
-        .chart-container.small {
-            height: 200px;
-        }
-
-        /* Two Column Charts */
-        .charts-row {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        /* Three Column Charts */
-        .charts-triple {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        /* Insights Cards */
-        .insights-section h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .insights-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-
-        .insight-card {
-            background: var(--bg-card);
-            border-radius: 12px;
-            padding: 1.25rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-            display: flex;
-            align-items: flex-start;
-            gap: 1rem;
-        }
-
-        .insight-card .insight-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            flex-shrink: 0;
-        }
-
-        .insight-card h4 {
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-
-        .insight-card p {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            line-height: 1.4;
-        }
-
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .charts-row {
-                grid-template-columns: 1fr;
-            }
-
-            .charts-triple {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-
-            .header {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .hidden { display: none !important; }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <header class="header">
-            <div class="header-left">
-                <div class="logo">📊</div>
-                <div>
-                    <h1>Analytics</h1>
-                    <p>Estadísticas detalladas de mensajes</p>
-                </div>
-            </div>
-            <div class="nav-buttons">
-                <a href="/dashboard" class="nav-btn secondary">💬 Dashboard</a>
-                <a href="/contacts" class="nav-btn secondary">👥 Contactos</a>
-                <a href="/tags" class="nav-btn secondary">🏷️ Etiquetas</a>
-                <a href="/failed-messages" class="nav-btn secondary">⚠️ Fallidos</a>
-                <a href="/analytics" class="nav-btn primary">📊 Analytics</a>
-            </div>
-        </header>
+<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white min-h-screen">
+    <div class="flex h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
+            <a href="/dashboard" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Dashboard">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">chat</span>
+            </a>
+            <a href="/contacts" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Contactos">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
+            </a>
+            <a href="/tags" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Etiquetas">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">label</span>
+            </a>
+            <a href="/campaigns" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Campañas">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">campaign</span>
+            </a>
+            <a href="/failed-messages" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Fallidos">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">error</span>
+            </a>
+            <a href="/analytics" class="p-3 rounded-xl bg-primary/10 text-primary" title="Analytics">
+                <span class="material-symbols-outlined">bar_chart</span>
+            </a>
+            <a href="/whatsapp-settings" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors mt-auto" title="Configuración">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">settings</span>
+            </a>
+        </aside>
 
-        <!-- Stats Cards -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="icon green">📨</div>
-                <div class="value">{{ stats.total_messages }}</div>
-                <div class="label">Mensajes Totales</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon blue">📤</div>
-                <div class="value">{{ stats.outbound }}</div>
-                <div class="label">Enviados</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon purple">📥</div>
-                <div class="value">{{ stats.inbound }}</div>
-                <div class="label">Recibidos</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon green">👁</div>
-                <div class="value">{{ stats.read }}</div>
-                <div class="label">Leídos</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon orange">✓✓</div>
-                <div class="value">{{ stats.delivered }}</div>
-                <div class="label">Entregados</div>
-            </div>
-            <div class="stat-card">
-                <div class="icon red">✗</div>
-                <div class="value">{{ stats.failed }}</div>
-                <div class="label">Fallidos</div>
-            </div>
-        </div>
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-xl font-bold text-[#111812] dark:text-white">Analytics</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Estadísticas detalladas de mensajes</p>
+                    </div>
+                </div>
+            </header>
 
-        <!-- Main Charts -->
-        <div class="charts-grid">
-            <div class="chart-card">
-                <h3>📈 Mensajes por Día (últimos 30 días)</h3>
-                <div class="chart-container">
-                    <canvas id="messagesByDayChart"></canvas>
+            <!-- Content -->
+            <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-primary">mail</span>
+                        </div>
+                        <div class="text-2xl font-bold">{{ stats.total_messages }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Mensajes Totales</div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-blue-500">outgoing_mail</span>
+                        </div>
+                        <div class="text-2xl font-bold">{{ stats.outbound }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Enviados</div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-purple-500">inbox</span>
+                        </div>
+                        <div class="text-2xl font-bold">{{ stats.inbound }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Recibidos</div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-primary">visibility</span>
+                        </div>
+                        <div class="text-2xl font-bold">{{ stats.read }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Leídos</div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-orange-500">done_all</span>
+                        </div>
+                        <div class="text-2xl font-bold">{{ stats.delivered }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Entregados</div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-red-500">error</span>
+                        </div>
+                        <div class="text-2xl font-bold">{{ stats.failed }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Fallidos</div>
+                    </div>
                 </div>
-            </div>
-            <div class="chart-card">
-                <h3>📊 Distribución de Estados</h3>
-                <div class="chart-container">
-                    <canvas id="statusDistChart"></canvas>
-                </div>
-            </div>
-        </div>
 
-        <!-- Hour Charts -->
-        <div class="charts-row">
-            <div class="chart-card">
-                <h3>🕐 Mensajes Enviados por Hora</h3>
-                <div class="chart-container small">
-                    <canvas id="sentByHourChart"></canvas>
+                <!-- Main Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div class="lg:col-span-2 bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">trending_up</span>
+                            Mensajes por Día (últimos 30 días)
+                        </h3>
+                        <div class="h-[300px]">
+                            <canvas id="messagesByDayChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">pie_chart</span>
+                            Distribución de Estados
+                        </h3>
+                        <div class="h-[300px]">
+                            <canvas id="statusDistChart"></canvas>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="chart-card">
-                <h3>👁 Mensajes Leídos por Hora</h3>
-                <div class="chart-container small">
-                    <canvas id="readByHourChart"></canvas>
-                </div>
-            </div>
-        </div>
 
-        <!-- More Charts -->
-        <div class="charts-triple">
-            <div class="chart-card">
-                <h3>📅 Por Día de la Semana</h3>
-                <div class="chart-container small">
-                    <canvas id="byDayOfWeekChart"></canvas>
+                <!-- Hour Charts -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">schedule</span>
+                            Mensajes Enviados por Hora
+                        </h3>
+                        <div class="h-[200px]">
+                            <canvas id="sentByHourChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-purple-500">visibility</span>
+                            Mensajes Leídos por Hora
+                        </h3>
+                        <div class="h-[200px]">
+                            <canvas id="readByHourChart"></canvas>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="chart-card">
-                <h3>↔️ Entrantes vs Salientes</h3>
-                <div class="chart-container small">
-                    <canvas id="directionChart"></canvas>
-                </div>
-            </div>
-            <div class="chart-card">
-                <h3>📱 Top Contactos</h3>
-                <div class="chart-container small">
-                    <canvas id="topContactsChart"></canvas>
-                </div>
-            </div>
-        </div>
 
-        <!-- Template Performance -->
-        {% if template_performance %}
-        <div class="chart-card" style="margin-bottom: 2rem;">
-            <h3>📝 Rendimiento de Templates</h3>
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
-                    <thead>
-                        <tr style="border-bottom: 2px solid var(--border-color);">
-                            <th style="text-align: left; padding: 0.75rem; font-weight: 600;">Template</th>
-                            <th style="text-align: center; padding: 0.75rem; font-weight: 600;">Enviados</th>
-                            <th style="text-align: center; padding: 0.75rem; font-weight: 600;">Leídos</th>
-                            <th style="text-align: center; padding: 0.75rem; font-weight: 600;">Tasa de Lectura</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for t in template_performance %}
-                        <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td
-                                style="padding: 0.75rem; font-size: 0.875rem; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                {{ t.name }}
-                            </td>
-                            <td style="text-align: center; padding: 0.75rem; font-weight: 500;">{{ t.sent }}</td>
-                            <td style="text-align: center; padding: 0.75rem; font-weight: 500;">{{ t.read }}</td>
-                            <td style="text-align: center; padding: 0.75rem;">
-                                <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                                    <span
-                                        style="width: 60px; height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden;">
-                                        <span
-                                            style="display: block; height: 100%; width: {{ t.read_rate }}%; background: {% if t.read_rate >= 70 %}var(--accent-green){% elif t.read_rate >= 40 %}var(--accent-orange){% else %}var(--accent-red){% endif %};"></span>
-                                    </span>
-                                    <strong
-                                        style="color: {% if t.read_rate >= 70 %}var(--accent-green){% elif t.read_rate >= 40 %}var(--accent-orange){% else %}var(--accent-red){% endif %};">{{
-                                        t.read_rate }}%</strong>
-                                </span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% endif %}
+                <!-- More Charts -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-blue-500">calendar_month</span>
+                            Por Día de la Semana
+                        </h3>
+                        <div class="h-[200px]">
+                            <canvas id="byDayOfWeekChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">swap_horiz</span>
+                            Entrantes vs Salientes
+                        </h3>
+                        <div class="h-[200px]">
+                            <canvas id="directionChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-orange-500">contacts</span>
+                            Top Contactos
+                        </h3>
+                        <div class="h-[200px]">
+                            <canvas id="topContactsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
 
-        <!-- Best Hours Section -->
-        <div class="charts-row">
-            <div class="chart-card">
-                <h3>🎯 Mejores Horarios para Enviar</h3>
-                <div style="padding: 1rem 0;">
-                    {% if insights.best_hours %}
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                        {% for hour in insights.best_hours %}
-                        <div
-                            style="flex: 1; min-width: 150px; background: var(--bg-primary); border-radius: 12px; padding: 1rem; text-align: center;">
-                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green);">{{ hour.hour
-                                }}:00</div>
-                            <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.5rem;">
-                                {{ hour.rate }}% tasa de lectura
+                <!-- Template Performance -->
+                {% if template_performance %}
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4 mb-6">
+                    <h3 class="font-semibold mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">description</span>
+                        Rendimiento de Templates
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-gray-700">
+                                    <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Template</th>
+                                    <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Enviados</th>
+                                    <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Leídos</th>
+                                    <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Tasa de Lectura</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                {% for t in template_performance %}
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <td class="px-4 py-3 text-sm font-medium max-w-[300px] truncate">{{ t.name }}</td>
+                                    <td class="px-4 py-3 text-sm text-center font-semibold">{{ t.sent }}</td>
+                                    <td class="px-4 py-3 text-sm text-center font-semibold">{{ t.read }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-2">
+                                            <div class="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full {% if t.read_rate >= 70 %}bg-primary{% elif t.read_rate >= 40 %}bg-orange-500{% else %}bg-red-500{% endif %}" style="width: {{ t.read_rate }}%"></div>
+                                            </div>
+                                            <span class="text-sm font-bold {% if t.read_rate >= 70 %}text-primary{% elif t.read_rate >= 40 %}text-orange-500{% else %}text-red-500{% endif %}">{{ t.read_rate }}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Best Hours & Read Rate -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">target</span>
+                            Mejores Horarios para Enviar
+                        </h3>
+                        {% if insights.best_hours %}
+                        <div class="grid grid-cols-3 gap-3">
+                            {% for hour in insights.best_hours %}
+                            <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 text-center">
+                                <div class="text-2xl font-bold text-primary">{{ hour.hour }}:00</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ hour.rate }}% tasa</div>
+                                <div class="text-xs text-gray-400 dark:text-gray-500">{{ hour.sent }} env / {{ hour.read }} leídos</div>
                             </div>
-                            <div style="color: var(--text-secondary); font-size: 0.75rem;">
-                                ({{ hour.sent }} enviados, {{ hour.read }} leídos)
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-gray-500 dark:text-gray-400 text-center py-4">Se necesitan más datos</p>
+                        {% endif %}
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <h3 class="font-semibold mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-purple-500">show_chart</span>
+                            Tasa de Lectura por Hora
+                        </h3>
+                        <div class="h-[200px]">
+                            <canvas id="readRateByHourChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insights -->
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                    <h3 class="font-semibold mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">lightbulb</span>
+                        Insights
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-primary">schedule</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold">Hora Pico</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Mayor actividad a las <strong>{{ insights.peak_hour }}:00</strong> con {{ insights.peak_hour_count }} mensajes</p>
                             </div>
                         </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <p style="color: var(--text-secondary); text-align: center;">Se necesitan más datos para calcular
-                        los mejores horarios</p>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="chart-card">
-                <h3>📊 Tasa de Lectura por Hora</h3>
-                <div class="chart-container small">
-                    <canvas id="readRateByHourChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Insights -->
-        <section class="insights-section">
-            <h2>💡 Insights</h2>
-            <div class="insights-grid">
-                <div class="insight-card">
-                    <div class="insight-icon" style="background: rgba(37, 211, 102, 0.1);">⏰</div>
-                    <div>
-                        <h4>Hora Pico de Mensajes</h4>
-                        <p>La mayor actividad se registra a las <strong>{{ insights.peak_hour }}:00</strong> con {{
-                            insights.peak_hour_count }} mensajes</p>
-                    </div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-icon" style="background: rgba(139, 92, 246, 0.1);">👁</div>
-                    <div>
-                        <h4>Tasa de Lectura General</h4>
-                        <p>El <strong>{{ insights.read_rate }}%</strong> de los mensajes enviados son leídos</p>
-                    </div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-icon" style="background: rgba(14, 165, 233, 0.1);">📅</div>
-                    <div>
-                        <h4>Día Más Activo</h4>
-                        <p><strong>{{ insights.busiest_day }}</strong> es el día con más mensajes</p>
-                    </div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-icon" style="background: rgba(249, 115, 22, 0.1);">📊</div>
-                    <div>
-                        <h4>Promedio Diario</h4>
-                        <p>Se envían en promedio <strong>{{ insights.avg_daily }}</strong> mensajes por día</p>
-                    </div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-icon" style="background: rgba(37, 211, 102, 0.1);">🎯</div>
-                    <div>
-                        <h4>Mejor Hora para Lecturas</h4>
-                        <p>Los mensajes se leen más a las <strong>{{ insights.peak_read_hour }}:00</strong></p>
-                    </div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-icon" style="background: rgba(139, 92, 246, 0.1);">📝</div>
-                    <div>
-                        <h4>Templates Usados</h4>
-                        <p>Se han usado <strong>{{ insights.template_count }}</strong> templates diferentes</p>
+                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-purple-500">visibility</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold">Tasa de Lectura</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">El <strong>{{ insights.read_rate }}%</strong> de mensajes son leídos</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-blue-500">calendar_month</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold">Día Más Activo</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.busiest_day }}</strong> es el día con más mensajes</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-orange-500">analytics</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold">Promedio Diario</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.avg_daily }}</strong> mensajes por día</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-primary">target</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold">Mejor Hora Lecturas</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Más lecturas a las <strong>{{ insights.peak_read_hour }}:00</strong></p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-purple-500">description</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold">Templates Usados</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.template_count }}</strong> templates diferentes</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </section>
+        </main>
     </div>
 
     <script>
@@ -561,7 +340,7 @@
 
         // Color palette
         const colors = {
-            green: '#25D366',
+            green: '#13ec25',
             blue: '#0ea5e9',
             purple: '#8b5cf6',
             red: '#ef4444',
@@ -584,7 +363,7 @@
                             label: 'Enviados',
                             data: chartData.messages_by_day.map(d => d.outbound || 0),
                             borderColor: colors.green,
-                            backgroundColor: 'rgba(37, 211, 102, 0.1)',
+                            backgroundColor: 'rgba(19, 236, 37, 0.1)',
                             fill: true,
                             tension: 0.4
                         },
@@ -602,9 +381,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { position: 'top' } },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
+                    scales: { y: { beginAtZero: true } }
                 }
             });
         }
@@ -769,9 +546,6 @@
                 }
             });
         }
-
-        // Auto refresh every 60 seconds
-        setTimeout(() => location.reload(), 60000);
     </script>
 </body>
 

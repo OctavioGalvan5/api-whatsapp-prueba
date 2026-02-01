@@ -10,12 +10,19 @@ class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     wa_message_id = db.Column(db.String(100), unique=True, nullable=True)
     phone_number = db.Column(db.String(20), nullable=False, index=True)
-    direction = db.Column(db.String(10), nullable=False)  # 'inbound' o 'outbound'
+    direction = db.Column(db.String(10), nullable=False, index=True)  # 'inbound' o 'outbound'
     message_type = db.Column(db.String(20), nullable=False)  # text, image, audio, etc.
     content = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    # Relación con estados
-    statuses = db.relationship('MessageStatus', backref='message', lazy=True, order_by='MessageStatus.timestamp')
+    # Relación con estados — lazy='joined' carga statuses en un solo JOIN al traer mensajes
+    statuses = db.relationship('MessageStatus', backref='message', lazy='joined', order_by='MessageStatus.timestamp')
+
+    # Índice compuesto para queries por contacto ordenadas por fecha
+    # Si la tabla ya existe, crear manualmente:
+    #   CREATE INDEX IF NOT EXISTS ix_messages_phone_ts ON whatsapp_messages (phone_number, timestamp);
+    __table_args__ = (
+        db.Index('ix_messages_phone_ts', 'phone_number', 'timestamp'),
+    )
     
     @property
     def latest_status(self):
@@ -40,11 +47,11 @@ class Message(db.Model):
 class MessageStatus(db.Model):
     """Modelo para almacenar estados de mensajes (sent, delivered, read, failed)."""
     __tablename__ = 'whatsapp_message_statuses'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     wa_message_id = db.Column(db.String(100), db.ForeignKey('whatsapp_messages.wa_message_id'), nullable=False)
     status = db.Column(db.String(20), nullable=False, index=True)  # sent, delivered, read, failed
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     error_code = db.Column(db.String(50), nullable=True)
     error_title = db.Column(db.String(200), nullable=True)
     error_details = db.Column(db.Text, nullable=True)
@@ -60,6 +67,31 @@ class MessageStatus(db.Model):
             'error_details': self.error_details
         }
 
+# Tabla de asociación Contacto-Etiqueta
+contact_tags = db.Table('whatsapp_contact_tags',
+    db.Column('contact_phone', db.String(20), db.ForeignKey('whatsapp_contacts.phone_number'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('whatsapp_tags.id'), primary_key=True)
+)
+
+class Tag(db.Model):
+    """Modelo para etiquetas de contactos (normalizado)."""
+    __tablename__ = 'whatsapp_tags'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    color = db.Column(db.String(20), default='green')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __str__(self):
+        return self.name
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'color': self.color
+        }
+
 class Contact(db.Model):
     """Modelo para gestión de contactos (Mini-CRM)."""
     __tablename__ = 'whatsapp_contacts'
@@ -67,7 +99,8 @@ class Contact(db.Model):
     phone_number = db.Column(db.String(20), primary_key=True)
     name = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
-    tags = db.Column(db.JSON, default=list)  # Lista de tags (máx 6)
+    tags_json = db.Column('tags', db.JSON, default=list)  # Legacy JSON, usar 'tags' relationship
+    tags = db.relationship('Tag', secondary=contact_tags, backref='contacts')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     first_name = db.Column(db.String(100), nullable=True)
     last_name = db.Column(db.String(100), nullable=True)
@@ -93,6 +126,50 @@ class Contact(db.Model):
             'custom_field_6': self.custom_field_6,
             'custom_field_7': self.custom_field_7,
             'notes': self.notes,
-            'tags': self.tags or [],
+            'tags': [t.name for t in self.tags],
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+class Campaign(db.Model):
+    """Modelo para campañas de marketing masivo."""
+    __tablename__ = 'whatsapp_campaigns'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    template_name = db.Column(db.String(100), nullable=False)
+    template_language = db.Column(db.String(10), default='es_AR')
+    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id'), nullable=False)
+    status = db.Column(db.String(20), default='draft')  # draft, sending, completed, failed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    tag = db.relationship('Tag', backref='campaigns')
+    logs = db.relationship('CampaignLog', backref='campaign', lazy='select')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'template_name': self.template_name,
+            'template_language': self.template_language,
+            'tag_name': self.tag.name if self.tag else None,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }
+
+
+class CampaignLog(db.Model):
+    """Registro individual de envío dentro de una campaña."""
+    __tablename__ = 'whatsapp_campaign_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    campaign_id = db.Column(db.Integer, db.ForeignKey('whatsapp_campaigns.id'), nullable=False)
+    contact_phone = db.Column(db.String(20), nullable=False)
+    message_id = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(20), default='pending')  # pending, sent, failed, delivered, read
+    error_detail = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
