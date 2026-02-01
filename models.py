@@ -13,6 +13,9 @@ class Message(db.Model):
     direction = db.Column(db.String(10), nullable=False, index=True)  # 'inbound' o 'outbound'
     message_type = db.Column(db.String(20), nullable=False)  # text, image, audio, etc.
     content = db.Column(db.Text, nullable=True)
+    media_id = db.Column(db.String(100), nullable=True)
+    media_url = db.Column(db.String(255), nullable=True)
+    caption = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     # Relación con estados — lazy='joined' carga statuses en un solo JOIN al traer mensajes
     statuses = db.relationship('MessageStatus', backref='message', lazy='joined', order_by='MessageStatus.timestamp')
@@ -39,6 +42,8 @@ class Message(db.Model):
             'direction': self.direction,
             'message_type': self.message_type,
             'content': self.content,
+            'media_url': self.media_url,
+            'caption': self.caption,
             'timestamp': self.timestamp.isoformat() if self.timestamp else None,
             'latest_status': self.statuses[-1].status if self.statuses else None
         }
@@ -144,6 +149,8 @@ class Campaign(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     started_at = db.Column(db.DateTime, nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
+    scheduled_at = db.Column(db.DateTime, nullable=True)
+    variables = db.Column(db.JSON, nullable=True)  # Mapping {"1": "first_name", "2": "custom_field_1"}
 
     tag = db.relationship('Tag', backref='campaigns')
     logs = db.relationship('CampaignLog', backref='campaign', lazy='select')

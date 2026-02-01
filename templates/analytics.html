@@ -1,67 +1,12 @@
-<!DOCTYPE html>
-<html class="light" lang="es">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Analytics - WhatsApp CRM</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#13ec25",
-                        "background-light": "#f6f8f6",
-                        "background-dark": "#102212",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"]
-                    },
-                },
-            },
-        }
-    </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-        .hidden { display: none !important; }
-    </style>
-</head>
+{% block title %}Analytics - WhatsApp CRM{% endblock %}
 
-<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white min-h-screen">
-    <div class="flex h-screen">
-        <!-- Sidebar Navigation -->
-        <aside class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
-            <a href="/dashboard" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Dashboard">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">chat</span>
-            </a>
-            <a href="/contacts" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Contactos">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
-            </a>
-            <a href="/tags" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Etiquetas">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">label</span>
-            </a>
-            <a href="/campaigns" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Campañas">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">campaign</span>
-            </a>
-            <a href="/failed-messages" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Fallidos">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">error</span>
-            </a>
-            <a href="/analytics" class="p-3 rounded-xl bg-primary/10 text-primary" title="Analytics">
-                <span class="material-symbols-outlined">bar_chart</span>
-            </a>
-            <a href="/whatsapp-settings" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors mt-auto" title="Configuración">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">settings</span>
-            </a>
-        </aside>
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
 
+{% block content %}
         <!-- Main Content -->
         <main class="flex-1 flex flex-col overflow-hidden">
             <!-- Header -->
@@ -333,7 +278,6 @@
                 </div>
             </div>
         </main>
-    </div>
 
     <script>
         const chartData = {{ chart_data | tojson | safe }};
@@ -547,6 +491,4 @@
             });
         }
     </script>
-</body>
-
-</html>
+{% endblock %}

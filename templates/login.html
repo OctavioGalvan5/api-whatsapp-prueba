@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Iniciar Sesión - WhatsApp CRM</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec25",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102212",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-background-dark text-white min-h-screen flex items-center justify-center relative overflow-hidden">
+
+    <!-- Background decoration -->
+    <div class="absolute inset-0 pointer-events-none">
+        <div class="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-primary rounded-full opacity-[0.06] blur-[80px]"></div>
+        <div class="absolute bottom-[-15%] right-[-10%] w-[500px] h-[500px] bg-primary rounded-full opacity-[0.04] blur-[100px]"></div>
+    </div>
+
+    <!-- Login Card -->
+    <div class="relative z-10 w-full max-w-sm mx-4">
+        <!-- Logo + Brand -->
+        <div class="flex flex-col items-center mb-8">
+            <div class="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-white font-bold text-2xl mb-4 shadow-lg shadow-primary/20">
+                CRM
+            </div>
+            <h1 class="text-2xl font-bold text-white">WhatsApp CRM</h1>
+            <p class="text-sm text-gray-500 mt-1">Gestión de mensajes y contactos</p>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-[#152a17] border border-gray-800 rounded-2xl p-6 shadow-2xl">
+            <!-- Error alert -->
+            {% if error %}
+            <div class="flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5">
+                <span class="material-symbols-outlined text-red-400 text-lg flex-shrink-0">error</span>
+                <p class="text-red-400 text-sm">Contraseña incorrecta. Vuelve a intentarlo.</p>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/login">
+                <!-- Password field -->
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Contraseña</label>
+                    <div class="relative">
+                        <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600">
+                            <span class="material-symbols-outlined text-[20px]">lock</span>
+                        </div>
+                        <input
+                            type="password"
+                            name="password"
+                            id="password"
+                            autocomplete="current-password"
+                            placeholder="••••••••"
+                            class="w-full bg-gray-900 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                            autofocus />
+                    </div>
+                </div>
+
+                <!-- Submit button -->
+                <button type="submit"
+                    class="w-full bg-primary text-white font-semibold rounded-xl py-3 text-sm hover:bg-primary/90 active:scale-[0.98] transition-all shadow-md shadow-primary/20">
+                    Iniciar Sesión
+                </button>
+            </form>
+        </div>
+
+        <!-- Footer note -->
+        <p class="text-center text-xs text-gray-600 mt-6">
+            Si no recuerdas la contraseña, actualízala en el archivo <span class="text-gray-500 font-mono">.env</span>
+        </p>
+    </div>
+</body>
+
+</html>

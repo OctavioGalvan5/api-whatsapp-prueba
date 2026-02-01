@@ -1,0 +1,42 @@
+<aside class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
+    <a href="/dashboard"
+        class="p-3 rounded-xl {% if request.path == '/dashboard' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+        title="Dashboard">
+        <span class="material-symbols-outlined {% if request.path != '/dashboard' %}text-gray-500 dark:text-gray-400{% endif %}">chat</span>
+    </a>
+    <a href="/contacts"
+        class="p-3 rounded-xl {% if request.path == '/contacts' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+        title="Contactos">
+        <span class="material-symbols-outlined {% if request.path != '/contacts' %}text-gray-500 dark:text-gray-400{% endif %}">group</span>
+    </a>
+    <a href="/tags"
+        class="p-3 rounded-xl {% if request.path == '/tags' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+        title="Etiquetas">
+        <span class="material-symbols-outlined {% if request.path != '/tags' %}text-gray-500 dark:text-gray-400{% endif %}">label</span>
+    </a>
+    <a href="/campaigns"
+        class="p-3 rounded-xl {% if request.path.startswith('/campaigns') %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+        title="Campañas">
+        <span class="material-symbols-outlined {% if not request.path.startswith('/campaigns') %}text-gray-500 dark:text-gray-400{% endif %}">campaign</span>
+    </a>
+    <a href="/failed-messages"
+        class="p-3 rounded-xl {% if request.path == '/failed-messages' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+        title="Fallidos">
+        <span class="material-symbols-outlined {% if request.path != '/failed-messages' %}text-gray-500 dark:text-gray-400{% endif %}">error</span>
+    </a>
+    <a href="/analytics"
+        class="p-3 rounded-xl {% if request.path == '/analytics' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+        title="Analytics">
+        <span class="material-symbols-outlined {% if request.path != '/analytics' %}text-gray-500 dark:text-gray-400{% endif %}">bar_chart</span>
+    </a>
+    <a href="/whatsapp-settings"
+        class="p-3 rounded-xl mt-auto {% if request.path == '/whatsapp-settings' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+        title="Configuración">
+        <span class="material-symbols-outlined {% if request.path != '/whatsapp-settings' %}text-gray-500 dark:text-gray-400{% endif %}">settings</span>
+    </a>
+    <a href="/logout"
+        class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        title="Cerrar sesión">
+        <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">logout</span>
+    </a>
+</aside>

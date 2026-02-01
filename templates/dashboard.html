@@ -1,412 +1,376 @@
-<!DOCTYPE html>
-<html class="light" lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>WhatsApp CRM</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
-        rel="stylesheet" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-        rel="stylesheet" />
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#13ec25",
-                        "background-light": "#f6f8f6",
-                        "background-dark": "#102212",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"]
-                    },
-                },
-            },
-        }
-    </script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
+{% block title %}WhatsApp CRM{% endblock %}
 
-        .message-shadow {
-            box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-        }
+{% block extra_head %}
+<style>
+    .message-shadow {
+        box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+    }
 
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+</style>
+{% endblock %}
 
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 10px;
-        }
-
-        /* Utility for hiding/showing modes */
-        .hidden {
-            display: none !important;
-        }
-    </style>
-</head>
-
-<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white h-screen flex overflow-hidden">
-    <!-- Left Sidebar (30%) -->
-    <aside
-        class="w-[30%] min-w-[320px] max-w-[450px] border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-[#152a17]">
-        <!-- Sidebar Header -->
-        <div class="p-4 flex flex-col gap-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="relative">
-                        <div
-                            class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 bg-primary flex items-center justify-center text-white font-bold text-xl">
-                            CRM
-                        </div>
-                        <div
-                            class="absolute bottom-0 right-0 size-3 bg-primary border-2 border-white dark:border-[#152a17] rounded-full">
-                        </div>
-                    </div>
-                    <div class="flex flex-col">
-                        <h1 class="text-[#111812] dark:text-white text-base font-semibold leading-tight">CRM Workspace
-                        </h1>
-                        <p class="text-[#618965] dark:text-primary/70 text-xs font-medium">Online</p>
-                    </div>
-                </div>
-                <div class="flex gap-1">
-                    <a href="/contacts"
-                        class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                        title="Manage Contacts">
-                        <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="relative">
-                <label class="flex flex-col w-full">
-                    <div class="flex w-full items-stretch rounded-xl h-10">
-                        <div
-                            class="text-gray-400 flex bg-gray-100 dark:bg-gray-800 items-center justify-center pl-4 rounded-l-xl">
-                            <span class="material-symbols-outlined text-[20px]">search</span>
-                        </div>
-                        <input id="search-input"
-                            class="form-input flex w-full border-none bg-gray-100 dark:bg-gray-800 focus:ring-0 h-full placeholder:text-gray-400 px-4 rounded-r-xl pl-2 text-sm font-normal"
-                            placeholder="Buscar conversación..." value="" />
-                    </div>
-                </label>
-            </div>
-        </div>
-
-        <!-- Conversation List -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar" id="contacts-list">
-            {% for contact in contacts %}
-            <div onclick="selectContact('{{ contact.phone_number }}')" data-phone="{{ contact.phone_number }}"
-                class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4  {% if selected_contact == contact.phone_number %}bg-primary/10 dark:bg-primary/20 border-primary active{% else %}bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent{% endif %}">
-
-                <div
-                    class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
-                    {{ contact.name[0] if contact.name else contact.phone_number[-2:] }}
-                </div>
-
-                <div class="flex flex-col justify-center flex-1 min-w-0">
-                    <div class="flex justify-between items-center">
-                        <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or
-                            contact.phone_number }}</p>
-                        <p class="text-[10px] text-gray-400">{{ (contact.last_timestamp|to_argentina).strftime('%H:%M')
-                            if contact.last_timestamp else '' }}</p>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}
-                        </p>
-                        <!-- Badge placeholder if we had unread counts -->
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <div class="p-8 text-center text-gray-400 text-sm">No hay conversaciones</div>
-            {% endfor %}
-        </div>
-
-        <!-- Sidebar Bottom Navigation -->
-        <div
-            class="p-2 border-t border-gray-100 dark:border-gray-800 flex justify-between bg-gray-50 dark:bg-[#0c1a0e]">
-            <a href="/dashboard" class="flex flex-col items-center gap-1 px-4 py-2 text-primary">
-                <span class="material-symbols-outlined">chat</span>
-                <span class="text-[10px] font-bold">Chats</span>
-            </a>
-            <a href="/contacts"
-                class="flex flex-col items-center gap-1 px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                <span class="material-symbols-outlined">group</span>
-                <span class="text-[10px] font-medium">Contactos</span>
-            </a>
-            <a href="/campaigns"
-                class="flex flex-col items-center gap-1 px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                <span class="material-symbols-outlined">campaign</span>
-                <span class="text-[10px] font-medium">Campañas</span>
-            </a>
-            <a href="/analytics"
-                class="flex flex-col items-center gap-1 px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                <span class="material-symbols-outlined">bar_chart</span>
-                <span class="text-[10px] font-medium">Stats</span>
-            </a>
-            <a href="/whatsapp-settings"
-                class="flex flex-col items-center gap-1 px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                <span class="material-symbols-outlined">settings</span>
-                <span class="text-[10px] font-medium">Config</span>
-            </a>
-        </div>
-    </aside>
-
-    <!-- Main Chat Area (70%) -->
-    <main class="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
-        {% if selected_contact %}
-        <!-- Chat Header -->
-        <header
-            class="h-16 bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 z-10">
+{% block content %}
+<!-- Left Sidebar (30%) -->
+<aside
+    class="w-[30%] min-w-[320px] max-w-[450px] border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-[#152a17]">
+    <!-- Sidebar Header -->
+    <div class="p-4 flex flex-col gap-4">
+        <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div
-                    class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-10 w-10 bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
-                    {{ contact_details.name[0] if contact_details and contact_details.name else selected_contact[-2:] }}
+                <div class="relative">
+                    <div
+                        class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 bg-primary flex items-center justify-center text-white font-bold text-xl">
+                        CRM
+                    </div>
+                    <div
+                        class="absolute bottom-0 right-0 size-3 bg-primary border-2 border-white dark:border-[#152a17] rounded-full">
+                    </div>
                 </div>
                 <div class="flex flex-col">
-                    <div class="flex items-center gap-2">
-                        <h2 class="chat-user-name text-[#111812] dark:text-white text-base font-semibold">
-                            {{ contact_details.name if contact_details and contact_details.name else selected_contact }}
-                        </h2>
-                        {% if contact_details and contact_details.tags %}
-                        <div class="flex gap-1">
-                            {% for tag in contact_details.tags %}
-                            <span
-                                class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">{{
-                                tag }}</span>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
-                    <p class="chat-user-phone text-xs text-gray-500 dark:text-gray-400">{{ selected_contact }}</p>
+                    <h1 class="text-[#111812] dark:text-white text-base font-semibold leading-tight">CRM Workspace
+                    </h1>
+                    <p class="text-[#618965] dark:text-primary/70 text-xs font-medium">Online</p>
                 </div>
             </div>
-            <!-- Header Actions -->
-            <div class="flex items-center gap-2">
-                <!-- Stats in header -->
-                <div class="hidden md:flex gap-3 mr-4 text-xs text-gray-500">
-                    <div class="chat-stat-sent flex items-center gap-1"><span
-                            class="w-2 h-2 rounded-full bg-blue-500"></span> {{ contact_stats.sent if contact_stats else
-                        0 }} sent</div>
-                    <div class="chat-stat-delivered flex items-center gap-1"><span
-                            class="w-2 h-2 rounded-full bg-green-500"></span> {{ contact_stats.delivered if
-                        contact_stats else 0 }} deliv</div>
-                    <div class="chat-stat-read flex items-center gap-1"><span
-                            class="w-2 h-2 rounded-full bg-purple-500"></span> {{ contact_stats.read if contact_stats
-                        else 0 }} read</div>
-                </div>
-                <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-                    <span class="material-symbols-outlined text-gray-500">more_vert</span>
-                </button>
+            <div class="flex gap-1">
+                <a href="/contacts" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    title="Manage Contacts">
+                    <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
+                </a>
             </div>
-        </header>
-
-        <!-- Message List -->
-        <div id="chat-messages"
-            class="flex-1 overflow-y-auto p-4 md:px-8 lg:px-12 flex flex-col gap-4 custom-scrollbar">
-            {% set ns = namespace(last_date='') %}
-            {% for msg in messages %}
-            {% set msg_argentina = msg.timestamp|to_argentina %}
-            {% set msg_date = msg_argentina.strftime('%d/%m/%Y') if msg_argentina else '' %}
-
-            {% if msg_date != ns.last_date %}
-            <div class="flex justify-center my-4 date-separator">
-                <span
-                    class="bg-white/90 dark:bg-gray-800/90 text-[11px] font-semibold text-gray-500 dark:text-gray-400 py-1 px-4 rounded-full shadow-sm">{{
-                    msg_date }}</span>
-            </div>
-            {% set ns.last_date = msg_date %}
-            {% endif %}
-
-            {% if msg.direction == 'inbound' %}
-            <div class="flex flex-col items-start max-w-[80%]">
-                <div
-                    class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
-                    <p>{{ msg.content or '[Sin contenido]' }}</p>
-                    <div class="text-[10px] text-gray-400 text-right mt-1">{{ msg_argentina.strftime('%H:%M') if
-                        msg_argentina else '' }}</div>
-                </div>
-            </div>
-            {% else %}
-            <div class="flex flex-col items-end max-w-[80%] self-end">
-                <div
-                    class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
-                    <p>{{ msg.content or '[Sin contenido]' }}</p>
-                    <div class="flex items-center justify-end gap-1 mt-1">
-                        <span class="text-[10px] text-white/80">{{ msg_argentina.strftime('%H:%M') if msg_argentina else
-                            '' }}</span>
-                        <span class="material-symbols-outlined text-[14px] text-white">
-                            {% if msg.latest_status == 'read' %}done_all{% elif msg.latest_status == 'delivered'
-                            %}done_all{% else %}check{% endif %}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            {% else %}
-            <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
-                <span class="material-symbols-outlined text-6xl opacity-20">chat_bubble_outline</span>
-                <p class="mt-2 text-sm">No hay mensajes</p>
-            </div>
-            {% endfor %}
         </div>
 
-        <!-- Message Footer -->
-        <footer class="p-4 bg-white dark:bg-[#152a17] border-t border-gray-200 dark:border-gray-800 message-composer">
-            <div class="max-w-4xl mx-auto flex flex-col gap-3">
-                {% if whatsapp_configured %}
+        <!-- Search Bar -->
+        <div class="relative">
+            <label class="flex flex-col w-full">
+                <div class="flex w-full items-stretch rounded-xl h-10">
+                    <div
+                        class="text-gray-400 flex bg-gray-100 dark:bg-gray-800 items-center justify-center pl-4 rounded-l-xl">
+                        <span class="material-symbols-outlined text-[20px]">search</span>
+                    </div>
+                    <input id="search-input"
+                        class="form-input flex w-full border-none bg-gray-100 dark:bg-gray-800 focus:ring-0 h-full placeholder:text-gray-400 px-4 rounded-r-xl pl-2 text-sm font-normal"
+                        placeholder="Buscar conversación..." value="" />
+                </div>
+            </label>
+        </div>
+    </div>
 
-                {% if not can_send_free_text %}
-                <div
-                    class="text-xs text-orange-500 font-medium px-1 flex items-center gap-1 composer-status template-only">
-                    <span class="material-symbols-outlined text-sm">warning</span>
-                    Fuera de la ventana de 24h. Envía un template.
+    <!-- Conversation List -->
+    <div class="flex-1 overflow-y-auto custom-scrollbar" id="contacts-list">
+        {% for contact in contacts %}
+        <div onclick="selectContact('{{ contact.phone_number }}')" data-phone="{{ contact.phone_number }}"
+            class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4  {% if selected_contact == contact.phone_number %}bg-primary/10 dark:bg-primary/20 border-primary active{% else %}bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent{% endif %}">
+
+            <div
+                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+                {{ contact.name[0] if contact.name else contact.phone_number[-2:] }}
+            </div>
+
+            <div class="flex flex-col justify-center flex-1 min-w-0">
+                <div class="flex justify-between items-center">
+                    <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or
+                        contact.phone_number }}</p>
+                    <p class="text-[10px] text-gray-400">{{ (contact.last_timestamp|to_argentina).strftime('%H:%M')
+                        if contact.last_timestamp else '' }}</p>
                 </div>
-                {% else %}
-                <div class="text-xs text-green-500 font-medium px-1 flex items-center gap-1 composer-status can-text">
-                    <span class="material-symbols-outlined text-sm">check_circle</span>
-                    Ventana de 24h activa.
+                <div class="flex justify-between items-center">
+                    <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}
+                    </p>
+                    <!-- Badge placeholder if we had unread counts -->
                 </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-gray-400 text-sm">No hay conversaciones</div>
+        {% endfor %}
+    </div>
+
+</aside>
+
+<!-- Main Chat Area (70%) -->
+<main class="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
+    {% if selected_contact %}
+    <!-- Chat Header -->
+    <header
+        class="h-16 bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 z-10">
+        <div class="flex items-center gap-3">
+            <div
+                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-10 w-10 bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
+                {{ contact_details.name[0] if contact_details and contact_details.name else selected_contact[-2:] }}
+            </div>
+            <div class="flex flex-col">
+                <div class="flex items-center gap-2">
+                    <h2 class="chat-user-name text-[#111812] dark:text-white text-base font-semibold">
+                        {{ contact_details.name if contact_details and contact_details.name else selected_contact }}
+                    </h2>
+                    {% if contact_details and contact_details.tags %}
+                    <div class="flex gap-1">
+                        {% for tag in contact_details.tags %}
+                        <span
+                            class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">{{
+                            tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <p class="chat-user-phone text-xs text-gray-500 dark:text-gray-400">{{ selected_contact }}</p>
+            </div>
+        </div>
+        <!-- Header Actions -->
+        <div class="flex items-center gap-2">
+            <!-- Stats in header -->
+            <div class="hidden md:flex gap-3 mr-4 text-xs text-gray-500">
+                <div class="chat-stat-sent flex items-center gap-1"><span
+                        class="w-2 h-2 rounded-full bg-blue-500"></span> {{ contact_stats.sent if contact_stats else
+                    0 }} sent</div>
+                <div class="chat-stat-delivered flex items-center gap-1"><span
+                        class="w-2 h-2 rounded-full bg-green-500"></span> {{ contact_stats.delivered if
+                    contact_stats else 0 }} deliv</div>
+                <div class="chat-stat-read flex items-center gap-1"><span
+                        class="w-2 h-2 rounded-full bg-purple-500"></span> {{ contact_stats.read if contact_stats
+                    else 0 }} read</div>
+            </div>
+            <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                <span class="material-symbols-outlined text-gray-500">more_vert</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Message List -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 md:px-8 lg:px-12 flex flex-col gap-4 custom-scrollbar">
+        {% set ns = namespace(last_date='') %}
+        {% for msg in messages %}
+        {% set msg_argentina = msg.timestamp|to_argentina %}
+        {% set msg_date = msg_argentina.strftime('%d/%m/%Y') if msg_argentina else '' %}
+
+        {% if msg_date != ns.last_date %}
+        <div class="flex justify-center my-4 date-separator">
+            <span
+                class="bg-white/90 dark:bg-gray-800/90 text-[11px] font-semibold text-gray-500 dark:text-gray-400 py-1 px-4 rounded-full shadow-sm">{{
+                msg_date }}</span>
+        </div>
+        {% set ns.last_date = msg_date %}
+        {% endif %}
+
+        {% if msg.direction == 'inbound' %}
+        <div class="flex flex-col items-start max-w-[80%]">
+            <div
+                class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
+
+                {% if msg.media_url %}
+                {% if msg.message_type == 'image' %}
+                <a href="/{{ msg.media_url }}" target="_blank">
+                    <img src="/{{ msg.media_url }}"
+                        class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                        alt="Imagen">
+                </a>
+                {% elif msg.message_type == 'audio' %}
+                <audio controls class="mb-2 max-w-full">
+                    <source src="/{{ msg.media_url }}" type="audio/ogg">
+                    Tu navegador no soporta el audio.
+                </audio>
+                {% elif msg.message_type == 'video' %}
+                <video controls class="rounded-lg mb-2 max-w-full max-h-64">
+                    <source src="/{{ msg.media_url }}">
+                    Tu navegador no soporta video.
+                </video>
+                {% elif msg.message_type == 'document' %}
+                <a href="/{{ msg.media_url }}" target="_blank"
+                    class="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-2">
+                    <div
+                        class="w-10 h-10 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center">
+                        <span class="material-symbols-outlined">description</span>
+                    </div>
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="font-medium truncate text-[#111812] dark:text-white">Documento</span>
+                        <span class="text-xs text-gray-500">Click para ver</span>
+                    </div>
+                </a>
                 {% endif %}
 
-                <!-- Composer Controls -->
-                <div class="flex items-center justify-between">
-                    <div class="flex h-8 items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-fit">
-                        <label
-                            class="flex cursor-pointer h-full items-center justify-center rounded-md px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-gray-700 has-[:checked]:shadow-sm text-xs font-semibold text-gray-500 dark:text-gray-400 has-[:checked]:text-primary transition-all">
-                            <span>Texto</span>
-                            <input class="invisible w-0" name="composer-mode" type="radio" value="text"
-                                id="text-mode-btn" onclick="switchMode('text')" {% if not can_send_free_text
-                                %}disabled{% endif %} {% if can_send_free_text %}checked{% endif %} />
-                        </label>
-                        <label
-                            class="flex cursor-pointer h-full items-center justify-center rounded-md px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-gray-700 has-[:checked]:shadow-sm text-xs font-semibold text-gray-500 dark:text-gray-400 has-[:checked]:text-primary transition-all">
-                            <span>Template</span>
-                            <input class="invisible w-0" name="composer-mode" type="radio" value="template"
-                                id="template-mode-btn" onclick="switchMode('template')" {% if not can_send_free_text
-                                %}checked{% endif %} />
-                        </label>
-                    </div>
-                </div>
+                {% if msg.caption %}
+                <p class="mt-1">{{ msg.caption }}</p>
+                {% endif %}
 
-                <!-- Text Mode Input -->
-                <div id="text-mode" class="{% if not can_send_free_text %}hidden{% endif %}">
-                    <form class="flex items-end gap-3" onsubmit="sendTextMessage(event)">
-                        <div
-                            class="flex-1 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 p-2 focus-within:border-primary transition-colors">
-                            <input id="message-input" type="text"
-                                class="w-full bg-transparent border-none focus:ring-0 text-sm text-[#111812] dark:text-gray-200 placeholder:text-gray-400 resize-none min-h-[40px] custom-scrollbar"
-                                placeholder="Escribe un mensaje..." />
-                        </div>
+                {% else %}
+                <p>{{ msg.content or '[Sin contenido]' }}</p>
+                {% endif %}
+
+                <div class="text-[10px] text-gray-400 text-right mt-1">{{ msg_argentina.strftime('%H:%M') if
+                    msg_argentina else '' }}</div>
+            </div>
+        </div>
+        {% else %}
+        <div class="flex flex-col items-end max-w-[80%] self-end">
+            <div
+                class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
+                <p>{{ msg.content or '[Sin contenido]' }}</p>
+                <div class="flex items-center justify-end gap-1 mt-1">
+                    <span class="text-[10px] text-white/80">{{ msg_argentina.strftime('%H:%M') if msg_argentina else
+                        '' }}</span>
+                    <span class="material-symbols-outlined text-[14px] text-white">
+                        {% if msg.latest_status == 'read' %}done_all{% elif msg.latest_status == 'delivered'
+                        %}done_all{% else %}check{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
+            <span class="material-symbols-outlined text-6xl opacity-20">chat_bubble_outline</span>
+            <p class="mt-2 text-sm">No hay mensajes</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Message Footer -->
+    <footer class="p-4 bg-white dark:bg-[#152a17] border-t border-gray-200 dark:border-gray-800 message-composer">
+        <div class="max-w-4xl mx-auto flex flex-col gap-3">
+            {% if whatsapp_configured %}
+
+            {% if not can_send_free_text %}
+            <div class="text-xs text-orange-500 font-medium px-1 flex items-center gap-1 composer-status template-only">
+                <span class="material-symbols-outlined text-sm">warning</span>
+                Fuera de la ventana de 24h. Envía un template.
+            </div>
+            {% else %}
+            <div class="text-xs text-green-500 font-medium px-1 flex items-center gap-1 composer-status can-text">
+                <span class="material-symbols-outlined text-sm">check_circle</span>
+                Ventana de 24h activa.
+            </div>
+            {% endif %}
+
+            <!-- Composer Controls -->
+            <div class="flex items-center justify-between">
+                <div class="flex h-8 items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-fit">
+                    <label
+                        class="flex cursor-pointer h-full items-center justify-center rounded-md px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-gray-700 has-[:checked]:shadow-sm text-xs font-semibold text-gray-500 dark:text-gray-400 has-[:checked]:text-primary transition-all">
+                        <span>Texto</span>
+                        <input class="invisible w-0" name="composer-mode" type="radio" value="text" id="text-mode-btn"
+                            onclick="switchMode('text')" {% if not can_send_free_text %}disabled{% endif %} {% if
+                            can_send_free_text %}checked{% endif %} />
+                    </label>
+                    <label
+                        class="flex cursor-pointer h-full items-center justify-center rounded-md px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-gray-700 has-[:checked]:shadow-sm text-xs font-semibold text-gray-500 dark:text-gray-400 has-[:checked]:text-primary transition-all">
+                        <span>Template</span>
+                        <input class="invisible w-0" name="composer-mode" type="radio" value="template"
+                            id="template-mode-btn" onclick="switchMode('template')" {% if not can_send_free_text
+                            %}checked{% endif %} />
+                    </label>
+                </div>
+            </div>
+
+            <!-- Text Mode Input -->
+            <div id="text-mode" class="{% if not can_send_free_text %}hidden{% endif %}">
+                <form class="flex items-end gap-3" onsubmit="sendTextMessage(event)">
+                    <div
+                        class="flex-1 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 p-2 focus-within:border-primary transition-colors">
+                        <input id="message-input" type="text"
+                            class="w-full bg-transparent border-none focus:ring-0 text-sm text-[#111812] dark:text-gray-200 placeholder:text-gray-400 resize-none min-h-[40px] custom-scrollbar"
+                            placeholder="Escribe un mensaje..." />
+                    </div>
+                    <button type="submit"
+                        class="bg-primary text-white size-11 rounded-xl flex items-center justify-center hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all shrink-0">
+                        <span class="material-symbols-outlined fill-1">send</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Template Mode Input -->
+            <div id="template-mode" class="{% if can_send_free_text %}hidden{% endif %}">
+                <form class="flex flex-col gap-3" onsubmit="sendTemplateMessage(event)">
+                    <div class="flex items-center gap-3">
+                        <select id="template-select"
+                            class="flex-1 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-3 px-4 focus:border-primary focus:ring-0">
+                            <option value="">-- Seleccionar Template --</option>
+                            {% for t in templates %}
+                            <option value="{{ t.name }}" data-lang="{{ t.language }}">{{ t.name }} ({{ t.language
+                                }})</option>
+                            {% endfor %}
+                        </select>
                         <button type="submit"
                             class="bg-primary text-white size-11 rounded-xl flex items-center justify-center hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all shrink-0">
                             <span class="material-symbols-outlined fill-1">send</span>
                         </button>
-                    </form>
-                </div>
-
-                <!-- Template Mode Input -->
-                <div id="template-mode" class="{% if can_send_free_text %}hidden{% endif %}">
-                    <form class="flex flex-col gap-3" onsubmit="sendTemplateMessage(event)">
-                        <div class="flex items-center gap-3">
-                            <select id="template-select"
-                                class="flex-1 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-3 px-4 focus:border-primary focus:ring-0">
-                                <option value="">-- Seleccionar Template --</option>
-                                {% for t in templates %}
-                                <option value="{{ t.name }}" data-lang="{{ t.language }}">{{ t.name }} ({{ t.language
-                                    }})</option>
-                                {% endfor %}
-                            </select>
-                            <button type="submit"
-                                class="bg-primary text-white size-11 rounded-xl flex items-center justify-center hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all shrink-0">
-                                <span class="material-symbols-outlined fill-1">send</span>
-                            </button>
-                        </div>
-                        <div id="template-variables-container" class="grid grid-cols-2 gap-2">
-                            <!-- Variables will be injected here -->
-                        </div>
-                    </form>
-                </div>
-
-                <div id="send-result" class="text-xs font-medium pt-1"></div>
-
-                {% else %}
-                <div class="text-center p-4 bg-gray-100 rounded-lg text-sm text-gray-500">
-                    WhatsApp API no configurada. <a href="/whatsapp-settings"
-                        class="text-primary underline">Configurar</a>
-                </div>
-                {% endif %}
+                    </div>
+                    <div id="template-variables-container" class="grid grid-cols-2 gap-2">
+                        <!-- Variables will be injected here -->
+                    </div>
+                </form>
             </div>
-        </footer>
-        {% else %}
-        <!-- Empty State -->
-        <div class="flex-1 flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0c1a0e] text-gray-400">
-            <div class="bg-white dark:bg-[#152a17] p-8 rounded-full shadow-sm mb-4">
-                <span class="material-symbols-outlined text-6xl text-primary">chat</span>
+
+            <div id="send-result" class="text-xs font-medium pt-1"></div>
+
+            {% else %}
+            <div class="text-center p-4 bg-gray-100 rounded-lg text-sm text-gray-500">
+                WhatsApp API no configurada. <a href="/whatsapp-settings" class="text-primary underline">Configurar</a>
             </div>
-            <h3 class="text-lg font-semibold text-[#111812] dark:text-white">WhatsApp CRM</h3>
-            <p class="text-sm mt-2">Selecciona una conversación para comenzar</p>
+            {% endif %}
         </div>
-        {% endif %}
-    </main>
+    </footer>
+    {% else %}
+    <!-- Empty State -->
+    <div class="flex-1 flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0c1a0e] text-gray-400">
+        <div class="bg-white dark:bg-[#152a17] p-8 rounded-full shadow-sm mb-4">
+            <span class="material-symbols-outlined text-6xl text-primary">chat</span>
+        </div>
+        <h3 class="text-lg font-semibold text-[#111812] dark:text-white">WhatsApp CRM</h3>
+        <p class="text-sm mt-2">Selecciona una conversación para comenzar</p>
+    </div>
+    {% endif %}
+</main>
 
-    <script>
-        // Serialize templates to JS
-        const allTemplates = {{ templates | tojson | safe }};
+<script>
+    // Serialize templates to JS
+    const allTemplates = {{ templates | tojson | safe }};
 
-        let currentPhone = "{{ selected_contact or '' }}";
-        let currentContactName = ''; // Para evitar XSS en onclick
-        const templateVarCache = {}; // Preservar variables de plantilla por contacto
+    let currentPhone = "{{ selected_contact or '' }}";
+    let currentContactName = ''; // Para evitar XSS en onclick
+    const templateVarCache = {}; // Preservar variables de plantilla por contacto
 
-        // Helper para escapar HTML (previene XSS)
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.appendChild(document.createTextNode(text));
-            return div.innerHTML;
-        }
+    // Helper para escapar HTML (previene XSS)
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(text));
+        return div.innerHTML;
+    }
 
-        function saveTemplateVars(phone) {
+    function saveTemplateVars(phone) {
+        const inputs = document.querySelectorAll('#template-variables-container input');
+        if (inputs.length === 0) return;
+        const vars = {};
+        inputs.forEach(input => { vars[input.name] = input.value; });
+        templateVarCache[phone] = vars;
+    }
+
+    function restoreTemplateVars(phone) {
+        const cached = templateVarCache[phone];
+        if (!cached) return;
+        setTimeout(() => {
             const inputs = document.querySelectorAll('#template-variables-container input');
-            if (inputs.length === 0) return;
-            const vars = {};
-            inputs.forEach(input => { vars[input.name] = input.value; });
-            templateVarCache[phone] = vars;
-        }
+            inputs.forEach(input => {
+                if (cached[input.name] !== undefined) input.value = cached[input.name];
+            });
+        }, 50);
+    }
 
-        function restoreTemplateVars(phone) {
-            const cached = templateVarCache[phone];
-            if (!cached) return;
-            setTimeout(() => {
-                const inputs = document.querySelectorAll('#template-variables-container input');
-                inputs.forEach(input => {
-                    if (cached[input.name] !== undefined) input.value = cached[input.name];
-                });
-            }, 50);
-        }
-
-        // Agregar mensaje localmente sin recargar
-        function appendMessageLocally(text) {
-            const container = document.getElementById('chat-messages');
-            if (!container) return;
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
-            const div = document.createElement('div');
-            div.className = 'flex flex-col items-end max-w-[80%] self-end';
-            div.innerHTML = `
+    // Agregar mensaje localmente sin recargar
+    function appendMessageLocally(text) {
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const div = document.createElement('div');
+        div.className = 'flex flex-col items-end max-w-[80%] self-end';
+        div.innerHTML = `
                 <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
                     <p>${escapeHtml(text)}</p>
                     <div class="flex items-center justify-end gap-1 mt-1">
@@ -414,118 +378,118 @@
                         <span class="material-symbols-outlined text-[14px] text-white">check</span>
                     </div>
                 </div>`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function selectContact(phone) {
+        const fallbackToReload = () => {
+            window.location.href = `/dashboard?phone=${encodeURIComponent(phone)}`;
+        };
+
+        if (!document.getElementById('chat-messages')) {
+            fallbackToReload();
+            return;
         }
 
-        async function selectContact(phone) {
-            const fallbackToReload = () => {
-                window.location.href = `/dashboard?phone=${encodeURIComponent(phone)}`;
-            };
+        // Guardar variables de plantilla antes de cambiar
+        if (currentPhone) saveTemplateVars(currentPhone);
 
-            if (!document.getElementById('chat-messages')) {
-                fallbackToReload();
-                return;
+        // Visual update sidebar
+        document.querySelectorAll('.contact-item').forEach(item => {
+            item.classList.remove('bg-primary/10', 'dark:bg-primary/20', 'border-primary', 'active');
+            item.classList.add('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50', 'border-transparent');
+            if (item.dataset.phone === phone) {
+                item.classList.remove('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50', 'border-transparent');
+                item.classList.add('bg-primary/10', 'dark:bg-primary/20', 'border-primary', 'active');
             }
+        });
 
-            // Guardar variables de plantilla antes de cambiar
-            if (currentPhone) saveTemplateVars(currentPhone);
-
-            // Visual update sidebar
-            document.querySelectorAll('.contact-item').forEach(item => {
-                item.classList.remove('bg-primary/10', 'dark:bg-primary/20', 'border-primary', 'active');
-                item.classList.add('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50', 'border-transparent');
-                if (item.dataset.phone === phone) {
-                    item.classList.remove('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50', 'border-transparent');
-                    item.classList.add('bg-primary/10', 'dark:bg-primary/20', 'border-primary', 'active');
-                }
-            });
-
-            // Mostrar loading spinner
-            const chatMessages = document.getElementById('chat-messages');
-            chatMessages.innerHTML = `
+        // Mostrar loading spinner
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.innerHTML = `
                 <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
                     <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                     <p class="mt-3 text-sm">Cargando mensajes...</p>
                 </div>`;
 
-            try {
-                const newUrl = `/dashboard?phone=${encodeURIComponent(phone)}`;
-                history.pushState({ phone: phone }, '', newUrl);
+        try {
+            const newUrl = `/dashboard?phone=${encodeURIComponent(phone)}`;
+            history.pushState({ phone: phone }, '', newUrl);
 
-                const response = await fetch(`/api/messages/${encodeURIComponent(phone)}`);
-                if (!response.ok) throw new Error('Network response not ok');
+            const response = await fetch(`/api/messages/${encodeURIComponent(phone)}`);
+            if (!response.ok) throw new Error('Network response not ok');
 
-                const data = await response.json();
-                if (data.success) {
-                    currentPhone = phone;
-                    renderChat(data);
-                    restoreTemplateVars(phone);
-                } else {
-                    fallbackToReload();
-                    return;
-                }
-            } catch (err) {
-                console.error(err);
+            const data = await response.json();
+            if (data.success) {
+                currentPhone = phone;
+                renderChat(data);
+                restoreTemplateVars(phone);
+            } else {
                 fallbackToReload();
+                return;
             }
+        } catch (err) {
+            console.error(err);
+            fallbackToReload();
+        }
+    }
+
+    function renderChat(data) {
+        const contact = data.contact || { phone_number: currentPhone, name: currentPhone };
+        const nameEl = document.querySelector('.chat-user-name');
+        const phoneEl = document.querySelector('.chat-user-phone');
+
+        if (nameEl) nameEl.textContent = contact.name || currentPhone;
+        if (phoneEl) phoneEl.textContent = currentPhone;
+
+        // Guardar nombre para uso seguro (evita XSS en onclick)
+        currentContactName = contact.name || '';
+
+        // Update Edit Button — sin embeber el nombre en el string
+        const headerActions = document.querySelector('header .flex.items-center.gap-2');
+        if (headerActions) {
+            const editBtn = headerActions.querySelector('button');
+            if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
         }
 
-        function renderChat(data) {
-            const contact = data.contact || { phone_number: currentPhone, name: currentPhone };
-            const nameEl = document.querySelector('.chat-user-name');
-            const phoneEl = document.querySelector('.chat-user-phone');
-
-            if (nameEl) nameEl.textContent = contact.name || currentPhone;
-            if (phoneEl) phoneEl.textContent = currentPhone;
-
-            // Guardar nombre para uso seguro (evita XSS en onclick)
-            currentContactName = contact.name || '';
-
-            // Update Edit Button — sin embeber el nombre en el string
-            const headerActions = document.querySelector('header .flex.items-center.gap-2');
-            if (headerActions) {
-                const editBtn = headerActions.querySelector('button');
-                if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
-            }
-
-            // Render Messages
-            const container = document.getElementById('chat-messages');
-            if (container) {
-                if (!data.messages || data.messages.length === 0) {
-                    container.innerHTML = `
+        // Render Messages
+        const container = document.getElementById('chat-messages');
+        if (container) {
+            if (!data.messages || data.messages.length === 0) {
+                container.innerHTML = `
                         <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
                             <span class="material-symbols-outlined text-6xl opacity-20">chat_bubble_outline</span>
                             <p class="mt-2 text-sm">No hay mensajes</p>
                         </div>`;
-                } else {
-                    let html = '';
-                    let lastDate = '';
+            } else {
+                let html = '';
+                let lastDate = '';
 
-                    data.messages.forEach(msg => {
-                        if (msg.date !== lastDate) {
-                            html += `
+                data.messages.forEach(msg => {
+                    if (msg.date !== lastDate) {
+                        html += `
                             <div class="flex justify-center my-4 date-separator">
                                 <span class="bg-white/90 dark:bg-gray-800/90 text-[11px] font-semibold text-gray-500 dark:text-gray-400 py-1 px-4 rounded-full shadow-sm">${escapeHtml(msg.date)}</span>
                             </div>`;
-                            lastDate = msg.date;
-                        }
+                        lastDate = msg.date;
+                    }
 
-                        const content = escapeHtml(msg.content || '[Sin contenido]');
-                        if (msg.direction === 'inbound') {
-                            html += `
+                    const content = escapeHtml(msg.content || '[Sin contenido]');
+                    if (msg.direction === 'inbound') {
+                        html += `
                             <div class="flex flex-col items-start max-w-[80%]">
                                 <div class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
                                     <p>${content}</p>
                                     <div class="text-[10px] text-gray-400 text-right mt-1">${msg.time}</div>
                                 </div>
                             </div>`;
-                        } else {
-                            let icon = 'check';
-                            if (msg.status === 'read') icon = 'done_all';
-                            else if (msg.status === 'delivered') icon = 'done_all';
+                    } else {
+                        let icon = 'check';
+                        if (msg.status === 'read') icon = 'done_all';
+                        else if (msg.status === 'delivered') icon = 'done_all';
 
-                            html += `
+                        html += `
                             <div class="flex flex-col items-end max-w-[80%] self-end">
                                 <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
                                     <p>${content}</p>
@@ -535,271 +499,269 @@
                                     </div>
                                 </div>
                             </div>`;
-                        }
-                    });
-                    container.innerHTML = html;
-                    container.scrollTop = container.scrollHeight;
-                }
-            }
-
-            // Update Composer State
-            updateComposerState(data.can_send_free_text);
-        }
-
-        function updateComposerState(canSendText) {
-            const statusDivs = document.querySelectorAll('.composer-status');
-            const textBtn = document.getElementById('text-mode-btn');
-
-            // Hide all statuses first
-            statusDivs.forEach(d => d.classList.add('hidden'));
-
-            if (canSendText) {
-                // Show 'can-text' status
-                const okDiv = document.querySelector('.composer-status.can-text');
-                if (okDiv) okDiv.classList.remove('hidden');
-
-                if (textBtn) textBtn.disabled = false;
-                switchMode('text');
-            } else {
-                // Show 'template-only' status
-                const warnDiv = document.querySelector('.composer-status.template-only');
-                if (warnDiv) warnDiv.classList.remove('hidden');
-
-                if (textBtn) textBtn.disabled = true;
-                switchMode('template');
-            }
-        }
-
-        function switchMode(mode) {
-            document.getElementById('text-mode').classList.toggle('hidden', mode !== 'text');
-            document.getElementById('template-mode').classList.toggle('hidden', mode !== 'template');
-
-            // Visual toggle of radio buttons is handled by browser native radio behavior usually, 
-            // but we might need to force check if they are custom styled.
-            // In this design, they are radio inputs.
-            const radios = document.getElementsByName('composer-mode');
-            radios.forEach(r => {
-                if (r.value === mode) r.checked = true;
-            });
-        }
-
-        async function sendTextMessage(e) {
-            e.preventDefault();
-            const input = document.getElementById('message-input');
-            const text = input.value.trim();
-            if (!text) return;
-
-            if (!currentPhone) {
-                alert('Error: No se ha seleccionado ningún teléfono (currentPhone is empty)');
-                return;
-            }
-
-            const resDiv = document.getElementById('send-result');
-            resDiv.innerHTML = 'Enviando...';
-            resDiv.className = 'text-xs text-gray-500 pt-1';
-
-            try {
-                console.log('Sending text to:', currentPhone, 'Content:', text);
-                const response = await fetch('/api/whatsapp/send-text', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ to: currentPhone, text: text })
+                    }
                 });
-
-                if (!response.ok) {
-                    const textErr = await response.text();
-                    throw new Error(`Server error: ${response.status} ${textErr}`);
-                }
-
-                const data = await response.json();
-
-                if (data.success) {
-                    resDiv.innerHTML = 'Enviado ✓';
-                    resDiv.className = 'text-xs text-green-500 pt-1';
-                    appendMessageLocally(text);
-                    input.value = '';
-                    setTimeout(() => { resDiv.innerHTML = ''; }, 2000);
-                } else {
-                    resDiv.innerHTML = 'Error: ' + (data.error || 'Unknown');
-                    resDiv.className = 'text-xs text-red-500 pt-1';
-                    alert('Error enviando mensaje: ' + (data.error || 'Unknown'));
-                }
-            } catch (e) {
-                console.error(e);
-                resDiv.innerHTML = 'Error: ' + e.message;
-                resDiv.className = 'text-xs text-red-500 pt-1';
-                alert('Error de conexión o servidor: ' + e.message);
+                container.innerHTML = html;
+                container.scrollTop = container.scrollHeight;
             }
         }
 
-        // Template Selection Logic
-        document.getElementById('template-select').addEventListener('change', function (e) {
-            const templateName = e.target.value;
-            const container = document.getElementById('template-variables-container');
-            container.innerHTML = '';
+        // Update Composer State
+        updateComposerState(data.can_send_free_text);
+    }
 
-            if (!templateName) return;
+    function updateComposerState(canSendText) {
+        const statusDivs = document.querySelectorAll('.composer-status');
+        const textBtn = document.getElementById('text-mode-btn');
 
-            const template = allTemplates.find(t => t.name === templateName);
-            if (!template) return;
+        // Hide all statuses first
+        statusDivs.forEach(d => d.classList.add('hidden'));
 
-            // Find BODY component
-            const bodyComp = template.components.find(c => c.type === 'BODY');
-            if (bodyComp && bodyComp.text) {
-                const matches = bodyComp.text.match(/\{\{\d+\}\}/g);
-                if (matches) {
-                    // Deduplicate
-                    const vars = [...new Set(matches)];
-                    vars.forEach((v, index) => {
-                        const varNum = v.replace(/[\{\}]/g, '');
-                        const div = document.createElement('div');
-                        div.className = 'flex flex-col';
-                        div.innerHTML = `
+        if (canSendText) {
+            // Show 'can-text' status
+            const okDiv = document.querySelector('.composer-status.can-text');
+            if (okDiv) okDiv.classList.remove('hidden');
+
+            if (textBtn) textBtn.disabled = false;
+            switchMode('text');
+        } else {
+            // Show 'template-only' status
+            const warnDiv = document.querySelector('.composer-status.template-only');
+            if (warnDiv) warnDiv.classList.remove('hidden');
+
+            if (textBtn) textBtn.disabled = true;
+            switchMode('template');
+        }
+    }
+
+    function switchMode(mode) {
+        document.getElementById('text-mode').classList.toggle('hidden', mode !== 'text');
+        document.getElementById('template-mode').classList.toggle('hidden', mode !== 'template');
+
+        // Visual toggle of radio buttons is handled by browser native radio behavior usually, 
+        // but we might need to force check if they are custom styled.
+        // In this design, they are radio inputs.
+        const radios = document.getElementsByName('composer-mode');
+        radios.forEach(r => {
+            if (r.value === mode) r.checked = true;
+        });
+    }
+
+    async function sendTextMessage(e) {
+        e.preventDefault();
+        const input = document.getElementById('message-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        if (!currentPhone) {
+            alert('Error: No se ha seleccionado ningún teléfono (currentPhone is empty)');
+            return;
+        }
+
+        const resDiv = document.getElementById('send-result');
+        resDiv.innerHTML = 'Enviando...';
+        resDiv.className = 'text-xs text-gray-500 pt-1';
+
+        try {
+            console.log('Sending text to:', currentPhone, 'Content:', text);
+            const response = await fetch('/api/whatsapp/send-text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: currentPhone, text: text })
+            });
+
+            if (!response.ok) {
+                const textErr = await response.text();
+                throw new Error(`Server error: ${response.status} ${textErr}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                resDiv.innerHTML = 'Enviado ✓';
+                resDiv.className = 'text-xs text-green-500 pt-1';
+                appendMessageLocally(text);
+                input.value = '';
+                setTimeout(() => { resDiv.innerHTML = ''; }, 2000);
+            } else {
+                resDiv.innerHTML = 'Error: ' + (data.error || 'Unknown');
+                resDiv.className = 'text-xs text-red-500 pt-1';
+                alert('Error enviando mensaje: ' + (data.error || 'Unknown'));
+            }
+        } catch (e) {
+            console.error(e);
+            resDiv.innerHTML = 'Error: ' + e.message;
+            resDiv.className = 'text-xs text-red-500 pt-1';
+            alert('Error de conexión o servidor: ' + e.message);
+        }
+    }
+
+    // Template Selection Logic
+    document.getElementById('template-select').addEventListener('change', function (e) {
+        const templateName = e.target.value;
+        const container = document.getElementById('template-variables-container');
+        container.innerHTML = '';
+
+        if (!templateName) return;
+
+        const template = allTemplates.find(t => t.name === templateName);
+        if (!template) return;
+
+        // Find BODY component
+        const bodyComp = template.components.find(c => c.type === 'BODY');
+        if (bodyComp && bodyComp.text) {
+            const matches = bodyComp.text.match(/\{\{\d+\}\}/g);
+            if (matches) {
+                // Deduplicate
+                const vars = [...new Set(matches)];
+                vars.forEach((v, index) => {
+                    const varNum = v.replace(/[\{\}]/g, '');
+                    const div = document.createElement('div');
+                    div.className = 'flex flex-col';
+                    div.innerHTML = `
                             <label class="text-[10px] text-gray-500 uppercase font-bold">Variable {{ '{{' }}${varNum}{{ '}}' }}</label>
                             <input type="text" name="var_${varNum}" class="rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-2 px-3 focus:border-primary focus:ring-0" placeholder="Valor para variable ${varNum}">
                          `;
-                        container.appendChild(div);
-                    });
-                }
-            }
-        });
-
-        async function sendTemplateMessage(e) {
-            e.preventDefault();
-            const select = document.getElementById('template-select');
-            const templateName = select.value;
-            const lang = select.options[select.selectedIndex]?.dataset.lang || 'es';
-
-            if (!templateName) return;
-            if (!currentPhone) {
-                alert('Error: Selecciona un contacto primero.');
-                return;
-            }
-
-            // Collect variables
-            const components = [];
-            const inputs = document.querySelectorAll('#template-variables-container input');
-            if (inputs.length > 0) {
-                const params = [];
-                inputs.forEach(input => {
-                    params.push({
-                        type: "text",
-                        text: input.value
-                    });
-                });
-                components.push({
-                    type: "body",
-                    parameters: params
+                    container.appendChild(div);
                 });
             }
+        }
+    });
 
-            const resDiv = document.getElementById('send-result');
-            resDiv.innerHTML = 'Enviando template...';
-            resDiv.className = 'text-xs text-gray-500 pt-1';
+    async function sendTemplateMessage(e) {
+        e.preventDefault();
+        const select = document.getElementById('template-select');
+        const templateName = select.value;
+        const lang = select.options[select.selectedIndex]?.dataset.lang || 'es';
 
-            try {
-                const payload = {
-                    to: currentPhone,
-                    template_name: templateName,
-                    language: lang,
-                    components: components // Send raw components structure
-                };
+        if (!templateName) return;
+        if (!currentPhone) {
+            alert('Error: Selecciona un contacto primero.');
+            return;
+        }
 
-                // BACKEND COMPATIBILITY CHECK:
-                // The backend likely expects 'variable_mapping' or 'components'.
-                // Based on whatsapp_service.py: send_template_message(..., components=components)
-                // And app.py: we need to check how it handles arguments.
-
-                const response = await fetch('/api/whatsapp/send-template', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+        // Collect variables
+        const components = [];
+        const inputs = document.querySelectorAll('#template-variables-container input');
+        if (inputs.length > 0) {
+            const params = [];
+            inputs.forEach(input => {
+                params.push({
+                    type: "text",
+                    text: input.value
                 });
+            });
+            components.push({
+                type: "body",
+                parameters: params
+            });
+        }
 
-                if (!response.ok) {
-                    const textErr = await response.text();
-                    throw new Error(`Server error: ${response.status} ${textErr}`);
-                }
+        const resDiv = document.getElementById('send-result');
+        resDiv.innerHTML = 'Enviando template...';
+        resDiv.className = 'text-xs text-gray-500 pt-1';
 
-                const data = await response.json();
-                if (data.success) {
-                    resDiv.innerHTML = 'Template enviado ✓';
-                    resDiv.className = 'text-xs text-green-500 pt-1';
-                    appendMessageLocally(`[Template: ${templateName}]`);
-                    select.value = '';
-                    document.getElementById('template-variables-container').innerHTML = '';
-                    setTimeout(() => { resDiv.innerHTML = ''; }, 2000);
-                } else {
-                    resDiv.innerHTML = 'Error: ' + (data.error || 'Unknown');
-                    resDiv.className = 'text-xs text-red-500 pt-1';
-                }
-            } catch (e) {
-                console.error(e);
-                resDiv.innerHTML = 'Error de conexión: ' + e.message;
+        try {
+            const payload = {
+                to: currentPhone,
+                template_name: templateName,
+                language: lang,
+                components: components // Send raw components structure
+            };
+
+            // BACKEND COMPATIBILITY CHECK:
+            // The backend likely expects 'variable_mapping' or 'components'.
+            // Based on whatsapp_service.py: send_template_message(..., components=components)
+            // And app.py: we need to check how it handles arguments.
+
+            const response = await fetch('/api/whatsapp/send-template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const textErr = await response.text();
+                throw new Error(`Server error: ${response.status} ${textErr}`);
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                resDiv.innerHTML = 'Template enviado ✓';
+                resDiv.className = 'text-xs text-green-500 pt-1';
+                appendMessageLocally(`[Template: ${templateName}]`);
+                select.value = '';
+                document.getElementById('template-variables-container').innerHTML = '';
+                setTimeout(() => { resDiv.innerHTML = ''; }, 2000);
+            } else {
+                resDiv.innerHTML = 'Error: ' + (data.error || 'Unknown');
                 resDiv.className = 'text-xs text-red-500 pt-1';
             }
+        } catch (e) {
+            console.error(e);
+            resDiv.innerHTML = 'Error de conexión: ' + e.message;
+            resDiv.className = 'text-xs text-red-500 pt-1';
         }
+    }
 
-        async function editContactName(phone) {
-            const newName = prompt("Editar nombre del contacto:", currentContactName);
-            if (newName !== null && newName !== currentContactName) {
-                try {
-                    const response = await fetch(`/api/contacts/${encodeURIComponent(phone)}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: newName })
-                    });
-                    const data = await response.json();
-                    if (data.success) {
-                        currentContactName = newName;
-                        document.querySelector('.chat-user-name').textContent = newName;
-                        const listItem = document.querySelector(`.contact-item[data-phone="${phone}"] p.font-semibold`);
-                        if (listItem) listItem.textContent = newName;
-                    } else {
-                        alert("Error actualizando nombre: " + data.error);
-                    }
-                } catch (e) {
-                    alert("Error de conexión: " + e.message);
+    async function editContactName(phone) {
+        const newName = prompt("Editar nombre del contacto:", currentContactName);
+        if (newName !== null && newName !== currentContactName) {
+            try {
+                const response = await fetch(`/api/contacts/${encodeURIComponent(phone)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentContactName = newName;
+                    document.querySelector('.chat-user-name').textContent = newName;
+                    const listItem = document.querySelector(`.contact-item[data-phone="${phone}"] p.font-semibold`);
+                    if (listItem) listItem.textContent = newName;
+                } else {
+                    alert("Error actualizando nombre: " + data.error);
                 }
+            } catch (e) {
+                alert("Error de conexión: " + e.message);
             }
         }
+    }
 
-        // Search
-        document.getElementById('search-input').addEventListener('input', function (e) {
-            const val = e.target.value.toLowerCase();
-            document.querySelectorAll('.contact-item').forEach(item => {
-                const phone = item.dataset.phone.toLowerCase();
-                const name = item.querySelector('p.font-semibold')?.textContent?.toLowerCase() || '';
-                item.style.display = (phone.includes(val) || name.includes(val)) ? 'flex' : 'none';
-            });
+    // Search
+    document.getElementById('search-input').addEventListener('input', function (e) {
+        const val = e.target.value.toLowerCase();
+        document.querySelectorAll('.contact-item').forEach(item => {
+            const phone = item.dataset.phone.toLowerCase();
+            const name = item.querySelector('p.font-semibold')?.textContent?.toLowerCase() || '';
+            item.style.display = (phone.includes(val) || name.includes(val)) ? 'flex' : 'none';
         });
+    });
 
-        // Auto-scroll
-        const msgs = document.getElementById('chat-messages');
-        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    // Auto-scroll
+    const msgs = document.getElementById('chat-messages');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
 
-        // Initial setup for Edit button (seguro contra XSS)
-        if (currentPhone) {
-            const nameEl = document.querySelector('.chat-user-name');
-            currentContactName = nameEl ? nameEl.textContent.trim() : '';
-            const headerActions = document.querySelector('header .flex.items-center.gap-2');
-            if (headerActions) {
-                const editBtn = headerActions.querySelector('button');
-                if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
-            }
+    // Initial setup for Edit button (seguro contra XSS)
+    if (currentPhone) {
+        const nameEl = document.querySelector('.chat-user-name');
+        currentContactName = nameEl ? nameEl.textContent.trim() : '';
+        const headerActions = document.querySelector('header .flex.items-center.gap-2');
+        if (headerActions) {
+            const editBtn = headerActions.querySelector('button');
+            if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
         }
+    }
 
-        // Polling inteligente: actualiza solo el chat cada 30s sin recargar la página
-        setInterval(() => {
-            if (currentPhone) {
-                fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
-                    .then(r => r.json())
-                    .then(data => { if (data.success) renderChat(data); })
-                    .catch(() => {}); // Silencioso si falla
-            }
-        }, 30000);
+    // Polling inteligente: actualiza solo el chat cada 30s sin recargar la página
+    setInterval(() => {
+        if (currentPhone) {
+            fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
+                .then(r => r.json())
+                .then(data => { if (data.success) renderChat(data); })
+                .catch(() => { }); // Silencioso si falla
+        }
+    }, 30000);
 
-    </script>
-</body>
-
-</html>
+</script>
+{% endblock %}

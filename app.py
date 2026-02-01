@@ -3,7 +3,8 @@ import json
 import requests
 import io
 import pandas as pd
-from flask import Flask, request, jsonify, render_template, send_file
+import hmac
+from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for
 from config import Config
 from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog
 import threading
@@ -34,6 +35,7 @@ def to_argentina_filter(dt):
 # Configuración de la base de datos
 app.config['SQLALCHEMY_DATABASE_URI'] = Config.DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = Config.SECRET_KEY
 
 # Inicializar SQLAlchemy
 db.init_app(app)
@@ -45,9 +47,40 @@ with app.app_context():
 # Importar servicio de WhatsApp (después de crear app)
 from whatsapp_service import whatsapp_api
 
+# Rutas públicas que no requieren autenticación
+PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook'}
+
+@app.before_request
+def check_auth():
+    if request.path in PUBLIC_PATHS:
+        return None
+    if not session.get('logged_in'):
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Unauthorized'}), 401
+        return redirect(url_for('login'))
+
 @app.route("/", methods=["GET"])
 def index():
-    return "WhatsApp Middleware is running!", 200
+    return redirect(url_for('dashboard'))
+
+@app.route("/login", methods=["GET"])
+def login():
+    if session.get('logged_in'):
+        return redirect(url_for('dashboard'))
+    return render_template('login.html', error=False)
+
+@app.route("/login", methods=["POST"])
+def login_post():
+    password = request.form.get('password', '')
+    if hmac.compare_digest(password, Config.LOGIN_PASSWORD):
+        session['logged_in'] = True
+        return redirect(url_for('dashboard'))
+    return render_template('login.html', error=True)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
@@ -537,6 +570,16 @@ def api_stats():
         'success_rate': success_rate
     })
 
+def format_utc_iso(dt):
+    """Convierte datetime a string ISO 8601 con sufijo Z para UTC."""
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        # Asumir UTC si es naive
+        return dt.isoformat() + 'Z'
+    # Si tiene zona horaria, convertir a UTC explícitamente
+    return dt.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+
 def register_contact_if_new(phone_number, name=None):
     """Registra un contacto si no existe."""
     try:
@@ -610,8 +653,9 @@ def api_contact_detail(phone_number):
     return jsonify({'found': True, 'details': contact.to_dict()})
 
 @app.route("/api/contacts/import", methods=["POST"])
+
 def api_import_contacts():
-    """Importar contactos desde Excel/CSV."""
+    """Importar contactos desde Excel/CSV con mapeo estricto."""
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
     
@@ -626,34 +670,38 @@ def api_import_contacts():
         else:
             df = pd.read_excel(file)
             
-        # Normalizar columnas
-        df.columns = [c.lower().strip() for c in df.columns]
+        # Normalizar columnas (strip y lower)
+        df.columns = [str(c).strip() for c in df.columns]
         
-        required = ['phone', 'phone_number', 'telefono', 'numero']
-        phone_col = next((c for c in df.columns if c in required), None)
+        # Mapeo de columnas del Excel (Nombre visible o variaciones) a atributos del modelo
+        # Requeridos: Telefono
+        # Opcionales: Nombre completo, Nombre, Apellido, Campo 1..7, Notas
+        
+        # Identificar columna de teléfono
+        phone_cols = ['Telefono', 'Teléfono', 'Phone', 'Celular']
+        phone_col = next((c for c in df.columns if c in phone_cols), None)
         
         if not phone_col:
-            return jsonify({'error': 'Columna de teléfono no encontrada (phone, phone_number, telefono)'}), 400
+            return jsonify({'error': f'Columna de teléfono no encontrada. Se busca una de: {", ".join(phone_cols)}'}), 400
             
+        col_map = {
+            'Nombre completo': 'name', 
+            'Nombre': 'first_name',
+            'Apellido': 'last_name',
+            'Notas': 'notes',
+            'Campo 1': 'custom_field_1',
+            'Campo 2': 'custom_field_2',
+            'Campo 3': 'custom_field_3',
+            'Campo 4': 'custom_field_4',
+            'Campo 5': 'custom_field_5',
+            'Campo 6': 'custom_field_6',
+            'Campo 7': 'custom_field_7'
+        }
+        
         count = 0
         updated = 0
 
-        # Mapeo simple de nombres de columna a atributos del modelo
-        col_map = {
-            'name': 'name', 'nombre': 'name',
-            'first_name': 'first_name', 'nombre_pila': 'first_name',
-            'last_name': 'last_name', 'apellido': 'last_name',
-            'notes': 'notes', 'notas': 'notes',
-            'custom_1': 'custom_field_1', 'campo_1': 'custom_field_1',
-            'custom_2': 'custom_field_2', 'campo_2': 'custom_field_2',
-            'custom_3': 'custom_field_3', 'campo_3': 'custom_field_3',
-            'custom_4': 'custom_field_4', 'campo_4': 'custom_field_4',
-            'custom_5': 'custom_field_5', 'campo_5': 'custom_field_5',
-            'custom_6': 'custom_field_6', 'campo_6': 'custom_field_6',
-            'custom_7': 'custom_field_7', 'campo_7': 'custom_field_7'
-        }
-
-        # Pre-calcular tag de importación si se proporcionó desde el formulario
+        # Pre-calcular tag de importación
         import_tag = None
         import_tag_name = request.form.get('assign_tag', '').strip()
         if import_tag_name:
@@ -664,36 +712,34 @@ def api_import_contacts():
                 db.session.flush()
 
         for _, row in df.iterrows():
-            phone = str(row[phone_col]).replace('.0', '').strip()
-
+            # Procesar teléfono
+            raw_phone = row[phone_col]
+            if pd.isna(raw_phone) or str(raw_phone).strip() == '':
+                continue
+                
+            phone = str(raw_phone).replace('.0', '').strip()
+            
             contact = Contact.query.get(phone)
+            is_new = False
             if not contact:
                 contact = Contact(phone_number=phone)
                 db.session.add(contact)
+                is_new = True
                 count += 1
             else:
                 updated += 1
 
-            # Actualizar campos detectados
-            for col in df.columns:
-                if col in col_map:
-                    val = row.get(col)
+            # Actualizar campos mapeados
+            for excel_col, model_attr in col_map.items():
+                if excel_col in df.columns:
+                    val = row[excel_col]
                     if pd.notna(val):
-                        setattr(contact, col_map[col], str(val))
-
-            # Tags desde columna del archivo
-            tags_str = row.get('tags') or row.get('etiquetas')
-            if pd.notna(tags_str):
-                for tag_name in [t.strip() for t in str(tags_str).split(',') if t.strip()]:
-                    tag = Tag.query.filter_by(name=tag_name).first()
-                    if not tag:
-                        tag = Tag(name=tag_name)
-                        db.session.add(tag)
-                        db.session.flush()
-                    if tag not in contact.tags:
-                        contact.tags.append(tag)
-
-            # Tag asignado desde el formulario de importación
+                        setattr(contact, model_attr, str(val))
+            
+            # Si se proveyó "Nombre completo" pero no Nombre/Apellido, dejarlo así.
+            # Si el usuario quiere concatenar, debe hacerlo en el Excel.
+            
+            # Tag asignado desde el formulario
             if import_tag and import_tag not in contact.tags:
                 contact.tags.append(import_tag)
             
@@ -705,7 +751,7 @@ def api_import_contacts():
         
     except Exception as e:
         logger.error(f"Error importando contactos: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f"Error procesando archivo: {str(e)}"}), 500
 
 @app.route("/api/contacts/export", methods=["GET"])
 def api_export_contacts():
@@ -822,7 +868,10 @@ def api_get_messages(phone):
                 'direction': m.direction,
                 'time': time_str,
                 'date': date_str,
-                'status': m.latest_status
+                'status': m.latest_status,
+                'message_type': m.message_type,
+                'media_url': m.media_url,
+                'caption': m.caption
             })
 
         return jsonify({
@@ -1242,6 +1291,65 @@ def api_whatsapp_profile():
     """API para obtener perfil del negocio."""
     return jsonify(whatsapp_api.get_business_profile())
 
+@app.route("/api/whatsapp/create-template", methods=["POST"])
+def api_create_template():
+    """API para crear una nueva plantilla de mensaje."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    name = data.get("name", "").strip().lower().replace(" ", "_")
+    category = data.get("category")
+    language = data.get("language", "es_AR")
+
+    if not name or not category:
+        return jsonify({"error": "name y category son requeridos"}), 400
+
+    if category not in ["MARKETING", "UTILITY", "AUTHENTICATION"]:
+        return jsonify({"error": "category debe ser MARKETING, UTILITY o AUTHENTICATION"}), 400
+
+    # Construir componentes
+    components = []
+
+    # Header (opcional)
+    header = data.get("header")
+    if header and header.get("format"):
+        header_component = {"type": "HEADER", "format": header["format"]}
+        if header["format"] == "TEXT" and header.get("text"):
+            header_component["text"] = header["text"]
+        components.append(header_component)
+
+    # Body (requerido)
+    body_text = data.get("body", "").strip()
+    if not body_text:
+        return jsonify({"error": "body es requerido"}), 400
+    components.append({"type": "BODY", "text": body_text})
+
+    # Footer (opcional)
+    footer_text = data.get("footer", "").strip()
+    if footer_text:
+        components.append({"type": "FOOTER", "text": footer_text})
+
+    # Buttons (opcional)
+    buttons = data.get("buttons", [])
+    if buttons:
+        button_components = []
+        for btn in buttons:
+            if btn.get("type") == "QUICK_REPLY" and btn.get("text"):
+                button_components.append({"type": "QUICK_REPLY", "text": btn["text"]})
+            elif btn.get("type") == "URL" and btn.get("text") and btn.get("url"):
+                button_components.append({"type": "URL", "text": btn["text"], "url": btn["url"]})
+            elif btn.get("type") == "PHONE_NUMBER" and btn.get("text") and btn.get("phone_number"):
+                button_components.append({"type": "PHONE_NUMBER", "text": btn["text"], "phone_number": btn["phone_number"]})
+        if button_components:
+            components.append({"type": "BUTTONS", "buttons": button_components})
+
+    result = whatsapp_api.create_template(name, category, language, components)
+
+    if result.get("error"):
+        return jsonify(result), 400
+    return jsonify(result)
+
 @app.route("/api/whatsapp/send-template", methods=["POST"])
 def api_send_template():
     """API para enviar mensaje con template y variables dinámicas."""
@@ -1413,6 +1521,12 @@ def campaigns_page():
                          tags=tags,
                          templates=templates)
 
+@app.route("/campaigns/<int:campaign_id>")
+def campaign_details_page(campaign_id):
+    """Página de detalles de campaña."""
+    campaign = Campaign.query.get_or_404(campaign_id)
+    return render_template('campaign_details.html', campaign_id=campaign_id)
+
 @app.route("/api/campaigns", methods=["GET"])
 def api_list_campaigns():
     """Lista campañas."""
@@ -1431,9 +1545,9 @@ def api_list_campaigns():
             'total': total,
             'sent': sent,
             'failed': failed,
-            'created_at': c.created_at.isoformat() if c.created_at else None,
-            'started_at': c.started_at.isoformat() if c.started_at else None,
-            'completed_at': c.completed_at.isoformat() if c.completed_at else None
+            'created_at': format_utc_iso(c.created_at),
+            'started_at': format_utc_iso(c.started_at),
+            'completed_at': format_utc_iso(c.completed_at)
         })
     return jsonify(result)
 
@@ -1441,10 +1555,12 @@ def api_list_campaigns():
 def api_create_campaign():
     """Crea una nueva campaña."""
     data = request.json
-    name = data.get('name', '').strip()
-    template_name = data.get('template_name', '').strip()
-    template_language = data.get('template_language', 'es_AR')
+    name = data.get('name')
     tag_id = data.get('tag_id')
+    template_name = data.get('template_name')
+    template_language = data.get('template_language', 'es_AR')
+    scheduled_at_str = data.get('scheduled_at')
+    variables = data.get('variables') # Dict {"1": "first_name", ...}
 
     if not name or not template_name:
         return jsonify({'error': 'name y template_name requeridos'}), 400
@@ -1455,16 +1571,46 @@ def api_create_campaign():
     tag = Tag.query.get(tag_id)
     if not tag:
         return jsonify({'error': 'Tag no encontrado'}), 404
+        
+    scheduled_at = None
+    status = 'draft'
+    
+    if scheduled_at_str:
+        # Asumimos que viene en ISO format o timestamp
+        try:
+            # Si viene con timezone, convertir a UTC. Si no, asumir que es UTC o manejarlo.
+            # Simplificación: el frontend debe enviar ISO string.
+            dt = datetime.fromisoformat(scheduled_at_str.replace('Z', '+00:00'))
+            
+            # Si es naive (no tiene timezone), asumir que es hora de Argentina
+            if dt.tzinfo is None:
+                ar_tz = pytz.timezone('America/Argentina/Buenos_Aires')
+                dt = ar_tz.localize(dt)
+            
+            # Convertir a UTC para almacenamiento
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            
+            scheduled_at = dt
+            status = 'scheduled'
+        except Exception as e:
+            return jsonify({'error': f'Error en fecha programada: {str(e)}'}), 400
 
     campaign = Campaign(
         name=name,
         template_name=template_name,
         template_language=template_language,
         tag_id=tag_id,
-        status='draft'
+        status=status,
+        scheduled_at=scheduled_at,
+        variables=variables
     )
-    db.session.add(campaign)
-    db.session.commit()
+    try:
+        db.session.add(campaign)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating campaign: {e}")
+        return jsonify({'error': str(e)}), 500
 
     return jsonify({
         'success': True,
@@ -1513,54 +1659,15 @@ def api_send_campaign(campaign_id):
 
     # Crear logs pendientes
     for contact in contacts:
-        log = CampaignLog(
-            campaign_id=campaign.id,
-            contact_phone=contact.phone_number,
-            status='pending'
-        )
-        db.session.add(log)
+        # Verificar si ya existe log (para reintentos o campañas programadas que arrancan)
+        if not CampaignLog.query.filter_by(campaign_id=campaign.id, contact_phone=contact.phone_number).first():
+            log = CampaignLog(
+                campaign_id=campaign.id,
+                contact_phone=contact.phone_number,
+                status='pending'
+            )
+            db.session.add(log)
     db.session.commit()
-
-    # Envío en background thread
-    def send_campaign_bg(app_context, cid):
-        with app_context:
-            camp = Campaign.query.get(cid)
-            logs = CampaignLog.query.filter_by(campaign_id=cid, status='pending').all()
-
-            for log in logs:
-                try:
-                    result = whatsapp_api.send_template_message(
-                        log.contact_phone,
-                        camp.template_name,
-                        camp.template_language
-                    )
-                    if result.get('success'):
-                        log.status = 'sent'
-                        log.message_id = result.get('message_id')
-                        wa_id = result.get('message_id')
-                        if wa_id:
-                            new_msg = Message(
-                                wa_message_id=wa_id,
-                                phone_number=log.contact_phone,
-                                direction='outbound',
-                                message_type='template',
-                                content=f'[Campaña: {camp.name}] [Template: {camp.template_name}]',
-                                timestamp=datetime.utcnow()
-                            )
-                            db.session.add(new_msg)
-                    else:
-                        log.status = 'failed'
-                        log.error_detail = result.get('error', 'Error desconocido')
-                except Exception as e:
-                    log.status = 'failed'
-                    log.error_detail = str(e)
-
-                db.session.commit()
-                time_module.sleep(1)  # Rate limiting
-
-            camp.status = 'completed'
-            camp.completed_at = datetime.utcnow()
-            db.session.commit()
 
     ctx = app.app_context()
     t = threading.Thread(target=send_campaign_bg, args=(ctx, campaign.id))
@@ -1572,6 +1679,142 @@ def api_send_campaign(campaign_id):
         'status': 'sending',
         'total_contacts': len(contacts)
     })
+
+def send_campaign_bg(app_context, cid):
+    """Función de envío en background (reutilizable)."""
+    with app_context:
+        camp = Campaign.query.get(cid)
+        if not camp: return
+        
+        logs = CampaignLog.query.filter_by(campaign_id=cid, status='pending').all()
+
+        for log in logs:
+            try:
+                # Construir componentes con variables dinámicas
+                components = None
+                if camp.variables:
+                    parameters = []
+                    # Variables es un dict {"1": "field_name", ...}
+                    sorted_vars = sorted(camp.variables.items(), key=lambda x: int(x[0]))
+                    
+                    contact = Contact.query.get(log.contact_phone)
+                    
+                    for idx, field in sorted_vars:
+                        value = "-"
+                        if field == 'phone_number':
+                            value = contact.phone_number
+                        elif contact:
+                            val = getattr(contact, field, None)
+                            if val:
+                                value = str(val)
+                        
+                        parameters.append({
+                            "type": "text",
+                            "text": value
+                        })
+                    
+                    if parameters:
+                        components = [{
+                            "type": "body",
+                            "parameters": parameters
+                        }]
+
+                result = whatsapp_api.send_template_message(
+                    log.contact_phone,
+                    camp.template_name,
+                    camp.template_language,
+                    components=components
+                )
+                
+                if result.get('success'):
+                    log.status = 'sent'
+                    log.message_id = result.get('message_id')
+                    wa_id = result.get('message_id')
+                    if wa_id:
+                        # Reemplazar placeholders para el historial local simplificado
+                        content_preview = f'[Campaña: {camp.name}] [Template: {camp.template_name}]'
+                        
+                        new_msg = Message(
+                            wa_message_id=wa_id,
+                            phone_number=log.contact_phone,
+                            direction='outbound',
+                            message_type='template',
+                            content=content_preview,
+                            timestamp=datetime.utcnow()
+                        )
+                        db.session.add(new_msg)
+                else:
+                    log.status = 'failed'
+                    log.error_detail = str(result.get('error') or result)
+            except Exception as e:
+                log.status = 'failed'
+                log.error_detail = str(e)
+
+            db.session.commit()
+            time_module.sleep(1)  # Rate limiting
+
+        camp.status = 'completed'
+        camp.completed_at = datetime.utcnow()
+        db.session.commit()
+
+def run_scheduler():
+    """Scheduler para verificar campañas programadas."""
+    while True:
+        try:
+            with app.app_context():
+                now = datetime.utcnow()
+                # Buscar campañas programadas que ya deberían salir
+                pending = Campaign.query.filter(
+                    Campaign.status == 'scheduled',
+                    Campaign.scheduled_at <= now
+                ).all()
+                
+                for camp in pending:
+                    logger.info(f"🚀 Ejecutando campaña programada: {camp.name}")
+                    
+                    # Verificar contactos
+                    contacts = Contact.query.filter(
+                        Contact.tags.any(Tag.id == camp.tag_id)
+                    ).all()
+                    
+                    if not contacts:
+                        camp.status = 'failed'
+                        camp.completed_at = now
+                        logger.warning(f"Campaña {camp.name} fallida: Sin contactos")
+                        db.session.commit()
+                        continue
+                        
+                    # Pasar a sending
+                    camp.status = 'sending'
+                    camp.started_at = now
+                    db.session.commit()
+                    
+                    # Crear logs
+                    for contact in contacts:
+                         if not CampaignLog.query.filter_by(campaign_id=camp.id, contact_phone=contact.phone_number).first():
+                            db.session.add(CampaignLog(
+                                campaign_id=camp.id,
+                                contact_phone=contact.phone_number,
+                                status='pending'
+                            ))
+                    db.session.commit()
+                    
+                    # Lanzar thread de envío
+                    t = threading.Thread(target=send_campaign_bg, args=(app.app_context(), camp.id))
+                    t.daemon = True
+                    t.start()
+                    
+        except Exception as e:
+            logger.error(f"Error en scheduler: {e}")
+            
+        time_module.sleep(60) # Revisar cada minuto
+
+# Iniciar scheduler
+scheduler_thread = threading.Thread(target=run_scheduler)
+scheduler_thread.daemon = True
+scheduler_thread.start()
+
+
 
 @app.route("/api/campaigns/<int:campaign_id>/status", methods=["GET"])
 def api_campaign_status(campaign_id):
@@ -1593,9 +1836,166 @@ def api_campaign_status(campaign_id):
         'sent': sent,
         'failed': failed,
         'pending': pending,
-        'started_at': campaign.started_at.isoformat() if campaign.started_at else None,
-        'completed_at': campaign.completed_at.isoformat() if campaign.completed_at else None
+        'started_at': format_utc_iso(campaign.started_at),
+        'completed_at': format_utc_iso(campaign.completed_at)
     })
+
+@app.route("/api/campaigns/<int:campaign_id>/stats_preview", methods=["GET"]) # Renamed to avoid conflict
+def api_get_campaign_stats_preview(campaign_id):
+    """Obtiene detalles completos de una campaña (Preview)."""
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'error': 'Campaña no encontrada'}), 404
+
+    logs = CampaignLog.query.filter_by(campaign_id=campaign_id).all()
+    total = len(logs)
+    sent = sum(1 for l in logs if l.status in ('sent', 'delivered', 'read'))
+    read = sum(1 for l in logs if l.status == 'read')
+    failed = sum(1 for l in logs if l.status == 'failed')
+    
+    # Preview de logs (últimos 50)
+    preview_logs = []
+    for l in logs[-50:]:
+        contact = Contact.query.get(l.contact_phone)
+        preview_logs.append({
+            'phone': l.contact_phone,
+            'name': contact.name if contact else '',
+            'status': l.status,
+            'error': l.error_detail
+        })
+
+    return jsonify({
+        'id': campaign.id,
+        'name': campaign.name,
+        'status': campaign.status,
+        'template_name': campaign.template_name,
+        'tag_name': campaign.tag.name if campaign.tag else '??',
+        'created_at': format_utc_iso(campaign.created_at),
+        'scheduled_at': format_utc_iso(campaign.scheduled_at),
+        'started_at': format_utc_iso(campaign.started_at),
+        'completed_at': format_utc_iso(campaign.completed_at),
+        'stats': {
+            'total': total,
+            'sent': sent,
+            'read': read,
+            'failed': failed
+        },
+        'logs_preview': preview_logs,
+        'variables': campaign.variables
+    })
+
+@app.route("/api/campaigns/<int:campaign_id>")
+def api_campaign_details(campaign_id):
+    """API para obtener detalles y estadísticas de una campaña."""
+    try:
+        campaign = Campaign.query.get_or_404(campaign_id)
+        
+        # Estadísticas agregadas
+        total_logs = CampaignLog.query.filter_by(campaign_id=campaign_id).count()
+        
+        # Contar por estados
+        logs_stats = db.session.query(
+            CampaignLog.status, func.count(CampaignLog.id)
+        ).filter(
+            CampaignLog.campaign_id == campaign_id
+        ).group_by(CampaignLog.status).all()
+        
+        stats_map = {s: c for s, c in logs_stats}
+        sent_count = stats_map.get('sent', 0)
+        delivered_count = stats_map.get('delivered', 0)
+        read_count = stats_map.get('read', 0)
+        failed_count = stats_map.get('failed', 0)
+        
+        # 'Enviados' para la UI incluye todo lo que salió exitosamente (sent, delivered, read)
+        total_successful = sent_count + delivered_count + read_count
+        
+        # Logs preview (últimos 50)
+        logs_query = db.session.query(
+            CampaignLog, Contact.name
+        ).outerjoin(
+            Contact, CampaignLog.contact_phone == Contact.phone_number
+        ).filter(
+            CampaignLog.campaign_id == campaign_id
+        ).order_by(CampaignLog.created_at.desc()).limit(50).all()
+        
+        logs_preview = []
+        for log, contact_name in logs_query:
+            logs_preview.append({
+                'phone': log.contact_phone,
+                'name': contact_name,
+                'status': log.status,
+                'error': log.error_detail,
+                'created_at': format_utc_iso(log.created_at)
+            })
+            
+        return jsonify({
+            'id': campaign.id,
+            'name': campaign.name,
+            'status': campaign.status,
+            'template_name': campaign.template_name,
+            'tag_name': campaign.tag.name if campaign.tag else 'N/A',
+            'created_at': format_utc_iso(campaign.created_at),
+            'started_at': format_utc_iso(campaign.started_at),
+            'completed_at': format_utc_iso(campaign.completed_at),
+            'scheduled_at': format_utc_iso(campaign.scheduled_at),
+            'stats': {
+                'total': total_logs,
+                'sent': total_successful,
+                'read': read_count, 
+                'failed': failed_count
+            },
+            'logs_preview': logs_preview
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting campaign details: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/campaigns/<int:campaign_id>/export", methods=["GET"])
+def api_export_campaign_stats(campaign_id):
+    """Exporta reporte de campaña a Excel."""
+    try:
+        campaign = Campaign.query.get(campaign_id)
+        if not campaign:
+            return jsonify({'error': 'Campaña no encontrada'}), 404
+            
+        logs = CampaignLog.query.filter_by(campaign_id=campaign_id).all()
+        
+        data = []
+        for l in logs:
+            contact = Contact.query.get(l.contact_phone)
+            data.append({
+                'Telefono': l.contact_phone,
+                'Nombre Completo': contact.name if contact else '',
+                'Nombre': contact.first_name if contact else '',
+                'Apellido': contact.last_name if contact else '',
+                'Estado Mensaje': l.status,
+                'Error': l.error_detail or '',
+                'Mensaje ID': l.message_id or ''
+            })
+            
+        df = pd.DataFrame(data)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Reporte')
+            
+        output.seek(0)
+        
+        filename = f"reporte_{campaign.name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        # Limpiar nombre de archivo
+        filename = "".join([c for c in filename if c.isalnum() or c in (' ', '.', '_')]).strip().replace(' ', '_')
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exportando campaña: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=Config.PORT, debug=False)
