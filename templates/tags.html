@@ -1,134 +1,437 @@
 <!DOCTYPE html>
-<html lang="es">
+<html class="light" lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Etiquetas - WhatsApp Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Etiquetas - WhatsApp CRM</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec25",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102212",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
     <style>
-        :root {
-            --bg-primary: #f8fafc;
-            --bg-card: #ffffff;
-            --accent-purple: #8b5cf6;
-            --text-primary: #0f172a;
-            --text-secondary: #64748b;
-            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 2rem;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .nav-btn {
-            text-decoration: none;
-            color: var(--text-secondary);
-            font-weight: 500;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
-
-        .nav-btn:hover,
-        .nav-btn.active {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            box-shadow: var(--shadow);
-        }
-
-        .tags-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .tag-card {
-            background: var(--bg-card);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: var(--shadow);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: transform 0.2s;
-        }
-
-        .tag-card:hover {
-            transform: translateY(-2px);
-        }
-
-        .tag-info h3 {
-            margin: 0 0 0.5rem 0;
-            font-size: 1.1rem;
-        }
-
-        .tag-count {
-            background: var(--bg-primary);
-            color: var(--accent-purple);
-            font-weight: 700;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 1.25rem;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .hidden { display: none !important; }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <header class="header">
-            <div>
-                <h1>Gestión de Etiquetas</h1>
-                <p style="color: var(--text-secondary);">Total de contactos: {{ total_contacts }}</p>
-            </div>
-            <nav class="nav-buttons">
-                <a href="/dashboard" class="nav-btn">💬 Dashboard</a>
-                <a href="/contacts" class="nav-btn">👥 Contactos</a>
-                <a href="/tags" class="nav-btn active">🏷️ Etiquetas</a>
-                <a href="/failed-messages" class="nav-btn">⚠️ Fallidos</a>
-                <a href="/analytics" class="nav-btn">📊 Analytics</a>
-            </nav>
-        </header>
+<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white min-h-screen">
+    <div class="flex h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
+            <a href="/dashboard" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Dashboard">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">chat</span>
+            </a>
+            <a href="/contacts" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Contactos">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
+            </a>
+            <a href="/tags" class="p-3 rounded-xl bg-primary/10 text-primary" title="Etiquetas">
+                <span class="material-symbols-outlined">label</span>
+            </a>
+            <a href="/campaigns" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Campañas">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">campaign</span>
+            </a>
+            <a href="/failed-messages" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Fallidos">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">error</span>
+            </a>
+            <a href="/analytics" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Analytics">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">bar_chart</span>
+            </a>
+            <a href="/whatsapp-settings" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors mt-auto" title="Configuración">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">settings</span>
+            </a>
+        </aside>
 
-        {% if tags %}
-        <div class="tags-grid">
-            {% for tag, count in tags %}
-            <div class="tag-card">
-                <div class="tag-info">
-                    <h3>🏷️ {{ tag }}</h3>
-                    <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">Contactos activos</p>
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-xl font-bold text-[#111812] dark:text-white">Etiquetas</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Total de contactos: {{ total_contacts }}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div id="create-tag-form" class="hidden flex items-center gap-2">
+                            <input type="text" id="new-tag-input" placeholder="Nombre de etiqueta..."
+                                class="px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-48"
+                                onkeydown="if(event.key==='Enter') createTag()" />
+                            <button onclick="createTag()"
+                                class="px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                                Crear
+                            </button>
+                            <button onclick="document.getElementById('create-tag-form').classList.add('hidden')"
+                                class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <span class="material-symbols-outlined text-lg">close</span>
+                            </button>
+                        </div>
+                        <button onclick="document.getElementById('create-tag-form').classList.remove('hidden'); document.getElementById('new-tag-input').focus();"
+                            class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                            <span class="material-symbols-outlined text-lg">add</span>
+                            Nueva Etiqueta
+                        </button>
+                    </div>
                 </div>
-                <div class="tag-count">{{ count }}</div>
+            </header>
+
+            <!-- Tags Grid -->
+            <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+                {% if tags %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {% for tag, count in tags %}
+                    <div id="tag-{{ loop.index }}" class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                        <div class="flex items-start justify-between">
+                            <a href="/contacts?tag={{ tag | urlencode }}" class="flex-1 group">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                        <span class="material-symbols-outlined text-primary">label</span>
+                                    </div>
+                                    <h3 class="font-semibold text-[#111812] dark:text-white group-hover:text-primary transition-colors">{{ tag }}</h3>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ count }} contacto{{ 's' if count != 1 else '' }}</span>
+                                    <span class="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full text-sm">{{ count }}</span>
+                                </div>
+                            </a>
+                            <div class="flex flex-col gap-1 ml-2">
+                                <button onclick="openBulkModal('{{ tag }}')"
+                                    class="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                    title="Acciones masivas">
+                                    <span class="material-symbols-outlined text-lg">upload_file</span>
+                                </button>
+                                <button onclick="deleteTag('{{ tag }}', 'tag-{{ loop.index }}')"
+                                    class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Eliminar etiqueta">
+                                    <span class="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="flex flex-col items-center justify-center h-full text-center">
+                    <div class="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-4xl text-gray-300 dark:text-gray-600">label_off</span>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">No hay etiquetas creadas</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+                        Añade etiquetas a tus contactos desde el Dashboard o la sección de Contactos.
+                    </p>
+                </div>
+                {% endif %}
             </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div style="text-align: center; padding: 4rem; color: var(--text-secondary);">
-            <h2>No hay etiquetas creadas</h2>
-            <p>Añade etiquetas a tus contactos desde el Dashboard o la sección de Contactos.</p>
-        </div>
-        {% endif %}
+        </main>
     </div>
+
+    <!-- Bulk Tag Action Modal -->
+    <div id="bulkTagModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" onclick="closeBulkModal()"></div>
+        <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div class="flex items-center justify-between p-6 pb-3">
+                <h3 class="text-lg font-semibold">Acciones masivas</h3>
+                <button onclick="closeBulkModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="px-6 pb-6 space-y-4">
+                <!-- Nombre de la etiqueta -->
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium" id="bulk-tag-name"></span>
+                </div>
+                <!-- Descargar plantilla -->
+                <a href="/api/contacts/template" download class="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors">
+                    <span class="material-symbols-outlined text-lg">download</span>
+                    Descargar plantilla Excel
+                </a>
+                <!-- Acción: agregar / quitar -->
+                <div class="space-y-2">
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-primary transition-colors">
+                        <input type="radio" name="bulk-action" value="add" id="radio-add" class="accent-primary" checked />
+                        <div>
+                            <div class="text-sm font-medium">Agregar etiqueta</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Asigna la etiqueta a los contactos del archivo</div>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-primary transition-colors">
+                        <input type="radio" name="bulk-action" value="remove" id="radio-remove" class="accent-primary" />
+                        <div>
+                            <div class="text-sm font-medium">Quitar etiqueta</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Elimina la etiqueta de los contactos del archivo</div>
+                        </div>
+                    </label>
+                </div>
+                <!-- Upload archivo -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1.5">Archivo Excel / CSV</label>
+                    <div id="bulk-drop-zone" class="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-5 text-center cursor-pointer hover:border-primary transition-colors">
+                        <span class="material-symbols-outlined text-2xl text-gray-400 dark:text-gray-600">upload_file</span>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Arrastra aquí o haz clic</p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">.xlsx, .xls, .csv</p>
+                        <input type="file" id="bulk-file-input" accept=".xlsx,.xls,.csv" class="hidden" />
+                    </div>
+                    <div id="bulk-file-name" class="hidden mt-2 flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+                        <span id="bulk-file-label" class="truncate mr-2"></span>
+                        <button onclick="clearBulkFile()" class="shrink-0 text-gray-400 hover:text-red-500 transition-colors">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Notificación resultado -->
+                <div id="bulk-result" class="hidden p-3 rounded-lg text-sm"></div>
+                <!-- Ejecutar -->
+                <button id="bulk-submit-btn" onclick="submitBulkAction()" class="w-full px-4 py-2.5 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                    Ejecutar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function createTag() {
+            const input = document.getElementById('new-tag-input');
+            const name = input.value.trim();
+            if (!name) return;
+
+            input.disabled = true;
+            try {
+                const response = await fetch('/api/tags', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    input.value = '';
+                    input.disabled = false;
+                    document.getElementById('create-tag-form').classList.add('hidden');
+                    // Agregar card al grid
+                    const grid = document.querySelector('.grid');
+                    const emptyState = document.querySelector('.flex.flex-col.items-center.justify-center');
+                    if (emptyState) {
+                        // Reemplazar empty state por grid
+                        emptyState.outerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                                <div class="flex items-start justify-between">
+                                    <a href="/contacts?tag=${encodeURIComponent(name)}" class="flex-1 group">
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                                <span class="material-symbols-outlined text-primary">label</span>
+                                            </div>
+                                            <h3 class="font-semibold text-[#111812] dark:text-white group-hover:text-primary transition-colors">${name}</h3>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-sm text-gray-500 dark:text-gray-400">0 contactos</span>
+                                            <span class="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full text-sm">0</span>
+                                        </div>
+                                    </a>
+                                    <div class="flex flex-col gap-1 ml-2">
+                                        <button onclick="openBulkModal('${name.replace(/'/g, "\\'")}')" class="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Acciones masivas">
+                                            <span class="material-symbols-outlined text-lg">upload_file</span>
+                                        </button>
+                                        <button onclick="deleteTag('${name.replace(/'/g, "\\'")}', null, this)" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar etiqueta">
+                                            <span class="material-symbols-outlined text-lg">delete</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    } else if (grid) {
+                        const card = document.createElement('div');
+                        card.id = 'tag-new-' + name;
+                        card.className = 'bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200';
+                        card.innerHTML = `
+                            <div class="flex items-start justify-between">
+                                <a href="/contacts?tag=${encodeURIComponent(name)}" class="flex-1 group">
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                            <span class="material-symbols-outlined text-primary">label</span>
+                                        </div>
+                                        <h3 class="font-semibold text-[#111812] dark:text-white group-hover:text-primary transition-colors">${name}</h3>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-500 dark:text-gray-400">0 contactos</span>
+                                        <span class="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full text-sm">0</span>
+                                    </div>
+                                </a>
+                                <div class="flex flex-col gap-1 ml-2">
+                                    <button onclick="openBulkModal('${name.replace(/'/g, "\\'")}')" class="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Acciones masivas">
+                                        <span class="material-symbols-outlined text-lg">upload_file</span>
+                                    </button>
+                                    <button onclick="deleteTag('${name.replace(/'/g, "\\'")}', null, this)" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar etiqueta">
+                                        <span class="material-symbols-outlined text-lg">delete</span>
+                                    </button>
+                                </div>
+                            </div>`;
+                        grid.appendChild(card);
+                    }
+                } else {
+                    alert(data.error || 'Error creando etiqueta');
+                    input.disabled = false;
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+                input.disabled = false;
+            }
+        }
+
+        async function deleteTag(tagName, cardId, btnEl) {
+            if (!confirm(`¿Eliminar la etiqueta "${tagName}" de todos los contactos?`)) return;
+
+            const card = cardId ? document.getElementById(cardId) : btnEl.closest('[class*="rounded-xl"]');
+            const btn = btnEl || card.querySelector('button');
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined text-lg animate-spin">progress_activity</span>';
+
+            try {
+                const response = await fetch(`/api/tags/${encodeURIComponent(tagName)}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => card.remove(), 200);
+                } else {
+                    alert('Error eliminando etiqueta: ' + (data.error || 'Unknown'));
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                }
+            } catch (e) {
+                alert('Error de conexión: ' + e.message);
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }
+        // ===== Bulk Tag Action =====
+        let currentBulkTag = '';
+        let bulkFile = null;
+
+        function openBulkModal(tagName) {
+            currentBulkTag = tagName;
+            bulkFile = null;
+            document.getElementById('bulk-tag-name').textContent = tagName;
+            document.getElementById('bulk-result').classList.add('hidden');
+            document.getElementById('bulk-file-name').classList.add('hidden');
+            document.getElementById('bulk-file-input').value = '';
+            document.getElementById('radio-add').checked = true;
+            document.getElementById('bulkTagModal').classList.remove('hidden');
+        }
+
+        function closeBulkModal() {
+            document.getElementById('bulkTagModal').classList.add('hidden');
+        }
+
+        // Drag & drop + click para subir archivo
+        (function () {
+            const dropZone = document.getElementById('bulk-drop-zone');
+            const fileInput = document.getElementById('bulk-file-input');
+
+            dropZone.addEventListener('click', (e) => {
+                if (e.target !== fileInput) fileInput.click();
+            });
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-primary');
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('border-primary');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-primary');
+                if (e.dataTransfer.files[0]) handleBulkFile(e.dataTransfer.files[0]);
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files[0]) handleBulkFile(e.target.files[0]);
+            });
+        })();
+
+        function handleBulkFile(file) {
+            bulkFile = file;
+            document.getElementById('bulk-file-label').textContent = file.name;
+            document.getElementById('bulk-file-name').classList.remove('hidden');
+        }
+
+        function clearBulkFile() {
+            bulkFile = null;
+            document.getElementById('bulk-file-input').value = '';
+            document.getElementById('bulk-file-name').classList.add('hidden');
+        }
+
+        async function submitBulkAction() {
+            const file = bulkFile || document.getElementById('bulk-file-input').files[0];
+            if (!file) {
+                showBulkResult('error', 'Por favor selecciona un archivo');
+                return;
+            }
+
+            const action = document.querySelector('input[name="bulk-action"]:checked').value;
+            const btn = document.getElementById('bulk-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Ejecutando...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('tag_name', currentBulkTag);
+            formData.append('action', action);
+
+            try {
+                const response = await fetch('/api/tags/bulk-action', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                btn.disabled = false;
+                btn.textContent = 'Ejecutar';
+
+                if (data.success) {
+                    const parts = [];
+                    if (data.added > 0) parts.push(`${data.added} agregado${data.added !== 1 ? 's' : ''}`);
+                    if (data.removed > 0) parts.push(`${data.removed} eliminado${data.removed !== 1 ? 's' : ''}`);
+                    if (data.skipped > 0) parts.push(`${data.skipped} sin cambios`);
+                    showBulkResult('success', parts.join(', ') || 'Operación completada');
+                } else {
+                    showBulkResult('error', data.error || 'Error desconocido');
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = 'Ejecutar';
+                showBulkResult('error', 'Error de conexión: ' + e.message);
+            }
+        }
+
+        function showBulkResult(type, message) {
+            const el = document.getElementById('bulk-result');
+            el.classList.remove('hidden');
+            el.className = type === 'success'
+                ? 'p-3 rounded-lg text-sm bg-green-500/10 text-green-600 dark:text-green-400'
+                : 'p-3 rounded-lg text-sm bg-red-500/10 text-red-500';
+            el.textContent = message;
+        }
+    </script>
 </body>
 
 </html>

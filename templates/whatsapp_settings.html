@@ -1,631 +1,286 @@
 <!DOCTYPE html>
-<html lang="es">
+<html class="light" lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Settings</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Configuración - WhatsApp CRM</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec25",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102212",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
     <style>
-        :root {
-            --bg-primary: #f8fafc;
-            --bg-secondary: #ffffff;
-            --bg-card: #ffffff;
-            --accent-green: #25D366;
-            --accent-blue: #0ea5e9;
-            --accent-purple: #8b5cf6;
-            --accent-red: #ef4444;
-            --accent-orange: #f97316;
-            --accent-yellow: #eab308;
-            --text-primary: #0f172a;
-            --text-secondary: #64748b;
-            --border-color: #e2e8f0;
-            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        /* Header */
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .logo {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, var(--accent-green), #128C7E);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            color: white;
-        }
-
-        .header h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-        }
-
-        .header p {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .nav-btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-weight: 500;
-            text-decoration: none;
-            transition: all 0.2s;
-            font-size: 0.875rem;
-        }
-
-        .nav-btn.primary {
-            background: var(--accent-green);
-            color: white;
-        }
-
-        .nav-btn.secondary {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-        }
-
-        .nav-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        /* Alert Boxes */
-        .alert {
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .alert.warning {
-            background: rgba(234, 179, 8, 0.1);
-            border: 1px solid var(--accent-yellow);
-            color: #92400e;
-        }
-
-        .alert.error {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid var(--accent-red);
-            color: #991b1b;
-        }
-
-        .alert.success {
-            background: rgba(37, 211, 102, 0.1);
-            border: 1px solid var(--accent-green);
-            color: #166534;
-        }
-
-        /* Cards */
-        .card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-            margin-bottom: 1.5rem;
-        }
-
-        .card h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        /* Phone Numbers */
-        .phone-card {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            background: var(--bg-primary);
-            border-radius: 12px;
-            margin-bottom: 0.75rem;
-        }
-
-        .phone-icon {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, var(--accent-green), #128C7E);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-        }
-
-        .phone-info h3 {
-            font-size: 1rem;
-            font-weight: 600;
-        }
-
-        .phone-info p {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-
-        .badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .badge.green {
-            background: rgba(37, 211, 102, 0.1);
-            color: var(--accent-green);
-        }
-
-        .badge.blue {
-            background: rgba(14, 165, 233, 0.1);
-            color: var(--accent-blue);
-        }
-
-        .badge.yellow {
-            background: rgba(234, 179, 8, 0.1);
-            color: #92400e;
-        }
-
-        .badge.red {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--accent-red);
-        }
-
-        /* Templates Grid */
-        .templates-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 1rem;
-        }
-
-        .template-card {
-            background: var(--bg-primary);
-            border-radius: 12px;
-            padding: 1.25rem;
-            border: 1px solid var(--border-color);
-        }
-
-        .template-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 0.75rem;
-        }
-
-        .template-name {
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .template-category {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-top: 0.25rem;
-        }
-
-        .template-body {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            line-height: 1.5;
-            padding: 0.75rem;
-            background: var(--bg-card);
-            border-radius: 8px;
-            margin-bottom: 0.75rem;
-            max-height: 100px;
-            overflow-y: auto;
-        }
-
-        .template-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .template-lang {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        .btn {
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 0.875rem;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn.primary {
-            background: var(--accent-green);
-            color: white;
-        }
-
-        .btn.primary:hover {
-            background: #128C7E;
-        }
-
-        .btn.secondary {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-        }
-
-        /* Status badges */
-        .status-approved {
-            color: var(--accent-green);
-        }
-
-        .status-pending {
-            color: var(--accent-orange);
-        }
-
-        .status-rejected {
-            color: var(--accent-red);
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 2rem;
-            width: 90%;
-            max-width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-header h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--text-secondary);
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            font-size: 0.875rem;
-            font-family: inherit;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--accent-green);
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-secondary);
-        }
-
-        .empty-state-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        /* Config Box */
-        .config-box {
-            background: var(--bg-primary);
-            border-radius: 12px;
-            padding: 1.5rem;
-        }
-
-        .config-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .config-item:last-child {
-            border-bottom: none;
-        }
-
-        .config-item code {
-            background: var(--bg-card);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 0.8rem;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-
-            .header {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-
-            .templates-grid {
-                grid-template-columns: 1fr;
-            }
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .hidden { display: none !important; }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <header class="header">
-            <div class="header-left">
-                <div class="logo">⚙️</div>
-                <div>
-                    <h1>WhatsApp Settings</h1>
-                    <p>Configuración, templates y envío de mensajes</p>
-                </div>
-            </div>
-            <div class="nav-buttons">
-                <a href="/dashboard" class="nav-btn secondary">💬 Dashboard</a>
-                <a href="/contacts" class="nav-btn secondary">👥 Contactos</a>
-                <a href="/tags" class="nav-btn secondary">🏷️ Etiquetas</a>
-                <a href="/failed-messages" class="nav-btn secondary">⚠️ Fallidos</a>
-                <a href="/analytics" class="nav-btn secondary">📊 Analytics</a>
-                <a href="/whatsapp-settings" class="nav-btn primary">⚙️ Settings</a>
-            </div>
-        </header>
+<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white min-h-screen">
+    <div class="flex h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
+            <a href="/dashboard" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Dashboard">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">chat</span>
+            </a>
+            <a href="/contacts" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Contactos">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
+            </a>
+            <a href="/tags" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Etiquetas">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">label</span>
+            </a>
+            <a href="/campaigns" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Campañas">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">campaign</span>
+            </a>
+            <a href="/failed-messages" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Fallidos">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">error</span>
+            </a>
+            <a href="/analytics" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Analytics">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">bar_chart</span>
+            </a>
+            <a href="/whatsapp-settings" class="p-3 rounded-xl bg-primary/10 text-primary mt-auto" title="Configuración">
+                <span class="material-symbols-outlined">settings</span>
+            </a>
+        </aside>
 
-        {% if not is_configured %}
-        <div class="alert warning">
-            <span>⚠️</span>
-            <div>
-                <strong>API no configurada</strong>
-                <p>Configura las variables de entorno WHATSAPP_API_TOKEN y WHATSAPP_BUSINESS_ACCOUNT_ID</p>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>🔧 Configuración Requerida</h2>
-            <div class="config-box">
-                <div class="config-item">
-                    <span>1.</span>
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+                <div class="flex items-center justify-between">
                     <div>
-                        <strong>WHATSAPP_API_TOKEN</strong>
-                        <p>Token de acceso permanente de Meta Business</p>
+                        <h1 class="text-xl font-bold text-[#111812] dark:text-white">Configuración</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Templates y envío de mensajes</p>
                     </div>
                 </div>
-                <div class="config-item">
-                    <span>2.</span>
+            </header>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+
+                {% if not is_configured %}
+                <!-- Not Configured State -->
+                <div class="rounded-xl border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 px-4 py-3 flex items-start gap-3 mb-6">
+                    <span class="material-symbols-outlined text-yellow-500 mt-0.5">warning</span>
                     <div>
-                        <strong>WHATSAPP_BUSINESS_ACCOUNT_ID</strong>
-                        <p>ID de tu cuenta de WhatsApp Business (encontrado en Meta Business Suite)</p>
+                        <p class="font-semibold text-yellow-800 dark:text-yellow-300">API no configurada</p>
+                        <p class="text-sm text-yellow-700 dark:text-yellow-400">Configura las variables de entorno para conectar con WhatsApp Business</p>
                     </div>
                 </div>
-                <div class="config-item">
-                    <span>3.</span>
-                    <div>
-                        <strong>WHATSAPP_PHONE_NUMBER_ID</strong>
-                        <p>ID del número de teléfono (necesario para enviar mensajes)</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% else %}
 
-        {% if error %}
-        <div class="alert error">
-            <span>❌</span>
-            <div>
-                <strong>Error al conectar con la API</strong>
-                <p>{{ error }}</p>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Phone Numbers -->
-        {% if phone_numbers %}
-        <div class="card">
-            <h2>📱 Números de Teléfono</h2>
-            {% for phone in phone_numbers %}
-            <div class="phone-card">
-                <div class="phone-icon">📱</div>
-                <div class="phone-info" style="flex: 1;">
-                    <h3>{{ phone.display_phone_number }}</h3>
-                    <p>{{ phone.verified_name or 'Sin nombre verificado' }}</p>
-                </div>
-                <span
-                    class="badge {% if phone.quality_rating == 'GREEN' %}green{% elif phone.quality_rating == 'YELLOW' %}yellow{% else %}red{% endif %}">
-                    {{ phone.quality_rating or 'N/A' }}
-                </span>
-                <span class="badge blue">{{ phone.messaging_limit_tier or 'N/A' }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        <!-- Templates -->
-        <div class="card">
-            <h2>📝 Message Templates ({{ templates|length }})</h2>
-
-            {% if templates %}
-            <div class="templates-grid">
-                {% for template in templates %}
-                <div class="template-card">
-                    <div class="template-header">
-                        <div>
-                            <div class="template-name">{{ template.name }}</div>
-                            <div class="template-category">{{ template.category }}</div>
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+                    <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">build</span>
+                        Configuración Requerida
+                    </h2>
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <span class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">1</span>
+                            <div>
+                                <p class="font-semibold text-sm">WHATSAPP_API_TOKEN</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Token de acceso permanente de Meta Business</p>
+                            </div>
                         </div>
-                        <span
-                            class="badge {% if template.status == 'APPROVED' %}green{% elif template.status == 'PENDING' %}yellow{% else %}red{% endif %}">
-                            {{ template.status }}
-                        </span>
+                        <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <span class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
+                            <div>
+                                <p class="font-semibold text-sm">WHATSAPP_BUSINESS_ACCOUNT_ID</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">ID de tu cuenta de WhatsApp Business (encontrado en Meta Business Suite)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <span class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
+                            <div>
+                                <p class="font-semibold text-sm">WHATSAPP_PHONE_NUMBER_ID</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">ID del número de teléfono (necesario para enviar mensajes)</p>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    <div class="template-body">
-                        {% for comp in template.components %}
-                        {% if comp.type == 'BODY' %}
-                        {{ comp.text or '' }}
-                        {% endif %}
+                {% else %}
+                <!-- Configured State -->
+
+                {% if error %}
+                <div class="rounded-xl border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-4 py-3 flex items-start gap-3 mb-6">
+                    <span class="material-symbols-outlined text-red-500 mt-0.5">error</span>
+                    <div>
+                        <p class="font-semibold text-red-800 dark:text-red-300">Error al conectar con la API</p>
+                        <p class="text-sm text-red-700 dark:text-red-400">{{ error }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Phone Numbers -->
+                {% if phone_numbers %}
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
+                    <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">phone_android</span>
+                        Números de Teléfono
+                    </h2>
+                    <div class="flex flex-col gap-3">
+                        {% for phone in phone_numbers %}
+                        <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                            <div class="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-primary">phone_android</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-semibold text-sm">{{ phone.display_phone_number }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ phone.verified_name or 'Sin nombre verificado' }}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-medium {% if phone.quality_rating == 'GREEN' %}bg-primary/10 text-primary{% elif phone.quality_rating == 'YELLOW' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                                    {{ phone.quality_rating or 'N/A' }}
+                                </span>
+                                <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                    {{ phone.messaging_limit_tier or 'N/A' }}
+                                </span>
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
+                </div>
+                {% endif %}
 
-                    <div class="template-footer">
-                        <span class="template-lang">🌐 {{ template.language }}</span>
-                        {% if template.status == 'APPROVED' %}
-                        <button class="btn primary"
-                            onclick="openSendModal('{{ template.name }}', '{{ template.language }}')">
-                            📤 Enviar
-                        </button>
-                        {% endif %}
+                <!-- Templates -->
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
+                    <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">description</span>
+                        Templates ({{ templates|length }})
+                    </h2>
+
+                    {% if templates %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {% for template in templates %}
+                        <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/30">
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <p class="font-semibold text-sm">{{ template.name }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ template.category }}</p>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full text-xs font-medium {% if template.status == 'APPROVED' %}bg-primary/10 text-primary{% elif template.status == 'PENDING' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                                    {{ template.status }}
+                                </span>
+                            </div>
+                            <div class="bg-white dark:bg-[#152a17] rounded-lg px-3 py-2 mb-3 max-h-20 overflow-y-auto">
+                                <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                                    {% for comp in template.components %}
+                                    {% if comp.type == 'BODY' %}{{ comp.text or '' }}{% endif %}
+                                    {% endfor %}
+                                </p>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                    <span class="material-symbols-outlined text-sm">language</span>
+                                    {{ template.language }}
+                                </span>
+                                {% if template.status == 'APPROVED' %}
+                                <button onclick="openSendModal('{{ template.name }}', '{{ template.language }}')"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
+                                    <span class="material-symbols-outlined text-sm">send</span>
+                                    Enviar
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
+                    {% else %}
+                    <div class="flex flex-col items-center justify-center py-12 text-center">
+                        <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-3xl text-gray-300 dark:text-gray-600">description</span>
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">No hay templates configurados</p>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endfor %}
+
+                <!-- Quick Send -->
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+                    <h2 class="font-semibold text-lg mb-1 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">send</span>
+                        Envío Rápido
+                    </h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Envía un mensaje de texto a cualquier número</p>
+
+                    <form id="quick-send-form" class="flex flex-col sm:flex-row gap-3">
+                        <div class="flex-shrink-0" style="width: 220px;">
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Número (con código país)</label>
+                            <input type="text" id="quick-phone" placeholder="5493874123456" required
+                                class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mensaje</label>
+                            <input type="text" id="quick-message" placeholder="Escribe tu mensaje..." required
+                                class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+                        </div>
+                        <div class="flex-shrink-0">
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">&nbsp;</label>
+                            <button type="submit"
+                                class="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                                <span class="material-symbols-outlined text-sm">send</span>
+                                Enviar
+                            </button>
+                        </div>
+                    </form>
+                    <div id="send-result" class="mt-3"></div>
+                </div>
+
+                {% endif %}
             </div>
-            {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon">📝</div>
-                <p>No hay templates configurados</p>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Quick Send -->
-        <div class="card">
-            <h2>📤 Envío Rápido</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 1rem;">Envía un mensaje de texto a cualquier número
-            </p>
-
-            <form id="quick-send-form"
-                style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 1rem; align-items: end;">
-                <div class="form-group" style="margin: 0;">
-                    <label>Número (con código país)</label>
-                    <input type="text" id="quick-phone" placeholder="5493874123456" required>
-                </div>
-                <div class="form-group" style="margin: 0;">
-                    <label>Mensaje</label>
-                    <input type="text" id="quick-message" placeholder="Escribe tu mensaje..." required>
-                </div>
-                <button type="submit" class="btn primary">Enviar</button>
-            </form>
-            <div id="send-result" style="margin-top: 1rem;"></div>
-        </div>
-
-        {% endif %}
+        </main>
     </div>
 
     <!-- Send Template Modal -->
-    <div class="modal" id="send-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>📤 Enviar Template</h3>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div id="send-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" onclick="closeModal()"></div>
+        <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">send</span>
+                    Enviar Template
+                </h3>
+                <button onclick="closeModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
             <form id="send-template-form">
                 <input type="hidden" id="modal-template-name">
                 <input type="hidden" id="modal-template-lang">
 
-                <div class="form-group">
-                    <label>Template</label>
-                    <input type="text" id="modal-template-display" readonly>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Template</label>
+                    <input type="text" id="modal-template-display" readonly
+                        class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Número de teléfono (con código de país, sin +)</label>
+                    <input type="text" id="modal-phone" placeholder="5493874123456" required
+                        class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
                 </div>
 
-                <div class="form-group">
-                    <label>Número de teléfono (con código de país, sin +)</label>
-                    <input type="text" id="modal-phone" placeholder="5493874123456" required>
-                </div>
+                <div id="modal-result" class="mb-4"></div>
 
-                <div id="modal-result"></div>
-
-                <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem;">
+                <button type="submit"
+                    class="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
                     Enviar Template
                 </button>
             </form>
@@ -633,16 +288,35 @@
     </div>
 
     <script>
+        // Validación de teléfono E.164
+        function isValidPhone(phone) {
+            const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+            return /^\+?[1-9]\d{6,14}$/.test(cleaned);
+        }
+
+        function showAlert(container, type, message) {
+            const colors = {
+                success: { bg: 'bg-primary/10', border: 'border-primary/30', text: 'text-primary', icon: 'check_circle' },
+                error: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-300 dark:border-red-700', text: 'text-red-600 dark:text-red-400', icon: 'error' }
+            };
+            const c = colors[type];
+            container.innerHTML = `<div class="rounded-lg border ${c.border} ${c.bg} px-3 py-2 flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm ${c.text}">${c.icon}</span>
+                <p class="text-sm ${c.text}">${message}</p>
+            </div>`;
+        }
+
         function openSendModal(templateName, lang) {
             document.getElementById('modal-template-name').value = templateName;
             document.getElementById('modal-template-lang').value = lang;
             document.getElementById('modal-template-display').value = `${templateName} (${lang})`;
             document.getElementById('modal-result').innerHTML = '';
-            document.getElementById('send-modal').classList.add('active');
+            document.getElementById('modal-phone').value = '';
+            document.getElementById('send-modal').classList.remove('hidden');
         }
 
         function closeModal() {
-            document.getElementById('send-modal').classList.remove('active');
+            document.getElementById('send-modal').classList.add('hidden');
         }
 
         // Enviar template
@@ -652,9 +326,14 @@
             const templateName = document.getElementById('modal-template-name').value;
             const lang = document.getElementById('modal-template-lang').value;
             const phone = document.getElementById('modal-phone').value;
-
             const resultDiv = document.getElementById('modal-result');
-            resultDiv.innerHTML = '<p>Enviando...</p>';
+
+            if (!isValidPhone(phone)) {
+                showAlert(resultDiv, 'error', 'Teléfono inválido. Usa formato E.164 (ej: 5491123456789)');
+                return;
+            }
+
+            resultDiv.innerHTML = '<p class="text-sm text-gray-500">Enviando...</p>';
 
             try {
                 const response = await fetch('/api/whatsapp/send-template', {
@@ -670,13 +349,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    resultDiv.innerHTML = `<div class="alert success">✅ Mensaje enviado correctamente</div>`;
+                    showAlert(resultDiv, 'success', 'Mensaje enviado correctamente');
                     setTimeout(closeModal, 2000);
                 } else {
-                    resultDiv.innerHTML = `<div class="alert error">❌ Error: ${data.error || 'Error desconocido'}</div>`;
+                    showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
                 }
             } catch (err) {
-                resultDiv.innerHTML = `<div class="alert error">❌ Error de conexión</div>`;
+                showAlert(resultDiv, 'error', 'Error de conexión');
             }
         });
 
@@ -688,7 +367,12 @@
             const message = document.getElementById('quick-message').value;
             const resultDiv = document.getElementById('send-result');
 
-            resultDiv.innerHTML = '<p>Enviando...</p>';
+            if (!isValidPhone(phone)) {
+                showAlert(resultDiv, 'error', 'Teléfono inválido. Usa formato E.164 (ej: 5491123456789)');
+                return;
+            }
+
+            resultDiv.innerHTML = '<p class="text-sm text-gray-500">Enviando...</p>';
 
             try {
                 const response = await fetch('/api/whatsapp/send-text', {
@@ -700,13 +384,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    resultDiv.innerHTML = `<div class="alert success">✅ Mensaje enviado a ${phone}</div>`;
+                    showAlert(resultDiv, 'success', `Mensaje enviado a ${phone}`);
                     document.getElementById('quick-message').value = '';
                 } else {
-                    resultDiv.innerHTML = `<div class="alert error">❌ Error: ${data.error || 'Error desconocido'}</div>`;
+                    showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
                 }
             } catch (err) {
-                resultDiv.innerHTML = `<div class="alert error">❌ Error de conexión</div>`;
+                showAlert(resultDiv, 'error', 'Error de conexión');
             }
         });
     </script>

@@ -3,11 +3,16 @@ Servicio para interactuar con la API de WhatsApp Business.
 """
 import requests
 import logging
+import time
 from config import Config
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://graph.facebook.com/v18.0"
+
+# Cache en memoria para templates (TTL: 5 minutos)
+_template_cache = {'data': None, 'expires_at': 0}
+CACHE_TTL = 300
 
 
 class WhatsAppAPI:
@@ -27,21 +32,25 @@ class WhatsAppAPI:
         return all([self.token, self.business_account_id])
     
     def get_templates(self):
-        """Obtiene las plantillas de mensajes de la cuenta."""
+        """Obtiene las plantillas de mensajes de la cuenta (con cache de 5 min)."""
         if not self.is_configured():
             return {"error": "WhatsApp API no configurada", "templates": []}
-        
+
+        # Retornar desde cache si está vigente
+        if _template_cache['data'] is not None and time.time() < _template_cache['expires_at']:
+            return _template_cache['data']
+
         url = f"{BASE_URL}/{self.business_account_id}/message_templates"
         params = {
             "fields": "name,status,category,language,components,quality_score",
             "limit": 100
         }
-        
+
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            response = requests.get(url, headers=self.headers, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
-            
+
             templates = []
             for t in data.get("data", []):
                 templates.append({
@@ -52,9 +61,15 @@ class WhatsAppAPI:
                     "quality_score": t.get("quality_score"),
                     "components": t.get("components", [])
                 })
-            
-            return {"templates": templates, "count": len(templates)}
-            
+
+            result = {"templates": templates, "count": len(templates)}
+
+            # Guardar en cache
+            _template_cache['data'] = result
+            _template_cache['expires_at'] = time.time() + CACHE_TTL
+
+            return result
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Error obteniendo templates: {e}")
             return {"error": str(e), "templates": []}
@@ -70,7 +85,7 @@ class WhatsAppAPI:
         }
         
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            response = requests.get(url, headers=self.headers, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
             return {"phone_numbers": data.get("data", [])}
@@ -90,7 +105,7 @@ class WhatsAppAPI:
         }
         
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            response = requests.get(url, headers=self.headers, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
             return {"profile": data.get("data", [{}])[0] if data.get("data") else {}}
@@ -128,10 +143,10 @@ class WhatsAppAPI:
             payload["template"]["components"] = components
         
         try:
-            response = requests.post(url, headers=self.headers, json=payload)
+            response = requests.post(url, headers=self.headers, json=payload, timeout=10)
             response.raise_for_status()
             data = response.json()
-            
+
             logger.info(f"✅ Template enviado a {to_phone}: {template_name}")
             return {
                 "success": True,
@@ -170,10 +185,10 @@ class WhatsAppAPI:
         }
         
         try:
-            response = requests.post(url, headers=self.headers, json=payload)
+            response = requests.post(url, headers=self.headers, json=payload, timeout=10)
             response.raise_for_status()
             data = response.json()
-            
+
             logger.info(f"✅ Mensaje enviado a {to_phone}")
             return {
                 "success": True,

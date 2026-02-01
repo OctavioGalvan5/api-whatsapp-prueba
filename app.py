@@ -5,7 +5,9 @@ import io
 import pandas as pd
 from flask import Flask, request, jsonify, render_template, send_file
 from config import Config
-from models import db, Message, MessageStatus, Contact
+from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog
+import threading
+import time as time_module
 from event_handlers import process_event
 from sqlalchemy import func
 from datetime import datetime, timedelta, timezone
@@ -62,7 +64,7 @@ def verify_webhook():
             logger.info("WEBHOOK_VERIFIED")
             return challenge, 200
         else:
-            logger.error(f"Verificación fallida. Token recibido: {token} != Esperado: {Config.VERIFY_TOKEN}")
+            logger.error("Verificación fallida. Token recibido no coincide.")
             return "Verification token mismatch", 403
     
     return "Hello world", 200
@@ -363,9 +365,10 @@ def analytics():
     }
     
     # ========== ESTADÍSTICAS DE TEMPLATES ==========
-    # Obtener todos los mensajes salientes
+    # Obtener mensajes salientes de los últimos 30 días (no todo el historial)
     outbound_messages = Message.query.filter(
-        Message.direction == 'outbound'
+        Message.direction == 'outbound',
+        Message.timestamp >= thirty_days_ago
     ).all()
     
     # Obtener templates de la API para mapeo
@@ -578,7 +581,19 @@ def api_contact_detail(phone_number):
                 setattr(contact, field, data[field])
                 
         if 'tags' in data:
-            contact.tags = data['tags']  # Debe ser una lista
+            new_tag_names = set(data['tags'])
+            current_tag_names = {t.name for t in contact.tags}
+            # Tags a agregar
+            for name in new_tag_names - current_tag_names:
+                tag = Tag.query.filter_by(name=name).first()
+                if not tag:
+                    tag = Tag(name=name)
+                    db.session.add(tag)
+                    db.session.flush()
+                contact.tags.append(tag)
+            # Tags a eliminar
+            to_remove = current_tag_names - new_tag_names
+            contact.tags = [t for t in contact.tags if t.name not in to_remove]
             
         try:
             db.session.commit()
@@ -622,7 +637,7 @@ def api_import_contacts():
             
         count = 0
         updated = 0
-        
+
         # Mapeo simple de nombres de columna a atributos del modelo
         col_map = {
             'name': 'name', 'nombre': 'name',
@@ -638,9 +653,19 @@ def api_import_contacts():
             'custom_7': 'custom_field_7', 'campo_7': 'custom_field_7'
         }
 
+        # Pre-calcular tag de importación si se proporcionó desde el formulario
+        import_tag = None
+        import_tag_name = request.form.get('assign_tag', '').strip()
+        if import_tag_name:
+            import_tag = Tag.query.filter_by(name=import_tag_name).first()
+            if not import_tag:
+                import_tag = Tag(name=import_tag_name)
+                db.session.add(import_tag)
+                db.session.flush()
+
         for _, row in df.iterrows():
             phone = str(row[phone_col]).replace('.0', '').strip()
-            
+
             contact = Contact.query.get(phone)
             if not contact:
                 contact = Contact(phone_number=phone)
@@ -648,18 +673,29 @@ def api_import_contacts():
                 count += 1
             else:
                 updated += 1
-            
+
             # Actualizar campos detectados
             for col in df.columns:
                 if col in col_map:
                     val = row.get(col)
                     if pd.notna(val):
                         setattr(contact, col_map[col], str(val))
-                        
-            # Tags special handling
+
+            # Tags desde columna del archivo
             tags_str = row.get('tags') or row.get('etiquetas')
             if pd.notna(tags_str):
-                contact.tags = [t.strip() for t in str(tags_str).split(',')] if tags_str else []
+                for tag_name in [t.strip() for t in str(tags_str).split(',') if t.strip()]:
+                    tag = Tag.query.filter_by(name=tag_name).first()
+                    if not tag:
+                        tag = Tag(name=tag_name)
+                        db.session.add(tag)
+                        db.session.flush()
+                    if tag not in contact.tags:
+                        contact.tags.append(tag)
+
+            # Tag asignado desde el formulario de importación
+            if import_tag and import_tag not in contact.tags:
+                contact.tags.append(import_tag)
             
         db.session.commit()
         return jsonify({
@@ -692,7 +728,7 @@ def api_export_contacts():
                 'Campo 6': c.custom_field_6,
                 'Campo 7': c.custom_field_7,
                 'Notas': c.notes,
-                'Etiquetas': ', '.join(c.tags) if c.tags else '',
+                'Etiquetas': ', '.join(t.name for t in c.tags) if c.tags else '',
                 'Fecha Creacion': c.created_at
             })
             
@@ -805,25 +841,200 @@ def api_get_messages(phone):
 @app.route("/contacts")
 def contacts_page():
     """Página para ver listado de contactos."""
-    contacts = Contact.query.order_by(Contact.created_at.desc()).all()
-    return render_template('contacts.html', contacts=contacts)
+    tag_filter = request.args.get('tag')
+
+    if tag_filter:
+        contacts = Contact.query.filter(
+            Contact.tags.any(Tag.name == tag_filter)
+        ).order_by(Contact.created_at.desc()).limit(500).all()
+    else:
+        contacts = Contact.query.order_by(Contact.created_at.desc()).limit(500).all()
+
+    return render_template('contacts.html', contacts=contacts, tag_filter=tag_filter)
 
 @app.route("/tags")
 def tags_page():
     """Página para ver etiquetas y estadísticas."""
-    # Obtener todas las etiquetas y contarlas
-    contacts = Contact.query.all()
-    tags_count = {}
-    for c in contacts:
-        if c.tags:
-            for tag in c.tags:
-                tag = tag.strip()
-                if tag:
-                    tags_count[tag] = tags_count.get(tag, 0) + 1
-    
-    # Ordenar por cantidad
-    sorted_tags = sorted(tags_count.items(), key=lambda item: item[1], reverse=True)
-    return render_template('tags.html', tags=sorted_tags, total_contacts=len(contacts))
+    tags_with_count = db.session.query(
+        Tag,
+        func.count(contact_tags.c.contact_phone).label('cnt')
+    ).outerjoin(
+        contact_tags, Tag.id == contact_tags.c.tag_id
+    ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_phone).desc()).all()
+
+    tags_list = [(tag.name, cnt) for tag, cnt in tags_with_count]
+    total_contacts = Contact.query.count()
+    return render_template('tags.html', tags=tags_list, total_contacts=total_contacts)
+
+@app.route("/api/tags", methods=["GET"])
+def api_list_tags():
+    """Lista todas las etiquetas con conteo de contactos."""
+    tags_with_count = db.session.query(
+        Tag,
+        func.count(contact_tags.c.contact_phone).label('cnt')
+    ).outerjoin(
+        contact_tags, Tag.id == contact_tags.c.tag_id
+    ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_phone).desc()).all()
+
+    return jsonify([{'name': tag.name, 'count': cnt} for tag, cnt in tags_with_count])
+
+@app.route("/api/tags", methods=["POST"])
+def api_create_tag():
+    """Crea una nueva etiqueta."""
+    data = request.json
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'Nombre requerido'}), 400
+
+    if Tag.query.filter_by(name=name).first():
+        return jsonify({'error': 'Etiqueta ya existe'}), 409
+
+    tag = Tag(name=name)
+    db.session.add(tag)
+    db.session.commit()
+    return jsonify({'success': True, 'name': name}), 201
+
+@app.route("/api/tags/<tag_name>", methods=["DELETE"])
+def api_delete_tag(tag_name):
+    """Elimina una etiqueta y todas sus referencias."""
+    try:
+        tag = Tag.query.filter_by(name=tag_name).first()
+        if not tag:
+            return jsonify({'error': 'Tag no encontrado'}), 404
+        db.session.execute(contact_tags.delete().where(contact_tags.c.tag_id == tag.id))
+        db.session.delete(tag)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error eliminando tag '{tag_name}': {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/contacts/bulk-tags", methods=["POST"])
+def api_bulk_tags():
+    """Asignar o remover tags de múltiples contactos."""
+    data = request.json
+    phones = data.get('phones', [])
+    tag_name = (data.get('tag') or '').strip()
+    action = data.get('action')  # 'add' or 'remove'
+
+    if not phones or not tag_name or action not in ('add', 'remove'):
+        return jsonify({'error': 'phones, tag y action (add/remove) requeridos'}), 400
+
+    try:
+        contacts = Contact.query.filter(Contact.phone_number.in_(phones)).all()
+
+        if action == 'add':
+            tag = Tag.query.filter_by(name=tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db.session.add(tag)
+                db.session.flush()
+            for contact in contacts:
+                if tag not in contact.tags:
+                    contact.tags.append(tag)
+        elif action == 'remove':
+            tag = Tag.query.filter_by(name=tag_name).first()
+            if tag:
+                for contact in contacts:
+                    contact.tags = [t for t in contact.tags if t.id != tag.id]
+
+        db.session.commit()
+        return jsonify({'success': True, 'affected': len(contacts)})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/contacts/template", methods=["GET"])
+def api_contacts_template():
+    """Descargar plantilla Excel para importar contactos."""
+    df = pd.DataFrame(columns=['Telefono'])
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Contactos')
+    output.seek(0)
+    return send_file(output,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     download_name='plantilla_contactos.xlsx',
+                     as_attachment=True)
+
+@app.route("/api/tags/bulk-action", methods=["POST"])
+def api_tags_bulk_action():
+    """Agregar o quitar etiqueta de múltiples contactos via archivo Excel/CSV."""
+    tag_name = request.form.get('tag_name', '').strip()
+    action = request.form.get('action', '').strip()
+
+    if not tag_name or action not in ('add', 'remove'):
+        return jsonify({'error': 'tag_name y action (add/remove) requeridos'}), 400
+
+    if 'file' not in request.files or request.files['file'].filename == '':
+        return jsonify({'error': 'Archivo requerido'}), 400
+
+    file = request.files['file']
+    try:
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(file)
+        else:
+            df = pd.read_excel(file)
+
+        # Normalizar columnas
+        df.columns = [c.lower().strip() for c in df.columns]
+
+        # Buscar columna de teléfono
+        phone_candidates = ['telefono', 'phone', 'phone_number', 'numero']
+        phone_col = next((c for c in df.columns if c in phone_candidates), None)
+
+        if not phone_col:
+            return jsonify({'error': 'Columna de teléfono no encontrada (Telefono, Phone, Numero)'}), 400
+
+        # Obtener o crear tag
+        tag = Tag.query.filter_by(name=tag_name).first()
+        if not tag:
+            if action == 'remove':
+                # No existe el tag, no hay nada que quitar
+                return jsonify({'success': True, 'added': 0, 'removed': 0, 'skipped': 0})
+            tag = Tag(name=tag_name)
+            db.session.add(tag)
+            db.session.flush()
+
+        added = 0
+        removed = 0
+        skipped = 0
+
+        for _, row in df.iterrows():
+            phone = str(row[phone_col]).replace('.0', '').strip()
+            if not phone:
+                skipped += 1
+                continue
+
+            contact = Contact.query.get(phone)
+
+            if action == 'add':
+                if not contact:
+                    contact = Contact(phone_number=phone)
+                    db.session.add(contact)
+                if tag not in contact.tags:
+                    contact.tags.append(tag)
+                    added += 1
+                else:
+                    skipped += 1
+            elif action == 'remove':
+                if not contact:
+                    skipped += 1
+                    continue
+                if tag in contact.tags:
+                    contact.tags = [t for t in contact.tags if t.id != tag.id]
+                    removed += 1
+                else:
+                    skipped += 1
+
+        db.session.commit()
+        return jsonify({'success': True, 'added': added, 'removed': removed, 'skipped': skipped})
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error en bulk tag action: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route("/failed-messages")
 def failed_messages_page():
@@ -847,10 +1058,15 @@ def failed_messages_page():
         MessageStatus.status == 'failed'
     ).order_by(Message.timestamp.desc()).all()
     
-    # Enriquecer con nombre de contacto
+    # Batch load contactos para evitar N+1 queries
+    phones = list({msg.phone_number for msg, _ in failed_msgs})
+    contacts_map = {}
+    if phones:
+        contacts_map = {c.phone_number: c for c in Contact.query.filter(Contact.phone_number.in_(phones)).all()}
+
     enriched_failures = []
     for msg, status in failed_msgs:
-        contact = Contact.query.get(msg.phone_number)
+        contact = contacts_map.get(msg.phone_number)
         enriched_failures.append({
             'message': msg,
             'status': status,
@@ -1168,5 +1384,218 @@ def api_send_text():
     
     return jsonify(result)
 
+# ==================== CAMPAÑAS ====================
+
+@app.route("/campaigns")
+def campaigns_page():
+    """Página de campañas."""
+    campaigns = Campaign.query.order_by(Campaign.created_at.desc()).all()
+
+    campaigns_data = []
+    for c in campaigns:
+        total = len(c.logs)
+        sent = sum(1 for l in c.logs if l.status in ('sent', 'delivered', 'read'))
+        failed = sum(1 for l in c.logs if l.status == 'failed')
+        campaigns_data.append({
+            'campaign': c,
+            'stats': {'total': total, 'sent': sent, 'failed': failed}
+        })
+
+    tags = Tag.query.all()
+
+    templates = []
+    if whatsapp_api.is_configured():
+        templates_result = whatsapp_api.get_templates()
+        templates = [t for t in templates_result.get("templates", []) if t.get("status") == "APPROVED"]
+
+    return render_template('campaigns.html',
+                         campaigns=campaigns_data,
+                         tags=tags,
+                         templates=templates)
+
+@app.route("/api/campaigns", methods=["GET"])
+def api_list_campaigns():
+    """Lista campañas."""
+    campaigns = Campaign.query.order_by(Campaign.created_at.desc()).all()
+    result = []
+    for c in campaigns:
+        total = len(c.logs)
+        sent = sum(1 for l in c.logs if l.status in ('sent', 'delivered', 'read'))
+        failed = sum(1 for l in c.logs if l.status == 'failed')
+        result.append({
+            'id': c.id,
+            'name': c.name,
+            'status': c.status,
+            'tag': c.tag.name if c.tag else None,
+            'template_name': c.template_name,
+            'total': total,
+            'sent': sent,
+            'failed': failed,
+            'created_at': c.created_at.isoformat() if c.created_at else None,
+            'started_at': c.started_at.isoformat() if c.started_at else None,
+            'completed_at': c.completed_at.isoformat() if c.completed_at else None
+        })
+    return jsonify(result)
+
+@app.route("/api/campaigns", methods=["POST"])
+def api_create_campaign():
+    """Crea una nueva campaña."""
+    data = request.json
+    name = data.get('name', '').strip()
+    template_name = data.get('template_name', '').strip()
+    template_language = data.get('template_language', 'es_AR')
+    tag_id = data.get('tag_id')
+
+    if not name or not template_name:
+        return jsonify({'error': 'name y template_name requeridos'}), 400
+
+    if not tag_id:
+        return jsonify({'error': 'tag_id requerido'}), 400
+
+    tag = Tag.query.get(tag_id)
+    if not tag:
+        return jsonify({'error': 'Tag no encontrado'}), 404
+
+    campaign = Campaign(
+        name=name,
+        template_name=template_name,
+        template_language=template_language,
+        tag_id=tag_id,
+        status='draft'
+    )
+    db.session.add(campaign)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'id': campaign.id,
+        'name': campaign.name,
+        'status': campaign.status
+    }), 201
+
+@app.route("/api/campaigns/<int:campaign_id>", methods=["DELETE"])
+def api_delete_campaign(campaign_id):
+    """Elimina una campaña (solo si está en draft)."""
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'error': 'Campaña no encontrada'}), 404
+    if campaign.status != 'draft':
+        return jsonify({'error': 'Solo se puede eliminar una campaña en estado draft'}), 400
+
+    CampaignLog.query.filter_by(campaign_id=campaign_id).delete()
+    db.session.delete(campaign)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route("/api/campaigns/<int:campaign_id>/send", methods=["POST"])
+def api_send_campaign(campaign_id):
+    """Inicia el envío de una campaña en background."""
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'error': 'Campaña no encontrada'}), 404
+    if campaign.status != 'draft':
+        return jsonify({'error': 'Solo se puede enviar una campaña en estado draft'}), 400
+
+    if not campaign.tag_id:
+        return jsonify({'error': 'La campaña debe tener un tag asignado'}), 400
+
+    contacts = Contact.query.filter(
+        Contact.tags.any(Tag.id == campaign.tag_id)
+    ).all()
+
+    if not contacts:
+        return jsonify({'error': 'No hay contactos con ese tag'}), 400
+
+    # Actualizar estado
+    campaign.status = 'sending'
+    campaign.started_at = datetime.utcnow()
+    db.session.commit()
+
+    # Crear logs pendientes
+    for contact in contacts:
+        log = CampaignLog(
+            campaign_id=campaign.id,
+            contact_phone=contact.phone_number,
+            status='pending'
+        )
+        db.session.add(log)
+    db.session.commit()
+
+    # Envío en background thread
+    def send_campaign_bg(app_context, cid):
+        with app_context:
+            camp = Campaign.query.get(cid)
+            logs = CampaignLog.query.filter_by(campaign_id=cid, status='pending').all()
+
+            for log in logs:
+                try:
+                    result = whatsapp_api.send_template_message(
+                        log.contact_phone,
+                        camp.template_name,
+                        camp.template_language
+                    )
+                    if result.get('success'):
+                        log.status = 'sent'
+                        log.message_id = result.get('message_id')
+                        wa_id = result.get('message_id')
+                        if wa_id:
+                            new_msg = Message(
+                                wa_message_id=wa_id,
+                                phone_number=log.contact_phone,
+                                direction='outbound',
+                                message_type='template',
+                                content=f'[Campaña: {camp.name}] [Template: {camp.template_name}]',
+                                timestamp=datetime.utcnow()
+                            )
+                            db.session.add(new_msg)
+                    else:
+                        log.status = 'failed'
+                        log.error_detail = result.get('error', 'Error desconocido')
+                except Exception as e:
+                    log.status = 'failed'
+                    log.error_detail = str(e)
+
+                db.session.commit()
+                time_module.sleep(1)  # Rate limiting
+
+            camp.status = 'completed'
+            camp.completed_at = datetime.utcnow()
+            db.session.commit()
+
+    ctx = app.app_context()
+    t = threading.Thread(target=send_campaign_bg, args=(ctx, campaign.id))
+    t.daemon = True
+    t.start()
+
+    return jsonify({
+        'success': True,
+        'status': 'sending',
+        'total_contacts': len(contacts)
+    })
+
+@app.route("/api/campaigns/<int:campaign_id>/status", methods=["GET"])
+def api_campaign_status(campaign_id):
+    """Obtiene el estado en tiempo real de una campaña."""
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'error': 'Campaña no encontrada'}), 404
+
+    logs = CampaignLog.query.filter_by(campaign_id=campaign_id).all()
+    total = len(logs)
+    sent = sum(1 for l in logs if l.status in ('sent', 'delivered', 'read'))
+    failed = sum(1 for l in logs if l.status == 'failed')
+    pending = sum(1 for l in logs if l.status == 'pending')
+
+    return jsonify({
+        'id': campaign.id,
+        'status': campaign.status,
+        'total': total,
+        'sent': sent,
+        'failed': failed,
+        'pending': pending,
+        'started_at': campaign.started_at.isoformat() if campaign.started_at else None,
+        'completed_at': campaign.completed_at.isoformat() if campaign.completed_at else None
+    })
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=Config.PORT, debug=True)
+    app.run(host="0.0.0.0", port=Config.PORT, debug=False)

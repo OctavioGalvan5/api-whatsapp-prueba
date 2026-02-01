@@ -21,7 +21,8 @@ def forward_to_chatwoot(payload):
         response = requests.post(
             Config.CHATWOOT_WEBHOOK_URL,
             json=payload,
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
+            timeout=10
         )
         if response.status_code != 200:
             logger.error(f"Error al reenviar a Chatwoot: {response.status_code} - {response.text}")

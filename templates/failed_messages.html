@@ -1,159 +1,139 @@
 <!DOCTYPE html>
-<html lang="es">
+<html class="light" lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mensajes Fallidos - WhatsApp Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Mensajes Fallidos - WhatsApp CRM</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec25",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102212",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
     <style>
-        :root {
-            --bg-primary: #fff1f2;
-            --bg-card: #ffffff;
-            --accent-red: #ef4444;
-            --text-primary: #0f172a;
-            --text-secondary: #64748b;
-            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 2rem;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .nav-btn {
-            text-decoration: none;
-            color: var(--text-secondary);
-            font-weight: 500;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
-
-        .nav-btn:hover,
-        .nav-btn.active {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            box-shadow: var(--shadow);
-        }
-
-        .error-card {
-            background: var(--bg-card);
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            box-shadow: var(--shadow);
-            border-left: 4px solid var(--accent-red);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .error-info h4 {
-            margin: 0 0 0.25rem 0;
-            color: var(--accent-red);
-        }
-
-        .error-meta {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-        }
-
-        .error-msg {
-            background: #f8fafc;
-            padding: 0.5rem;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 0.9rem;
-            color: var(--text-primary);
-        }
-
-        .retry-btn {
-            text-decoration: none;
-            background: var(--bg-primary);
-            color: var(--accent-red);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-weight: 600;
-            border: 1px solid #fecdd3;
-            transition: all 0.2s;
-        }
-
-        .retry-btn:hover {
-            background: #ffe4e6;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .hidden { display: none !important; }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <header class="header">
-            <div>
-                <h1>Mensajes Fallidos</h1>
-                <p style="color: var(--text-secondary);">Diagnóstico de problemas de entrega</p>
-            </div>
-            <nav class="nav-buttons">
-                <a href="/dashboard" class="nav-btn">💬 Dashboard</a>
-                <a href="/contacts" class="nav-btn">👥 Contactos</a>
-                <a href="/tags" class="nav-btn">🏷️ Etiquetas</a>
-                <a href="/failed-messages" class="nav-btn active">⚠️ Fallidos</a>
-                <a href="/analytics" class="nav-btn">📊 Analytics</a>
-            </nav>
-        </header>
+<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white min-h-screen">
+    <div class="flex h-screen">
+        <!-- Sidebar Navigation -->
+        <aside class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
+            <a href="/dashboard" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Dashboard">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">chat</span>
+            </a>
+            <a href="/contacts" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Contactos">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
+            </a>
+            <a href="/tags" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Etiquetas">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">label</span>
+            </a>
+            <a href="/campaigns" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Campañas">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">campaign</span>
+            </a>
+            <a href="/failed-messages" class="p-3 rounded-xl bg-primary/10 text-primary" title="Fallidos">
+                <span class="material-symbols-outlined">error</span>
+            </a>
+            <a href="/analytics" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Analytics">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">bar_chart</span>
+            </a>
+            <a href="/whatsapp-settings" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors mt-auto" title="Configuración">
+                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">settings</span>
+            </a>
+        </aside>
 
-        {% if failures %}
-        {% for item in failures %}
-        <div class="error-card">
-            <div class="error-info" style="flex: 1;">
-                <h4>❌ Error: {{ item.status.error_code or 'Desconocido' }} - {{ item.status.error_title or 'Sin título'
-                    }}</h4>
-                <div class="error-meta">
-                    <strong>Fecha:</strong> {{ (item.status.timestamp|to_argentina).strftime('%d/%m/%Y %H:%M') }} |
-                    <strong>Para:</strong> {{ item.contact_name or item.message.phone_number }} ({{
-                    item.message.phone_number }})
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-xl font-bold text-[#111812] dark:text-white">Mensajes Fallidos</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Diagnóstico de problemas de entrega</p>
+                    </div>
                 </div>
-                {% if item.status.error_details %}
-                <p style="margin: 0.5rem 0; font-size: 0.9rem; color: var(--text-secondary);">{{
-                    item.status.error_details }}</p>
+            </header>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+                {% if failures %}
+                <div class="flex flex-col gap-3">
+                    {% for item in failures %}
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 border-l-4 border-l-red-500 p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1">
+                                <!-- Error header -->
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                                        <span class="material-symbols-outlined text-red-500 text-lg">error</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-red-500">{{ item.status.error_code or 'Desconocido' }} — {{ item.status.error_title or 'Sin título' }}</h4>
+                                    </div>
+                                </div>
+                                <!-- Meta info -->
+                                <div class="flex flex-wrap items-center gap-3 ml-10 mb-2">
+                                    <span class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-sm">calendar_today</span>
+                                        {{ (item.status.timestamp|to_argentina).strftime('%d/%m/%Y %H:%M') }}
+                                    </span>
+                                    <span class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <span class="material-symbols-outlined text-sm">person</span>
+                                        {{ item.contact_name or item.message.phone_number }}
+                                    </span>
+                                    <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">{{ item.message.phone_number }}</span>
+                                </div>
+                                <!-- Error details -->
+                                {% if item.status.error_details %}
+                                <p class="text-xs text-gray-500 dark:text-gray-400 ml-10 mb-2">{{ item.status.error_details }}</p>
+                                {% endif %}
+                                <!-- Message content -->
+                                <div class="ml-10 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2">
+                                    <p class="text-sm text-gray-600 dark:text-gray-300 font-mono">{{ item.message.content }}</p>
+                                </div>
+                            </div>
+                            <!-- Retry action -->
+                            <a href="/dashboard?phone={{ item.message.phone_number }}"
+                                class="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg text-xs font-semibold transition-colors flex-shrink-0 whitespace-nowrap">
+                                <span class="material-symbols-outlined text-sm">open_in_new</span>
+                                Reintentar en Chat
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="flex flex-col items-center justify-center h-full text-center">
+                    <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-4xl text-primary">check_circle</span>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">Todo en orden</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 max-w-md">
+                        No se encontraron mensajes fallidos recientes.
+                    </p>
+                </div>
                 {% endif %}
-                <div class="error-msg">
-                    {{ item.message.content }}
-                </div>
             </div>
-            <div style="margin-left: 1rem;">
-                <a href="/dashboard?phone={{ item.message.phone_number }}" class="retry-btn">
-                    Reintentar en Chat ➡️
-                </a>
-            </div>
-        </div>
-        {% endfor %}
-        {% else %}
-        <div style="text-align: center; padding: 4rem; background: white; border-radius: 16px;">
-            <h2 style="color: var(--accent-green);">¡Todo en orden!</h2>
-            <p style="color: var(--text-secondary);">No se encontraron mensajes fallidos recientes.</p>
-        </div>
-        {% endif %}
+        </main>
     </div>
 </body>
 
