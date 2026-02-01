@@ -31,7 +31,7 @@ def forward_to_chatwoot(payload):
     except Exception as e:
         logger.error(f"Excepción al conectar con Chatwoot: {e}")
 
-def save_message(wa_message_id, phone_number, direction, message_type, content):
+def save_message(wa_message_id, phone_number, direction, message_type, content, media_id=None, media_url=None, caption=None):
     """Guarda un mensaje en la base de datos y registra el contacto."""
     from app import app
     from models import db, Message, Contact
@@ -58,6 +58,9 @@ def save_message(wa_message_id, phone_number, direction, message_type, content):
                 direction=direction,
                 message_type=message_type,
                 content=content,
+                media_id=media_id,
+                media_url=media_url,
+                caption=caption,
                 timestamp=datetime.utcnow()
             )
             db.session.add(message)
@@ -100,6 +103,16 @@ def save_status(wa_message_id, status, recipient_id=None, error_code=None, error
                 timestamp=datetime.utcnow()
             )
             db.session.add(msg_status)
+            
+            # --- ACTUALIZAR ESTADO DE CAMPAÑA SI CORRESPONDE ---
+            from models import CampaignLog
+            campaign_log = CampaignLog.query.filter_by(message_id=wa_message_id).first()
+            if campaign_log:
+                campaign_log.status = status
+                if error_details:
+                    campaign_log.error_detail = error_details
+                logger.info(f"📊 Actualizado log de campaña {campaign_log.id} a '{status}'")
+            
             db.session.commit()
             logger.info(f"✅ Estado '{status}' guardado para mensaje: {wa_message_id}")
     except Exception as e:
@@ -131,25 +144,32 @@ def process_event(data):
                     
                     # Extraer contenido según tipo
                     content = None
+                    media_id = None
+                    media_url = None
+                    caption = None
+                    
                     if msg_type == "text":
                         content = message.get("text", {}).get("body")
-                    elif msg_type == "image":
-                        content = "[Imagen]"
-                    elif msg_type == "audio":
-                        content = "[Audio]"
-                    elif msg_type == "video":
-                        content = "[Video]"
-                    elif msg_type == "document":
-                        content = "[Documento]"
-                    elif msg_type == "sticker":
-                        content = "[Sticker]"
+                    
+                    elif msg_type in ["image", "audio", "video", "document", "sticker"]:
+                        media_data = message.get(msg_type, {})
+                        media_id = media_data.get("id")
+                        caption = media_data.get("caption") if msg_type in ["image", "video", "document"] else None
+                        content = f"[{msg_type.capitalize()}] {caption or ''}".strip()
+                        
+                        # Descargar media
+                        from whatsapp_service import whatsapp_api
+                        media_url = whatsapp_api.download_media(media_id)
+                        
                     elif msg_type == "location":
                         content = "[Ubicación]"
                     
                     logger.info(f"NUEVO MENSAJE de {sender} tipo {msg_type}: {message}")
                     
                     # Guardar mensaje en base de datos
-                    save_message(msg_id, sender, "inbound", msg_type, content)
+                    # save_message ahora acepta kwargs para media
+                    save_message(msg_id, sender, "inbound", msg_type, content, 
+                               media_id=media_id, media_url=media_url, caption=caption)
 
             # --- MANEJO DE ESTADOS (SENT, DELIVERED, READ, FAILED) ---
             if "statuses" in value:

@@ -1,5 +1,7 @@
 # Environment variables
+# Environment variables
 .env
+static/media/
 
 # Python
 __pycache__/

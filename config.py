@@ -9,6 +9,10 @@ class Config:
     PORT = int(os.getenv("PORT", 5000))
     DATABASE_URL = os.getenv("DATABASE_URL")
     
+    # Autenticación
+    SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+    LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "admin")
+
     # WhatsApp Business API
     WHATSAPP_API_TOKEN = os.getenv("WHATSAPP_API_TOKEN")
     WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")

@@ -1,66 +1,8 @@
-<!DOCTYPE html>
-<html class="light" lang="es">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Campañas - WhatsApp CRM</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#13ec25",
-                        "background-light": "#f6f8f6",
-                        "background-dark": "#102212",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"]
-                    },
-                },
-            },
-        }
-    </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-        .hidden { display: none !important; }
-    </style>
-</head>
+{% block title %}Campañas - WhatsApp CRM{% endblock %}
 
-<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white min-h-screen">
-    <div class="flex h-screen">
-        <!-- Sidebar Navigation -->
-        <aside class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
-            <a href="/dashboard" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Dashboard">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">chat</span>
-            </a>
-            <a href="/contacts" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Contactos">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
-            </a>
-            <a href="/tags" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Etiquetas">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">label</span>
-            </a>
-            <a href="/campaigns" class="p-3 rounded-xl bg-primary/10 text-primary" title="Campañas">
-                <span class="material-symbols-outlined">campaign</span>
-            </a>
-            <a href="/failed-messages" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Fallidos">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">error</span>
-            </a>
-            <a href="/analytics" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Analytics">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">bar_chart</span>
-            </a>
-            <a href="/whatsapp-settings" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors mt-auto" title="Configuración">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">settings</span>
-            </a>
-        </aside>
-
+{% block content %}
         <!-- Main Content -->
         <main class="flex-1 flex flex-col overflow-hidden">
             <!-- Header -->
@@ -85,7 +27,8 @@
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                            <div
+                                class="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                                 <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">campaign</span>
                             </div>
                             <div>
@@ -101,7 +44,8 @@
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Mensajes Enviados</p>
-                                <p class="text-xl font-bold text-primary">{{ campaigns|sum(attribute='stats.sent') }}</p>
+                                <p class="text-xl font-bold text-primary">{{ campaigns|sum(attribute='stats.sent') }}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -112,7 +56,8 @@
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Contactos Alcanzados</p>
-                                <p class="text-xl font-bold text-blue-500">{{ campaigns|sum(attribute='stats.total') }}</p>
+                                <p class="text-xl font-bold text-blue-500">{{ campaigns|sum(attribute='stats.total') }}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -123,7 +68,8 @@
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Fallidos Total</p>
-                                <p class="text-xl font-bold text-red-500">{{ campaigns|sum(attribute='stats.failed') }}</p>
+                                <p class="text-xl font-bold text-red-500">{{ campaigns|sum(attribute='stats.failed') }}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -132,26 +78,43 @@
                 <!-- Campaign List -->
                 <div class="flex flex-col gap-3">
                     {% for item in campaigns %}
-                    <div id="campaign-{{ item.campaign.id }}" class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+                    <div id="campaign-{{ item.campaign.id }}"
+                        class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
                         <div class="flex items-start justify-between gap-4">
                             <div class="flex-1 min-w-0">
                                 <!-- Header row -->
                                 <div class="flex items-center gap-3 mb-3 flex-wrap">
-                                    <h3 class="font-semibold text-[#111812] dark:text-white">{{ item.campaign.name }}</h3>
+                                    <h3 class="font-semibold text-[#111812] dark:text-white">
+                                        <a href="/campaigns/{{ item.campaign.id }}"
+                                            class="hover:text-primary hover:underline transition-colors">{{
+                                            item.campaign.name }}</a>
+                                    </h3>
                                     {% if item.campaign.status == 'draft' %}
-                                    <span class="px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium">Draft</span>
+                                    <span
+                                        class="px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium">Draft</span>
                                     {% elif item.campaign.status == 'sending' %}
-                                    <span class="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-medium flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-xs animate-spin">progress_activity</span> Enviando
+                                    <span
+                                        class="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-medium flex items-center gap-1">
+                                        <span
+                                            class="material-symbols-outlined text-xs animate-spin">progress_activity</span>
+                                        Enviando
                                     </span>
                                     {% elif item.campaign.status == 'completed' %}
-                                    <span class="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">Completada</span>
+                                    <span
+                                        class="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">Completada</span>
                                     {% elif item.campaign.status == 'failed' %}
-                                    <span class="px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-medium">Fallida</span>
+                                    <span
+                                        class="px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-medium">Fallida</span>
+                                    {% elif item.campaign.status == 'scheduled' %}
+                                    <span
+                                        class="px-2.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 text-xs font-medium flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-xs">schedule</span> Programada
+                                    </span>
                                     {% endif %}
                                 </div>
                                 <!-- Meta info -->
-                                <div class="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                <div
+                                    class="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <span class="flex items-center gap-1">
                                         <span class="material-symbols-outlined text-sm">label</span>
                                         {{ item.campaign.tag.name if item.campaign.tag else 'Sin tag' }}
@@ -162,17 +125,23 @@
                                     </span>
                                     <span class="flex items-center gap-1">
                                         <span class="material-symbols-outlined text-sm">calendar_today</span>
+                                        {% if item.campaign.status == 'scheduled' %}
+                                        Prog: {{ (item.campaign.scheduled_at|to_argentina).strftime('%d/%m/%Y %H:%M') }}
+                                        {% else %}
                                         {{ (item.campaign.created_at|to_argentina).strftime('%d/%m/%Y %H:%M') }}
+                                        {% endif %}
                                     </span>
                                 </div>
-                                <!-- Progress bar (visible when not draft) -->
-                                {% if item.campaign.status != 'draft' %}
+                                <!-- Progress bar (visible when not draft and not scheduled) -->
+                                {% if item.campaign.status != 'draft' and item.campaign.status != 'scheduled' %}
                                 <div class="flex items-center gap-3">
                                     <div class="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-2">
                                         <div class="h-2 rounded-full {% if item.stats.failed > 0 %}bg-red-500{% else %}bg-primary{% endif %}"
-                                            style="width: {{ ((item.stats.sent / item.stats.total) * 100)|round if item.stats.total > 0 else 0 }}%"></div>
+                                            style="width: {{ ((item.stats.sent / item.stats.total) * 100)|round if item.stats.total > 0 else 0 }}%">
+                                        </div>
                                     </div>
-                                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                    <span
+                                        class="text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                         {{ item.stats.sent }}/{{ item.stats.total }}
                                     </span>
                                 </div>
@@ -189,6 +158,12 @@
                                 <button onclick="deleteCampaign({{ item.campaign.id }})"
                                     class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                                     <span class="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                                {% elif item.campaign.status == 'scheduled' %}
+                                <button onclick="deleteCampaign({{ item.campaign.id }})"
+                                    class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Cancelar campaña">
+                                    <span class="material-symbols-outlined text-lg">cancel</span>
                                 </button>
                                 {% elif item.campaign.status == 'sending' %}
                                 <button onclick="pollCampaign({{ item.campaign.id }})"
@@ -220,27 +195,32 @@
                 {% endif %}
             </div>
         </main>
-    </div>
 
     <!-- Create Campaign Modal -->
     <div id="createModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/50" onclick="document.getElementById('createModal').classList.add('hidden')"></div>
-        <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <div class="absolute inset-0 bg-black/50"
+            onclick="document.getElementById('createModal').classList.add('hidden')"></div>
+        <div
+            class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-lg font-semibold">Nueva Campaña</h3>
-                <button onclick="document.getElementById('createModal').classList.add('hidden')" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <button onclick="document.getElementById('createModal').classList.add('hidden')"
+                    class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nombre de la campaña</label>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nombre de la
+                        campaña</label>
                     <input type="text" id="camp-name" placeholder="Ej: Promo Diciembre"
                         class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Etiqueta (destinatarios)</label>
-                    <select id="camp-tag" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Etiqueta
+                        (destinatarios)</label>
+                    <select id="camp-tag"
+                        class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
                         <option value="">Selecciona una etiqueta...</option>
                         {% for tag in tags %}
                         <option value="{{ tag.id }}">{{ tag.name }}</option>
@@ -248,24 +228,47 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Template aprobado</label>
-                    <select id="camp-template" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Template
+                        aprobado</label>
+                    <select id="camp-template"
+                        class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary"
+                        onchange="onTemplateChange()">
                         <option value="">Selecciona un template...</option>
                         {% for t in templates %}
-                        <option value="{{ t.name }}|{{ t.language }}">{{ t.name }} ({{ t.language }})</option>
+                        <option value="{{ t.name }}|{{ t.language }}" data-components='{{ t.components|tojson }}'>{{
+                            t.name }} ({{ t.language }})</option>
                         {% endfor %}
                     </select>
                 </div>
+
+                <!-- Variables Section -->
+                <div id="variables-container"
+                    class="hidden space-y-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <p class="text-xs font-semibold text-gray-500 uppercase">Variables del Template</p>
+                    <div id="variables-inputs" class="space-y-2"></div>
+                </div>
+
+                <!-- Scheduling Section -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Programar envío
+                        (Opcional)</label>
+                    <input type="datetime-local" id="camp-schedule"
+                        class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+                    <p class="text-xs text-gray-400 mt-1">Si se deja vacío, se guardará como borrador.</p>
+                </div>
+
                 {% if not templates %}
                 <p class="text-xs text-red-500">No hay templates aprobados disponibles. Configura WhatsApp primero.</p>
                 {% endif %}
             </div>
             <div id="create-error" class="hidden mt-4 p-3 rounded-lg text-sm bg-red-500/10 text-red-500"></div>
             <div class="flex justify-end gap-3 mt-6">
-                <button onclick="document.getElementById('createModal').classList.add('hidden')" class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                <button onclick="document.getElementById('createModal').classList.add('hidden')"
+                    class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                     Cancelar
                 </button>
-                <button id="create-btn" onclick="createCampaign()" class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                <button id="create-btn" onclick="createCampaign()"
+                    class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
                     Crear Campaña
                 </button>
             </div>
@@ -278,6 +281,7 @@
             const name = document.getElementById('camp-name').value.trim();
             const tagId = document.getElementById('camp-tag').value;
             const templateVal = document.getElementById('camp-template').value;
+            const scheduledAt = document.getElementById('camp-schedule').value;
             const errorDiv = document.getElementById('create-error');
             errorDiv.classList.add('hidden');
 
@@ -286,6 +290,14 @@
                 errorDiv.textContent = 'Todos los campos son requeridos';
                 return;
             }
+
+            // Collect variables
+            const variables = {};
+            const varInputs = document.querySelectorAll('[id^="var-input-"]');
+            varInputs.forEach(input => {
+                const idx = input.id.replace('var-input-', '');
+                variables[idx] = input.value;
+            });
 
             const [templateName, templateLang] = templateVal.split('|');
             const btn = document.getElementById('create-btn');
@@ -300,7 +312,9 @@
                         name,
                         tag_id: parseInt(tagId),
                         template_name: templateName,
-                        template_language: templateLang
+                        template_language: templateLang,
+                        scheduled_at: scheduledAt || null,
+                        variables: variables
                     })
                 });
                 const data = await resp.json();
@@ -318,6 +332,64 @@
                 btn.textContent = 'Crear Campaña';
                 errorDiv.classList.remove('hidden');
                 errorDiv.textContent = 'Error: ' + e.message;
+            }
+        }
+
+        function onTemplateChange() {
+            const select = document.getElementById('camp-template');
+            const container = document.getElementById('variables-container');
+            const inputsDiv = document.getElementById('variables-inputs');
+
+            if (!select.value) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            const option = select.options[select.selectedIndex];
+            const components = JSON.parse(option.dataset.components || '[]');
+
+            // Find body text
+            let bodyText = "";
+            components.forEach(c => {
+                if (c.type === 'BODY') bodyText = c.text;
+            });
+
+            // Regex to find {{1}}, {{2}}...
+            const regex = /\{\{(\d+)\}\}/g;
+            const matches = [...bodyText.matchAll(regex)];
+
+            inputsDiv.innerHTML = '';
+
+            if (matches.length > 0) {
+                container.classList.remove('hidden');
+
+                // Get unique indices
+                const indices = [...new Set(matches.map(m => m[1]))].sort((a, b) => a - b);
+
+                indices.forEach(idx => {
+                    const row = `
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-mono text-gray-500 w-10 shrink-0">{{ '{{' }}${idx}{{ '}}' }}</span>
+                            <select id="var-input-${idx}" class="flex-1 px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
+                                <option value="first_name">Nombre (First Name)</option>
+                                <option value="last_name">Apellido (Last Name)</option>
+                                <option value="name">Nombre Completo</option>
+                                <option value="phone_number">Teléfono</option>
+                                <option value="custom_field_1">Campo 1</option>
+                                <option value="custom_field_2">Campo 2</option>
+                                <option value="custom_field_3">Campo 3</option>
+                                <option value="custom_field_4">Campo 4</option>
+                                <option value="custom_field_5">Campo 5</option>
+                                <option value="custom_field_6">Campo 6</option>
+                                <option value="custom_field_7">Campo 7</option>
+                                <option value="notes">Notas</option>
+                            </select>
+                        </div>
+                    `;
+                    inputsDiv.insertAdjacentHTML('beforeend', row);
+                });
+            } else {
+                container.classList.add('hidden');
             }
         }
 
@@ -392,6 +464,4 @@
             }
         });
     </script>
-</body>
-
-</html>
+{% endblock %}

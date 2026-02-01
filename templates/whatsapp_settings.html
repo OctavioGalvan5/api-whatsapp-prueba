@@ -1,66 +1,8 @@
-<!DOCTYPE html>
-<html class="light" lang="es">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Configuración - WhatsApp CRM</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#13ec25",
-                        "background-light": "#f6f8f6",
-                        "background-dark": "#102212",
-                    },
-                    fontFamily: {
-                        "display": ["Inter", "sans-serif"]
-                    },
-                },
-            },
-        }
-    </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-        .hidden { display: none !important; }
-    </style>
-</head>
+{% block title %}Configuración - WhatsApp CRM{% endblock %}
 
-<body class="bg-background-light dark:bg-background-dark text-[#111812] dark:text-white min-h-screen">
-    <div class="flex h-screen">
-        <!-- Sidebar Navigation -->
-        <aside class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
-            <a href="/dashboard" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Dashboard">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">chat</span>
-            </a>
-            <a href="/contacts" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Contactos">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
-            </a>
-            <a href="/tags" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Etiquetas">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">label</span>
-            </a>
-            <a href="/campaigns" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Campañas">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">campaign</span>
-            </a>
-            <a href="/failed-messages" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Fallidos">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">error</span>
-            </a>
-            <a href="/analytics" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Analytics">
-                <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">bar_chart</span>
-            </a>
-            <a href="/whatsapp-settings" class="p-3 rounded-xl bg-primary/10 text-primary mt-auto" title="Configuración">
-                <span class="material-symbols-outlined">settings</span>
-            </a>
-        </aside>
-
+{% block content %}
         <!-- Main Content -->
         <main class="flex-1 flex flex-col overflow-hidden">
             <!-- Header -->
@@ -162,10 +104,17 @@
 
                 <!-- Templates -->
                 <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
-                    <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">description</span>
-                        Templates ({{ templates|length }})
-                    </h2>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-semibold text-lg flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary">description</span>
+                            Templates ({{ templates|length }})
+                        </h2>
+                        <button onclick="openCreateTemplateModal()"
+                            class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                            <span class="material-symbols-outlined text-lg">add</span>
+                            Crear Template
+                        </button>
+                    </div>
 
                     {% if templates %}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -213,52 +162,20 @@
                     {% endif %}
                 </div>
 
-                <!-- Quick Send -->
-                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-                    <h2 class="font-semibold text-lg mb-1 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">send</span>
-                        Envío Rápido
-                    </h2>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Envía un mensaje de texto a cualquier número</p>
-
-                    <form id="quick-send-form" class="flex flex-col sm:flex-row gap-3">
-                        <div class="flex-shrink-0" style="width: 220px;">
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Número (con código país)</label>
-                            <input type="text" id="quick-phone" placeholder="5493874123456" required
-                                class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
-                        </div>
-                        <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Mensaje</label>
-                            <input type="text" id="quick-message" placeholder="Escribe tu mensaje..." required
-                                class="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
-                        </div>
-                        <div class="flex-shrink-0">
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">&nbsp;</label>
-                            <button type="submit"
-                                class="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
-                                <span class="material-symbols-outlined text-sm">send</span>
-                                Enviar
-                            </button>
-                        </div>
-                    </form>
-                    <div id="send-result" class="mt-3"></div>
-                </div>
-
                 {% endif %}
             </div>
         </main>
-    </div>
 
     <!-- Send Template Modal -->
     <div id="send-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/50" onclick="closeModal()"></div>
+        <div class="absolute inset-0 bg-black/50" onclick="closeSendModal()"></div>
         <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-lg font-semibold flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">send</span>
                     Enviar Template
                 </h3>
-                <button onclick="closeModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <button onclick="closeSendModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
@@ -287,8 +204,157 @@
         </div>
     </div>
 
+    <!-- Create Template Modal -->
+    <div id="create-template-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" onclick="closeCreateTemplateModal()"></div>
+        <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">add_box</span>
+                    Crear Template
+                </h3>
+                <button onclick="closeCreateTemplateModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form id="create-template-form">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <!-- Name -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nombre *</label>
+                        <input type="text" id="tpl-name" placeholder="mi_template" required
+                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9_]/g, '_')" />
+                        <p class="text-xs text-gray-400 mt-1">snake_case, sin espacios</p>
+                    </div>
+                    <!-- Category -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Categoría *</label>
+                        <select id="tpl-category" required
+                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                            <option value="UTILITY">UTILITY</option>
+                            <option value="MARKETING">MARKETING</option>
+                            <option value="AUTHENTICATION">AUTHENTICATION</option>
+                        </select>
+                    </div>
+                    <!-- Language -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Idioma *</label>
+                        <select id="tpl-language"
+                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                            <option value="es_AR">Español (Argentina)</option>
+                            <option value="es">Español</option>
+                            <option value="es_MX">Español (México)</option>
+                            <option value="en_US">English (US)</option>
+                            <option value="en">English</option>
+                            <option value="pt_BR">Português (Brasil)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Header -->
+                <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Header (opcional)</label>
+                    <div class="flex gap-3 items-start">
+                        <select id="tpl-header-type" onchange="toggleHeaderText()"
+                            class="w-36 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                            <option value="">Ninguno</option>
+                            <option value="TEXT">Texto</option>
+                            <option value="IMAGE">Imagen</option>
+                            <option value="VIDEO">Video</option>
+                            <option value="DOCUMENT">Documento</option>
+                        </select>
+                        <input type="text" id="tpl-header-text" placeholder="Texto del header..." maxlength="60"
+                            class="hidden flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Para IMAGE/VIDEO/DOCUMENT, se requerirá el archivo al enviar.</p>
+                </div>
+
+                <!-- Body -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Body *</label>
+                    <textarea id="tpl-body" rows="4" required placeholder="Hola {{1}}, tu pedido {{2}} está listo..."
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"></textarea>
+                    <div class="flex items-center gap-2 mt-2">
+                        <span class="text-xs text-gray-400">Insertar variable:</span>
+                        <button type="button" onclick="insertVariable(1)" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{1}}</button>
+                        <button type="button" onclick="insertVariable(2)" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{2}}</button>
+                        <button type="button" onclick="insertVariable(3)" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{3}}</button>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Footer (opcional)</label>
+                    <input type="text" id="tpl-footer" placeholder="Responde STOP para cancelar" maxlength="60"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                </div>
+
+                <!-- Buttons -->
+                <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Botones (opcional)</label>
+                    <select id="tpl-button-type" onchange="toggleButtonInputs()"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary mb-3">
+                        <option value="">Sin botones</option>
+                        <option value="QUICK_REPLY">Quick Reply (hasta 3)</option>
+                        <option value="CTA">Call to Action (URL o Teléfono)</option>
+                    </select>
+
+                    <!-- Quick Reply Inputs -->
+                    <div id="quick-reply-inputs" class="hidden space-y-2">
+                        <input type="text" id="qr-btn-1" placeholder="Botón 1 (ej: Sí)" maxlength="25"
+                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                        <input type="text" id="qr-btn-2" placeholder="Botón 2 (ej: No)" maxlength="25"
+                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                        <input type="text" id="qr-btn-3" placeholder="Botón 3 (opcional)" maxlength="25"
+                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                    </div>
+
+                    <!-- CTA Inputs -->
+                    <div id="cta-inputs" class="hidden space-y-3">
+                        <div class="flex gap-2">
+                            <select id="cta-type-1" class="w-32 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
+                                <option value="URL">URL</option>
+                                <option value="PHONE_NUMBER">Teléfono</option>
+                            </select>
+                            <input type="text" id="cta-text-1" placeholder="Texto del botón" maxlength="25"
+                                class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                            <input type="text" id="cta-value-1" placeholder="URL o número"
+                                class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="cta-type-2" class="w-32 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
+                                <option value="">Ninguno</option>
+                                <option value="URL">URL</option>
+                                <option value="PHONE_NUMBER">Teléfono</option>
+                            </select>
+                            <input type="text" id="cta-text-2" placeholder="Texto del botón" maxlength="25"
+                                class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                            <input type="text" id="cta-value-2" placeholder="URL o número"
+                                class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                        </div>
+                    </div>
+                </div>
+
+                <div id="create-result" class="mb-4"></div>
+
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeCreateTemplateModal()"
+                        class="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="create-submit-btn"
+                        class="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                        Crear Template
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        // Validación de teléfono E.164
+        // Utilidades
         function isValidPhone(phone) {
             const cleaned = phone.replace(/[\s\-\(\)]/g, '');
             return /^\+?[1-9]\d{6,14}$/.test(cleaned);
@@ -297,7 +363,8 @@
         function showAlert(container, type, message) {
             const colors = {
                 success: { bg: 'bg-primary/10', border: 'border-primary/30', text: 'text-primary', icon: 'check_circle' },
-                error: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-300 dark:border-red-700', text: 'text-red-600 dark:text-red-400', icon: 'error' }
+                error: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-300 dark:border-red-700', text: 'text-red-600 dark:text-red-400', icon: 'error' },
+                warning: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-300 dark:border-yellow-700', text: 'text-yellow-600 dark:text-yellow-400', icon: 'warning' }
             };
             const c = colors[type];
             container.innerHTML = `<div class="rounded-lg border ${c.border} ${c.bg} px-3 py-2 flex items-center gap-2">
@@ -306,6 +373,7 @@
             </div>`;
         }
 
+        // ============ SEND TEMPLATE MODAL ============
         function openSendModal(templateName, lang) {
             document.getElementById('modal-template-name').value = templateName;
             document.getElementById('modal-template-lang').value = lang;
@@ -315,14 +383,12 @@
             document.getElementById('send-modal').classList.remove('hidden');
         }
 
-        function closeModal() {
+        function closeSendModal() {
             document.getElementById('send-modal').classList.add('hidden');
         }
 
-        // Enviar template
         document.getElementById('send-template-form').addEventListener('submit', async function (e) {
             e.preventDefault();
-
             const templateName = document.getElementById('modal-template-name').value;
             const lang = document.getElementById('modal-template-lang').value;
             const phone = document.getElementById('modal-phone').value;
@@ -339,18 +405,12 @@
                 const response = await fetch('/api/whatsapp/send-template', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: phone,
-                        template_name: templateName,
-                        language: lang
-                    })
+                    body: JSON.stringify({ to: phone, template_name: templateName, language: lang })
                 });
-
                 const data = await response.json();
-
                 if (data.success) {
                     showAlert(resultDiv, 'success', 'Mensaje enviado correctamente');
-                    setTimeout(closeModal, 2000);
+                    setTimeout(closeSendModal, 2000);
                 } else {
                     showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
                 }
@@ -359,41 +419,136 @@
             }
         });
 
-        // Quick send
-        document.getElementById('quick-send-form').addEventListener('submit', async function (e) {
+        // ============ CREATE TEMPLATE MODAL ============
+        function openCreateTemplateModal() {
+            document.getElementById('create-template-form').reset();
+            document.getElementById('tpl-header-text').classList.add('hidden');
+            document.getElementById('quick-reply-inputs').classList.add('hidden');
+            document.getElementById('cta-inputs').classList.add('hidden');
+            document.getElementById('create-result').innerHTML = '';
+            document.getElementById('create-template-modal').classList.remove('hidden');
+        }
+
+        function closeCreateTemplateModal() {
+            document.getElementById('create-template-modal').classList.add('hidden');
+        }
+
+        function toggleHeaderText() {
+            const headerType = document.getElementById('tpl-header-type').value;
+            const headerTextInput = document.getElementById('tpl-header-text');
+            if (headerType === 'TEXT') {
+                headerTextInput.classList.remove('hidden');
+            } else {
+                headerTextInput.classList.add('hidden');
+                headerTextInput.value = '';
+            }
+        }
+
+        function toggleButtonInputs() {
+            const btnType = document.getElementById('tpl-button-type').value;
+            document.getElementById('quick-reply-inputs').classList.add('hidden');
+            document.getElementById('cta-inputs').classList.add('hidden');
+
+            if (btnType === 'QUICK_REPLY') {
+                document.getElementById('quick-reply-inputs').classList.remove('hidden');
+            } else if (btnType === 'CTA') {
+                document.getElementById('cta-inputs').classList.remove('hidden');
+            }
+        }
+
+        function insertVariable(num) {
+            const textarea = document.getElementById('tpl-body');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const variable = '{{ "{{" }}' + num + '{{ "}}" }}';
+            textarea.value = text.substring(0, start) + variable + text.substring(end);
+            textarea.focus();
+            textarea.setSelectionRange(start + variable.length, start + variable.length);
+        }
+
+        document.getElementById('create-template-form').addEventListener('submit', async function (e) {
             e.preventDefault();
+            const resultDiv = document.getElementById('create-result');
+            const submitBtn = document.getElementById('create-submit-btn');
 
-            const phone = document.getElementById('quick-phone').value;
-            const message = document.getElementById('quick-message').value;
-            const resultDiv = document.getElementById('send-result');
+            const name = document.getElementById('tpl-name').value.trim();
+            const category = document.getElementById('tpl-category').value;
+            const language = document.getElementById('tpl-language').value;
+            const body = document.getElementById('tpl-body').value.trim();
 
-            if (!isValidPhone(phone)) {
-                showAlert(resultDiv, 'error', 'Teléfono inválido. Usa formato E.164 (ej: 5491123456789)');
+            if (!name || !body) {
+                showAlert(resultDiv, 'error', 'Nombre y Body son requeridos');
                 return;
             }
 
-            resultDiv.innerHTML = '<p class="text-sm text-gray-500">Enviando...</p>';
+            // Construir payload
+            const payload = { name, category, language, body };
+
+            // Header
+            const headerType = document.getElementById('tpl-header-type').value;
+            if (headerType) {
+                payload.header = { format: headerType };
+                if (headerType === 'TEXT') {
+                    payload.header.text = document.getElementById('tpl-header-text').value.trim();
+                }
+            }
+
+            // Footer
+            const footer = document.getElementById('tpl-footer').value.trim();
+            if (footer) payload.footer = footer;
+
+            // Buttons
+            const btnType = document.getElementById('tpl-button-type').value;
+            if (btnType === 'QUICK_REPLY') {
+                const buttons = [];
+                for (let i = 1; i <= 3; i++) {
+                    const text = document.getElementById(`qr-btn-${i}`).value.trim();
+                    if (text) buttons.push({ type: 'QUICK_REPLY', text });
+                }
+                if (buttons.length) payload.buttons = buttons;
+            } else if (btnType === 'CTA') {
+                const buttons = [];
+                for (let i = 1; i <= 2; i++) {
+                    const type = document.getElementById(`cta-type-${i}`).value;
+                    const text = document.getElementById(`cta-text-${i}`).value.trim();
+                    const value = document.getElementById(`cta-value-${i}`).value.trim();
+                    if (type && text && value) {
+                        if (type === 'URL') {
+                            buttons.push({ type: 'URL', text, url: value });
+                        } else if (type === 'PHONE_NUMBER') {
+                            buttons.push({ type: 'PHONE_NUMBER', text, phone_number: value });
+                        }
+                    }
+                }
+                if (buttons.length) payload.buttons = buttons;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creando...';
+            resultDiv.innerHTML = '<p class="text-sm text-gray-500">Enviando a Meta para aprobación...</p>';
 
             try {
-                const response = await fetch('/api/whatsapp/send-text', {
+                const response = await fetch('/api/whatsapp/create-template', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ to: phone, text: message })
+                    body: JSON.stringify(payload)
                 });
-
                 const data = await response.json();
 
                 if (data.success) {
-                    showAlert(resultDiv, 'success', `Mensaje enviado a ${phone}`);
-                    document.getElementById('quick-message').value = '';
+                    showAlert(resultDiv, 'success', `Template "${name}" creado. Estado: ${data.status || 'PENDING'}. La página se recargará.`);
+                    setTimeout(() => location.reload(), 2500);
                 } else {
                     showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Crear Template';
                 }
             } catch (err) {
                 showAlert(resultDiv, 'error', 'Error de conexión');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Crear Template';
             }
         });
     </script>
-</body>
-
-</html>
+{% endblock %}

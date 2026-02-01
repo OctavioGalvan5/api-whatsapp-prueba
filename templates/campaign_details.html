@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Detalles de Campaña - WhatsApp CRM{% endblock %}
+
+{% block content %}
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <a href="/campaigns" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                            <span class="material-symbols-outlined text-gray-500">arrow_back</span>
+                        </a>
+                        <div>
+                            <h1 id="camp-name" class="text-xl font-bold text-[#111812] dark:text-white">Cargando...</h1>
+                            <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                <span id="camp-status" class="px-2 py-0.5 rounded-full bg-gray-100 text-xs font-medium">...</span>
+                                <span id="camp-date">...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <a id="export-btn" href="#" class="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <span class="material-symbols-outlined text-lg text-green-600">table_view</span>
+                            Exportar Excel
+                        </a>
+                        <button onclick="loadCampaignData()" class="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Actualizar">
+                            <span class="material-symbols-outlined text-lg">refresh</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-auto p-6">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Total Contactos</p>
+                        <p id="stat-total" class="text-2xl font-bold">0</p>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Enviados Exitosa</p>
+                        <p id="stat-sent" class="text-2xl font-bold text-primary">0</p>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Leídos</p>
+                        <p id="stat-read" class="text-2xl font-bold text-blue-500">0</p>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Fallidos</p>
+                        <p id="stat-failed" class="text-2xl font-bold text-red-500">0</p>
+                    </div>
+                </div>
+
+                <!-- Info Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <!-- Info -->
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+                        <h3 class="font-semibold mb-4">Información</h3>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Template</span>
+                                <span id="camp-template" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Etiqueta</span>
+                                <span id="camp-tag" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Inicio</span>
+                                <span id="camp-start" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Fin</span>
+                                <span id="camp-end" class="font-medium">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logs Preview -->
+                    <div class="col-span-1 lg:col-span-2 bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5 flex flex-col">
+                        <h3 class="font-semibold mb-4">Últimos envíos</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-800/50">
+                                    <tr>
+                                        <th class="px-4 py-3 rounded-l-lg">Teléfono</th>
+                                        <th class="px-4 py-3">Nombre</th>
+                                        <th class="px-4 py-3">Estado</th>
+                                        <th class="px-4 py-3 rounded-r-lg">Error</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logs-body">
+                                    <tr><td colspan="4" class="text-center py-4 text-gray-500">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    <script>
+        const CAMPAIGN_ID = {{ campaign_id }};
+        
+        async function loadCampaignData() {
+            try {
+                const resp = await fetch(`/api/campaigns/${CAMPAIGN_ID}`);
+                const data = await resp.json();
+                
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                
+                // Header
+                document.getElementById('camp-name').textContent = data.name;
+                document.getElementById('camp-status').textContent = data.status.toUpperCase();
+                document.getElementById('camp-date').textContent = new Date(data.created_at).toLocaleString();
+                
+                // Colors state
+                const statusEl = document.getElementById('camp-status');
+                if (data.status === 'completed') statusEl.className = "px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium";
+                else if (data.status === 'sending') statusEl.className = "px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-medium animate-pulse";
+                else if (data.status === 'failed') statusEl.className = "px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-xs font-medium";
+                else if (data.status === 'scheduled') statusEl.className = "px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-500 text-xs font-medium";
+                
+                // Export link
+                document.getElementById('export-btn').href = `/api/campaigns/${CAMPAIGN_ID}/export`;
+
+                // Stats
+                document.getElementById('stat-total').textContent = data.stats.total;
+                document.getElementById('stat-sent').textContent = data.stats.sent;
+                document.getElementById('stat-read').textContent = data.stats.read;
+                document.getElementById('stat-failed').textContent = data.stats.failed;
+                
+                // Info
+                document.getElementById('camp-template').textContent = data.template_name;
+                document.getElementById('camp-tag').textContent = data.tag_name;
+                document.getElementById('camp-start').textContent = data.started_at ? new Date(data.started_at).toLocaleString() : (data.scheduled_at ? 'Prog: ' + new Date(data.scheduled_at).toLocaleString() : '-');
+                document.getElementById('camp-end').textContent = data.completed_at ? new Date(data.completed_at).toLocaleString() : '-';
+                
+                // Logs
+                const tbody = document.getElementById('logs-body');
+                tbody.innerHTML = '';
+                if (data.logs_preview.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">Sin logs aún</td></tr>';
+                } else {
+                    data.logs_preview.forEach(log => {
+                        let statusColor = 'text-gray-500';
+                        if (log.status === 'sent' || log.status === 'delivered') statusColor = 'text-primary';
+                        if (log.status === 'read') statusColor = 'text-blue-500';
+                        if (log.status === 'failed') statusColor = 'text-red-500';
+                        
+                        const row = `
+                            <tr class="border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <td class="px-4 py-3 font-medium font-mono text-xs">${log.phone}</td>
+                                <td class="px-4 py-3">${log.name || '-'}</td>
+                                <td class="px-4 py-3 ${statusColor} font-medium capitalize">${log.status}</td>
+                                <td class="px-4 py-3 text-red-500 text-xs truncate max-w-[200px]">${log.error || ''}</td>
+                            </tr>
+                        `;
+                        tbody.insertAdjacentHTML('beforeend', row);
+                    });
+                }
+                
+                // Auto reload if sending
+                if (data.status === 'sending') {
+                    setTimeout(loadCampaignData, 3000);
+                }
+                
+            } catch (e) {
+                console.error("Error loading campaign:", e);
+            }
+        }
+        
+        loadCampaignData();
+    </script>
+{% endblock %}
