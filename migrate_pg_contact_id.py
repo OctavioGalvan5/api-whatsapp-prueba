@@ -282,6 +282,23 @@ def migrate_pg():
             if result.rowcount > 0:
                 print(f"  ✓ {result.rowcount} registros actualizados")
 
+            # Agregar FK a contacts (permite NULL para históricos sin match)
+            if not check_constraint_exists('fk_campaign_logs_contact'):
+                try:
+                    db.session.execute(text("""
+                        ALTER TABLE whatsapp_campaign_logs
+                        ADD CONSTRAINT fk_campaign_logs_contact
+                        FOREIGN KEY (contact_id) REFERENCES whatsapp_contacts(id) ON DELETE SET NULL;
+                    """))
+                    db.session.commit()
+                    print("  ✓ Foreign Key a whatsapp_contacts creada")
+                except Exception as e:
+                    db.session.rollback()
+                    if "already exists" in str(e).lower():
+                        print("  ✓ Foreign Key ya existe")
+                    else:
+                        print(f"  Nota FK: {e}")
+
             # ============================================
             # PASO 8: Crear índices
             # ============================================
