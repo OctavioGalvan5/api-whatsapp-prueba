@@ -807,35 +807,37 @@ def api_export_contacts():
 def api_contacts_template():
     """Descargar plantilla Excel para importar contactos."""
     try:
-        # Crear datos de ejemplo
+        # Crear datos de ejemplo con los nombres EXACTOS que espera la funcion de importacion
         example_data = [
             {
-                'telefono': '5491123456789',
-                'nombre': 'Juan',
-                'apellido': 'Perez',
-                'etiquetas': 'cliente, vip',
-                'notas': 'Cliente desde 2024',
-                'custom_1': 'Valor personalizado 1',
-                'custom_2': 'Valor personalizado 2',
-                'custom_3': '',
-                'custom_4': '',
-                'custom_5': '',
-                'custom_6': '',
-                'custom_7': ''
+                'Telefono': '5491123456789',
+                'Nombre': 'Juan',
+                'Apellido': 'Perez',
+                'Nombre completo': 'Juan Perez',
+                'Etiquetas': 'cliente, vip',
+                'Notas': 'Cliente desde 2024',
+                'Campo 1': 'Valor personalizado 1',
+                'Campo 2': 'Valor personalizado 2',
+                'Campo 3': '',
+                'Campo 4': '',
+                'Campo 5': '',
+                'Campo 6': '',
+                'Campo 7': ''
             },
             {
-                'telefono': '5491198765432',
-                'nombre': 'Maria',
-                'apellido': 'Garcia',
-                'etiquetas': 'prospecto',
-                'notas': 'Interesada en servicios',
-                'custom_1': '',
-                'custom_2': '',
-                'custom_3': '',
-                'custom_4': '',
-                'custom_5': '',
-                'custom_6': '',
-                'custom_7': ''
+                'Telefono': '5491198765432',
+                'Nombre': 'Maria',
+                'Apellido': 'Garcia',
+                'Nombre completo': 'Maria Garcia',
+                'Etiquetas': 'prospecto',
+                'Notas': 'Interesada en servicios',
+                'Campo 1': '',
+                'Campo 2': '',
+                'Campo 3': '',
+                'Campo 4': '',
+                'Campo 5': '',
+                'Campo 6': '',
+                'Campo 7': ''
             }
         ]
 
@@ -850,26 +852,30 @@ def api_contacts_template():
                 'Instrucciones': [
                     'PLANTILLA PARA IMPORTAR CONTACTOS',
                     '',
-                    'Columnas disponibles:',
-                    '- telefono (REQUERIDO): Numero con codigo de pais sin + ni espacios. Ej: 5491123456789',
-                    '- nombre: Nombre del contacto',
-                    '- apellido: Apellido del contacto',
-                    '- etiquetas: Etiquetas separadas por coma. Ej: cliente, vip',
-                    '- notas: Notas adicionales sobre el contacto',
-                    '- custom_1 a custom_7: Campos personalizados',
+                    'COLUMNAS DISPONIBLES:',
                     '',
-                    'Nombres alternativos aceptados:',
-                    '- telefono: phone, telefono, numero, phone_number',
-                    '- nombre: name, nombre, first_name',
-                    '- apellido: last_name, apellido',
-                    '- etiquetas: tags, etiquetas',
-                    '- notas: notes, notas',
+                    '- Telefono (REQUERIDO): Numero con codigo de pais, sin + ni espacios',
+                    '  Ejemplos: 5491123456789 (Argentina), 5215512345678 (Mexico)',
+                    '',
+                    '- Nombre: Nombre de pila del contacto',
+                    '- Apellido: Apellido del contacto',
+                    '- Nombre completo: Nombre y apellido juntos (opcional si ya tienes Nombre/Apellido)',
+                    '',
+                    '- Etiquetas: Etiquetas separadas por coma. Ej: cliente, vip',
+                    '- Notas: Notas adicionales sobre el contacto',
+                    '',
+                    '- Campo 1 a Campo 7: Campos personalizados para datos adicionales',
+                    '',
+                    'NOMBRES ALTERNATIVOS ACEPTADOS:',
+                    '- Para telefono: Telefono, Teléfono, Phone, Celular',
                     '',
                     'IMPORTANTE:',
-                    '- Solo la columna telefono es obligatoria',
-                    '- El numero de telefono debe incluir el codigo de pais',
-                    '- No uses el simbolo + al inicio del numero',
-                    '- Las etiquetas se crean automaticamente si no existen'
+                    '- Solo la columna Telefono es obligatoria',
+                    '- El numero debe incluir codigo de pais (54 para Argentina)',
+                    '- NO uses el simbolo + al inicio',
+                    '- NO uses espacios, guiones ni parentesis',
+                    '- Las etiquetas se crean automaticamente si no existen',
+                    '- Podes eliminar las columnas que no necesites'
                 ]
             })
             instructions.to_excel(writer, index=False, sheet_name='Instrucciones')
