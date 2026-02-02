@@ -59,6 +59,7 @@
                                 <th class="px-4 py-3 w-10">
                                     <input type="checkbox" id="select-all" class="w-4 h-4 accent-primary cursor-pointer" onchange="toggleSelectAll()" />
                                 </th>
+                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID Externo</th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre</th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teléfono</th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Etiquetas</th>
@@ -69,10 +70,14 @@
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             {% for contact in contacts %}
                             <tr class="contact-row hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                                data-search="{{ contact.name or '' }} {{ contact.phone_number }} {{ (contact.tags or [])|join(' ') }}">
+                                data-id="{{ contact.id }}"
+                                data-contact-id="{{ contact.contact_id or '' }}"
+                                data-phone="{{ contact.phone_number }}"
+                                data-search="{{ contact.contact_id or '' }} {{ contact.name or '' }} {{ contact.phone_number }} {{ (contact.tags or [])|join(' ') }}">
                                 <td class="px-4 py-3">
                                     <input type="checkbox" class="row-checkbox w-4 h-4 accent-primary cursor-pointer" value="{{ contact.phone_number }}" onchange="updateBulkBar()" />
                                 </td>
+                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 font-mono contact-external-id">{{ contact.contact_id or '-' }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
                                         <div class="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
@@ -81,7 +86,7 @@
                                         <span class="font-medium text-sm">{{ contact.name or '-' }}</span>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 font-mono">{{ contact.phone_number }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 font-mono contact-phone">{{ contact.phone_number }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex flex-wrap gap-1">
                                         {% for tag in contact.tags or [] %}
@@ -93,10 +98,10 @@
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-2">
                                         <a href="/dashboard?phone={{ contact.phone_number }}"
-                                            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Ir al chat">
+                                            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors chat-link" title="Ir al chat">
                                             <span class="material-symbols-outlined text-lg text-gray-500">chat</span>
                                         </a>
-                                        <button onclick="openEditModal('{{ contact.phone_number }}')"
+                                        <button onclick="openEditModal({{ contact.id }})"
                                             class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Editar">
                                             <span class="material-symbols-outlined text-lg text-gray-500">edit</span>
                                         </button>
@@ -105,7 +110,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="6" class="px-4 py-12 text-center">
+                                <td colspan="7" class="px-4 py-12 text-center">
                                     <span class="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600">person_off</span>
                                     <p class="mt-2 text-gray-500 dark:text-gray-400">No hay contactos registrados</p>
                                 </td>
@@ -200,10 +205,19 @@
                 </button>
             </div>
             <div class="px-6 pb-4 overflow-y-auto custom-scrollbar flex-1 space-y-4">
-                <!-- Teléfono -->
+                <!-- ID oculto -->
+                <input type="hidden" id="edit-id" />
+                <!-- ID Externo (editable) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">ID Externo (opcional)</label>
+                    <input type="text" id="edit-contact-id" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary font-mono" placeholder="CLI-001" />
+                    <p class="text-xs text-gray-400 mt-1">Identificador personalizado para integración con otros sistemas</p>
+                </div>
+                <!-- Teléfono (ahora editable) -->
                 <div>
                     <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
-                    <input type="text" id="edit-phone" class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm text-gray-500" readonly disabled />
+                    <input type="text" id="edit-phone" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" placeholder="5491123456789" />
+                    <p class="text-xs text-gray-400 mt-1">Formato: código de país + número, sin + ni espacios</p>
                 </div>
                 <!-- Nombre + Apellido -->
                 <div class="grid grid-cols-2 gap-3">
@@ -327,22 +341,29 @@
             updateBulkBar();
         }
 
+        function getSelectedIds() {
+            return [...document.querySelectorAll('.row-checkbox:checked')].map(cb => {
+                const row = cb.closest('tr');
+                return parseInt(row.dataset.id);
+            }).filter(id => !isNaN(id));
+        }
+
         function getSelectedPhones() {
             return [...document.querySelectorAll('.row-checkbox:checked')].map(cb => cb.value);
         }
 
         function updateBulkBar() {
-            const phones = getSelectedPhones();
+            const ids = getSelectedIds();
             const bar = document.getElementById('bulkBar');
-            if (phones.length > 0) {
+            if (ids.length > 0) {
                 bar.classList.remove('hidden');
-                document.getElementById('bulk-count').textContent = `${phones.length} seleccionado${phones.length !== 1 ? 's' : ''}`;
+                document.getElementById('bulk-count').textContent = `${ids.length} seleccionado${ids.length !== 1 ? 's' : ''}`;
             } else {
                 bar.classList.add('hidden');
             }
             // Update select-all state
             const total = document.querySelectorAll('.row-checkbox').length;
-            document.getElementById('select-all').checked = phones.length > 0 && phones.length === total;
+            document.getElementById('select-all').checked = ids.length > 0 && ids.length === total;
         }
 
         function clearSelection() {
@@ -354,22 +375,22 @@
         async function bulkAssignTag() {
             const tag = document.getElementById('bulk-tag-select').value;
             if (!tag) { alert('Selecciona una etiqueta primero'); return; }
-            const phones = getSelectedPhones();
-            if (!phones.length) return;
+            const contact_ids = getSelectedIds();
+            if (!contact_ids.length) return;
 
             try {
                 const resp = await fetch('/api/contacts/bulk-tags', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phones, tag, action: 'add' })
+                    body: JSON.stringify({ contact_ids, tag, action: 'add' })
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    // Update visible rows
-                    phones.forEach(phone => {
-                        const row = document.querySelector(`.row-checkbox[value="${phone}"]`)?.closest('tr');
+                    // Update visible rows by ID
+                    contact_ids.forEach(id => {
+                        const row = document.querySelector(`tr[data-id="${id}"]`);
                         if (row) {
-                            const tagsCell = row.querySelectorAll('td')[3]; // checkbox, name, phone, tags
+                            const tagsCell = row.querySelectorAll('td')[4]; // checkbox, id_externo, name, phone, tags
                             if (!tagsCell.innerHTML.includes(tag)) {
                                 tagsCell.querySelector('.flex').innerHTML += `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">${tag}</span>`;
                             }
@@ -387,14 +408,14 @@
         async function bulkRemoveTag() {
             const tag = document.getElementById('bulk-tag-select').value;
             if (!tag) { alert('Selecciona una etiqueta primero'); return; }
-            const phones = getSelectedPhones();
-            if (!phones.length) return;
+            const contact_ids = getSelectedIds();
+            if (!contact_ids.length) return;
 
             try {
                 const resp = await fetch('/api/contacts/bulk-tags', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phones, tag, action: 'remove' })
+                    body: JSON.stringify({ contact_ids, tag, action: 'remove' })
                 });
                 const data = await resp.json();
                 if (data.success) {
@@ -565,12 +586,14 @@
             chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
         }
 
-        function openEditModal(phone) {
+        function openEditModal(contactId) {
             const modal = document.getElementById('contactModal');
             const saveBtn = document.getElementById('save-btn');
 
             modal.classList.remove('hidden');
-            document.getElementById('edit-phone').value = phone;
+            document.getElementById('edit-id').value = contactId;
+            document.getElementById('edit-contact-id').value = '';
+            document.getElementById('edit-phone').value = '';
 
             // Limpiar todos los campos
             document.getElementById('edit-first-name').value = '';
@@ -589,10 +612,10 @@
             saveBtn.disabled = true;
             saveBtn.textContent = 'Cargando...';
 
-            // Cargar etiquetas disponibles y datos del contacto en paralelo
+            // Cargar etiquetas disponibles y datos del contacto en paralelo (usando ID)
             Promise.all([
                 fetch('/api/tags').then(r => r.json()).catch(() => []),
-                fetch(`/api/contacts/${phone}`).then(r => r.json())
+                fetch(`/api/contacts/${contactId}`).then(r => r.json())
             ]).then(([tags, data]) => {
                 editAvailableTags = tags.map(t => t.name);
                 saveBtn.disabled = false;
@@ -600,6 +623,10 @@
 
                 if (data.details) {
                     const d = data.details;
+                    // Guardar el ID externo y teléfono actual
+                    document.getElementById('edit-contact-id').value = d.contact_id || '';
+                    document.getElementById('edit-phone').value = d.phone_number || '';
+
                     // Si tiene first/last name, usar esos; sino poner name en first_name
                     if (d.first_name || d.last_name) {
                         document.getElementById('edit-first-name').value = d.first_name || '';
@@ -637,13 +664,23 @@
         }
 
         function saveContact() {
-            const phone = document.getElementById('edit-phone').value;
+            const contactId = document.getElementById('edit-id').value;
+            const externalId = document.getElementById('edit-contact-id').value.trim();
+            const phone = document.getElementById('edit-phone').value.trim();
             const firstName = document.getElementById('edit-first-name').value.trim();
             const lastName = document.getElementById('edit-last-name').value.trim();
             const name = [firstName, lastName].filter(Boolean).join(' ');
             const notes = document.getElementById('edit-notes').value.trim();
 
+            // Validar teléfono
+            if (!phone) {
+                alert('El teléfono es requerido');
+                return;
+            }
+
             const payload = {
+                contact_id: externalId || null,  // ID externo editable
+                phone_number: phone,  // Incluir teléfono para permitir cambios
                 name,
                 first_name: firstName,
                 last_name: lastName,
@@ -658,7 +695,8 @@
             saveBtn.disabled = true;
             saveBtn.textContent = 'Guardando...';
 
-            fetch(`/api/contacts/${phone}`, {
+            // Usar ID para la llamada API (permite cambiar el teléfono)
+            fetch(`/api/contacts/${contactId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -668,20 +706,36 @@
                     saveBtn.disabled = false;
                     saveBtn.textContent = 'Guardar';
                     if (data.success) {
-                        // Actualizar fila en la tabla
-                        const row = document.querySelector(`.row-checkbox[value="${phone}"]`)?.closest('tr');
+                        // Actualizar fila en la tabla usando el ID
+                        const row = document.querySelector(`tr[data-id="${contactId}"]`);
                         if (row) {
                             const cells = row.querySelectorAll('td');
-                            const avatar = cells[1].querySelector('div > div');
-                            const nameSpan = cells[1].querySelector('span');
+                            // cells[0] = checkbox, cells[1] = ID Externo, cells[2] = Nombre, cells[3] = Teléfono, cells[4] = Etiquetas, cells[5] = Notas
+                            // Actualizar ID Externo
+                            cells[1].textContent = externalId || '-';
+                            // Actualizar Nombre
+                            const avatar = cells[2].querySelector('div > div');
+                            const nameSpan = cells[2].querySelector('span');
                             const displayName = name || '-';
                             if (avatar) avatar.textContent = name ? name[0] : phone.slice(-2);
                             if (nameSpan) nameSpan.textContent = displayName;
-                            cells[3].innerHTML = '<div class="flex flex-wrap gap-1">' + editSelectedTags.map(t =>
+                            // Actualizar teléfono en la celda
+                            cells[3].textContent = phone;
+                            // Actualizar Etiquetas
+                            cells[4].innerHTML = '<div class="flex flex-wrap gap-1">' + editSelectedTags.map(t =>
                                 `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">${escapeHtml(t)}</span>`
                             ).join('') + '</div>';
-                            cells[4].textContent = notes || '-';
-                            row.dataset.search = `${name} ${phone} ${editSelectedTags.join(' ')}`;
+                            // Actualizar Notas
+                            cells[5].textContent = notes || '-';
+                            // Actualizar data attributes
+                            row.dataset.contactId = externalId || '';
+                            row.dataset.phone = phone;
+                            row.dataset.search = `${externalId || ''} ${name} ${phone} ${editSelectedTags.join(' ')}`;
+                            // Actualizar checkbox value y link de chat
+                            const checkbox = row.querySelector('.row-checkbox');
+                            if (checkbox) checkbox.value = phone;
+                            const chatLink = row.querySelector('.chat-link');
+                            if (chatLink) chatLink.href = `/dashboard?phone=${phone}`;
                         }
                         closeModal();
                         loadTags();

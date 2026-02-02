@@ -72,9 +72,9 @@ class MessageStatus(db.Model):
             'error_details': self.error_details
         }
 
-# Tabla de asociación Contacto-Etiqueta
+# Tabla de asociación Contacto-Etiqueta (usa contact_id después de migración)
 contact_tags = db.Table('whatsapp_contact_tags',
-    db.Column('contact_phone', db.String(20), db.ForeignKey('whatsapp_contacts.phone_number'), primary_key=True),
+    db.Column('contact_id', db.Integer, db.ForeignKey('whatsapp_contacts.id'), primary_key=True),
     db.Column('tag_id', db.Integer, db.ForeignKey('whatsapp_tags.id'), primary_key=True)
 )
 
@@ -100,8 +100,10 @@ class Tag(db.Model):
 class Contact(db.Model):
     """Modelo para gestión de contactos (Mini-CRM)."""
     __tablename__ = 'whatsapp_contacts'
-    
-    phone_number = db.Column(db.String(20), primary_key=True)
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)  # ID interno (no editable)
+    contact_id = db.Column(db.String(50), unique=True, nullable=True, index=True)  # ID externo (editable por usuario)
+    phone_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
     name = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     tags_json = db.Column('tags', db.JSON, default=list)  # Legacy JSON, usar 'tags' relationship
@@ -116,9 +118,11 @@ class Contact(db.Model):
     custom_field_5 = db.Column(db.String(255), nullable=True)
     custom_field_6 = db.Column(db.String(255), nullable=True)
     custom_field_7 = db.Column(db.String(255), nullable=True)
-    
+
     def to_dict(self):
         return {
+            'id': self.id,
+            'contact_id': self.contact_id,
             'phone_number': self.phone_number,
             'name': self.name,
             'first_name': self.first_name,
@@ -175,8 +179,11 @@ class CampaignLog(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     campaign_id = db.Column(db.Integer, db.ForeignKey('whatsapp_campaigns.id'), nullable=False)
-    contact_phone = db.Column(db.String(20), nullable=False)
+    contact_id = db.Column(db.Integer, db.ForeignKey('whatsapp_contacts.id'), nullable=True)  # Nuevo: referencia por ID
+    contact_phone = db.Column(db.String(20), nullable=False)  # Mantener para histórico
     message_id = db.Column(db.String(100), nullable=True)
     status = db.Column(db.String(20), default='pending')  # pending, sent, failed, delivered, read
     error_detail = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    contact = db.relationship('Contact', backref='campaign_logs', foreign_keys=[contact_id])
