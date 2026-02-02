@@ -38,58 +38,86 @@ class WhatsAppAPI:
         Descarga un archivo multimedia de WhatsApp.
         Retorna la ruta relativa (ej: 'static/media/12345.jpg') o None si falla.
         """
-        if not self.is_configured():
-            logger.error("API no configurada para descargar media")
-            return None
-            
-        # 1. Obtener URL de descarga
-        url_info = f"{BASE_URL}/{media_id}"
+        # Debug logger
+        debug_handler = logging.FileHandler('media_debug.log')
+        debug_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(debug_handler)
+        
         try:
+            if not self.is_configured():
+                logger.error("API no configurada para descargar media")
+                return None
+                
+            logger.info(f"⬇️ Iniciando descarga media_id: {media_id}")
+            
+            # 1. Obtener URL de descarga
+            url_info = f"{BASE_URL}/{media_id}"
+            logger.info(f"GET info: {url_info}")
+            
             res_info = requests.get(url_info, headers=self.headers, timeout=10)
-            res_info.raise_for_status()
+            
+            if res_info.status_code != 200:
+                logger.error(f"Error info media {media_id}: {res_info.status_code} - {res_info.text}")
+                return None
+                
             data = res_info.json()
             media_url = data.get("url")
             mime_type = data.get("mime_type")
-        except Exception as e:
-            logger.error(f"Error obteniendo info de media {media_id}: {e}")
-            return None
             
-        if not media_url:
-            return None
+            logger.info(f"Media info OK. Mime: {mime_type}, URL: {media_url}")
             
-        # 2. Determinar extensión
-        ext = mimetypes.guess_extension(mime_type)
-        if not ext:
-            # Fallbacks comunes
-            if 'image' in mime_type: ext = '.jpg'
-            elif 'audio' in mime_type: ext = '.ogg'
-            elif 'video' in mime_type: ext = '.mp4'
-            elif 'pdf' in mime_type: ext = '.pdf'
-            else: ext = '.bin'
+            if not media_url:
+                logger.error("No URL found in media info")
+                return None
+                
+            # 2. Determinar extensión
+            ext = mimetypes.guess_extension(mime_type)
+            if not ext:
+                if 'image' in mime_type: ext = '.jpg'
+                elif 'audio' in mime_type: ext = '.ogg' # WhatsApp often uses audio/ogg; codecs=opus
+                elif 'video' in mime_type: ext = '.mp4'
+                elif 'pdf' in mime_type: ext = '.pdf'
+                else: ext = '.bin'
+                
+            filename = f"{media_id}{ext}"
             
-        filename = f"{media_id}{ext}"
-        # Asegurar que existe el directorio
-        local_dir = os.path.join(os.getcwd(), "static", "media")
-        if not os.path.exists(local_dir):
-            os.makedirs(local_dir)
+            # Use absolute path based on this file's location to find 'static/media'
+            # Assuming structure is: app_root/whatsapp_service.py and app_root/static/media
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            local_dir = os.path.join(base_dir, "static", "media")
             
-        local_path = os.path.join(local_dir, filename)
-        
-        # 3. Descargar contenido
-        try:
-            # Nota: Para descargar el binario, se usa la URL provista PERO con los headers de autorización
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
+                logger.info(f"Creado directorio: {local_dir}")
+                
+            local_path = os.path.join(local_dir, filename)
+            
+            # 3. Descargar contenido
+            logger.info(f"Descargando contenido de: {media_url} -> {local_path}")
             res_media = requests.get(media_url, headers=self.headers, timeout=30)
-            res_media.raise_for_status()
             
+            if res_media.status_code != 200:
+                logger.error(f"Error descargando binario: {res_media.status_code} - {res_media.text[:200]}")
+                return None
+                
             with open(local_path, 'wb') as f:
                 f.write(res_media.content)
                 
-            logger.info(f"✅ Media descargado: {local_path}")
-            # Retornar path relativo para usar en frontend
+            if os.path.getsize(local_path) == 0:
+                logger.error(f"Error: Archivo descargado tiene 0 bytes: {local_path}")
+                return None
+
+            logger.info(f"✅ Media descargado exitosamente: {local_path} ({len(res_media.content)} bytes)")
+            
+            # Remove handler
+            logger.removeHandler(debug_handler)
             return f"static/media/{filename}"
             
         except Exception as e:
-            logger.error(f"Error descargando binario media {media_id}: {e}")
+            logger.error(f"EXCEPTION descargando media {media_id}: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            logger.removeHandler(debug_handler)
             return None
     
     def get_templates(self):

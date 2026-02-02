@@ -14,6 +14,12 @@ from sqlalchemy import func
 from datetime import datetime, timedelta, timezone
 import logging
 import pytz
+import mimetypes
+
+# Fix MIME types for Windows/Local
+mimetypes.add_type('audio/ogg', '.oga')
+mimetypes.add_type('audio/ogg', '.ogg')
+mimetypes.add_type('audio/ogg', '.opus')
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -52,7 +58,7 @@ PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook'}
 
 @app.before_request
 def check_auth():
-    if request.path in PUBLIC_PATHS:
+    if request.path in PUBLIC_PATHS or request.path.startswith('/static/'):
         return None
     if not session.get('logged_in'):
         if request.path.startswith('/api/'):
