@@ -149,6 +149,21 @@
                 </button>
             </div>
             <div class="space-y-4">
+                <!-- Download Template -->
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-blue-500 mt-0.5">lightbulb</span>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-blue-800 dark:text-blue-300">Descarga la plantilla</p>
+                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Usa nuestra plantilla Excel con el formato correcto y ejemplos para evitar errores.</p>
+                            <a href="/api/contacts/template"
+                               class="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors">
+                                <span class="material-symbols-outlined text-sm">download</span>
+                                Descargar Plantilla Excel
+                            </a>
+                        </div>
+                    </div>
+                </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Archivo (Excel o CSV)</label>
                     <input type="file" id="import-file" accept=".xlsx,.xls,.csv"
