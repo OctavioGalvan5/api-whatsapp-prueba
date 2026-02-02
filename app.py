@@ -1084,19 +1084,6 @@ def api_bulk_tags():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@app.route("/api/contacts/template", methods=["GET"])
-def api_contacts_template():
-    """Descargar plantilla Excel para importar contactos."""
-    df = pd.DataFrame(columns=['Telefono'])
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Contactos')
-    output.seek(0)
-    return send_file(output,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                     download_name='plantilla_contactos.xlsx',
-                     as_attachment=True)
-
 @app.route("/api/tags/bulk-action", methods=["POST"])
 def api_tags_bulk_action():
     """Agregar o quitar etiqueta de múltiples contactos via archivo Excel/CSV."""
