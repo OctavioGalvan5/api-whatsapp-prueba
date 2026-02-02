@@ -791,41 +791,64 @@ def api_import_contacts():
 
             phone = str(raw_phone).replace('.0', '').strip()
 
-            # Buscar contacto: priorizar ID si existe
+            # =====================================================
+            # BUSCAR CONTACTO - PRIORIDAD:
+            # 1. Contact ID externo (PRINCIPAL para integraciones)
+            # 2. ID interno (compatibilidad)
+            # 3. Teléfono (fallback)
+            # =====================================================
             contact = None
             is_new = False
-            row_id = None
+            found_by = None  # 'contact_id', 'id', 'phone'
 
-            if id_col and pd.notna(row.get(id_col)):
+            # 1. PRIORIDAD: Buscar por Contact ID externo
+            if contact_id_col and pd.notna(row.get(contact_id_col)):
+                ext_id = str(row[contact_id_col]).strip()
+                if ext_id:
+                    contact = Contact.query.filter_by(contact_id=ext_id).first()
+                    if contact:
+                        found_by = 'contact_id'
+
+            # 2. Si no se encontró, buscar por ID interno
+            if not contact and id_col and pd.notna(row.get(id_col)):
                 try:
                     row_id = int(float(row[id_col]))
                     contact = Contact.query.get(row_id)
+                    if contact:
+                        found_by = 'id'
                 except (ValueError, TypeError):
                     pass
 
-            # Si no se encontró por ID, buscar por teléfono
+            # 3. Fallback: buscar por teléfono
             if not contact:
                 contact = Contact.query.filter_by(phone_number=phone).first()
+                if contact:
+                    found_by = 'phone'
 
             if not contact:
                 # Crear nuevo contacto
                 contact = Contact(phone_number=phone)
+                # Asignar contact_id si viene en el Excel
+                if contact_id_col and pd.notna(row.get(contact_id_col)):
+                    ext_id = str(row[contact_id_col]).strip()
+                    if ext_id:
+                        contact.contact_id = ext_id
                 db.session.add(contact)
                 is_new = True
                 count += 1
             else:
                 # Actualizar contacto existente
-                # Si vino por ID y el teléfono es diferente, actualizar teléfono
-                if row_id and contact.phone_number != phone:
-                    # Verificar que el nuevo teléfono no exista
+                # Si se encontró por contact_id o id interno → permitir cambiar teléfono
+                if found_by in ('contact_id', 'id') and contact.phone_number != phone:
+                    # Verificar que el nuevo teléfono no exista en otro contacto
                     existing = Contact.query.filter_by(phone_number=phone).first()
                     if existing and existing.id != contact.id:
-                        errors.append(f"Fila {idx+2}: El teléfono {phone} ya pertenece a otro contacto")
+                        errors.append(f"Fila {idx+2}: El teléfono {phone} ya pertenece a otro contacto ({existing.contact_id or existing.id})")
                         continue
                     old_phone = contact.phone_number
                     contact.phone_number = phone
                     phone_updated += 1
-                    logger.info(f"📱 Teléfono actualizado ID {contact.id}: {old_phone} → {phone}")
+                    logger.info(f"📱 Teléfono actualizado [{contact.contact_id or contact.id}]: {old_phone} → {phone}")
                 updated += 1
 
             # Actualizar campos mapeados
@@ -835,18 +858,20 @@ def api_import_contacts():
                     if pd.notna(val):
                         setattr(contact, model_attr, str(val))
 
-            # Actualizar contact_id externo si viene en el Excel
-            if contact_id_col and contact_id_col in df.columns:
+            # Asignar contact_id si el contacto fue encontrado por teléfono o ID interno
+            # (si fue encontrado por contact_id, ya tiene el correcto)
+            if found_by in ('phone', 'id') and contact_id_col and contact_id_col in df.columns:
                 ext_id = row[contact_id_col]
                 if pd.notna(ext_id) and str(ext_id).strip():
                     new_ext_id = str(ext_id).strip()
-                    # Verificar que no exista en otro contacto
                     if new_ext_id != contact.contact_id:
+                        # Verificar que no exista en otro contacto
                         existing = Contact.query.filter_by(contact_id=new_ext_id).first()
                         if existing and existing.id != contact.id:
                             errors.append(f"Fila {idx+2}: El Contact ID '{new_ext_id}' ya existe en otro contacto")
                         else:
                             contact.contact_id = new_ext_id
+                            logger.info(f"🆔 Contact ID asignado: {new_ext_id} → Tel: {contact.phone_number}")
 
             # Tag asignado desde el formulario
             if import_tag and import_tag not in contact.tags:
@@ -969,34 +994,38 @@ def api_contacts_template():
                 'Instrucciones': [
                     'PLANTILLA PARA IMPORTAR CONTACTOS',
                     '',
+                    '============================================',
+                    'IDENTIFICADOR PRINCIPAL: Contact ID',
+                    '============================================',
+                    '',
+                    '- Contact ID es el IDENTIFICADOR PRINCIPAL para buscar y actualizar contactos',
+                    '- Usa tu propio codigo: CLI-001, EXP-2024-001, DNI-12345678, etc.',
+                    '- Al importar, el sistema busca por Contact ID primero',
+                    '- Si encuentra el Contact ID, actualiza ese contacto (incluyendo telefono)',
+                    '',
                     'COLUMNAS DISPONIBLES:',
                     '',
-                    '- ID (opcional): Identificador interno del sistema (NO editable).',
-                    '  * Dejar VACIO para crear nuevos contactos',
-                    '  * Usar el ID existente para ACTUALIZAR contactos (incluyendo su telefono)',
-                    '  * El ID se obtiene al exportar los contactos existentes',
-                    '',
-                    '- Contact ID (opcional): Identificador externo PERSONALIZABLE.',
-                    '  * Puedes usar tu propio codigo como CLI-001, EMP-123, etc.',
-                    '  * Util para integrar con otros sistemas (ERP, CRM externo)',
+                    '- Contact ID (RECOMENDADO): Tu identificador personalizado.',
+                    '  * PRINCIPAL para buscar y actualizar contactos',
+                    '  * Usa codigos de tu sistema: legajo, DNI, numero de expediente, etc.',
                     '  * Debe ser unico para cada contacto',
+                    '',
+                    '- ID (opcional): Identificador interno del sistema (solo lectura).',
+                    '  * Se usa como fallback si no hay Contact ID',
+                    '  * Se obtiene al exportar contactos',
                     '',
                     '- Telefono (REQUERIDO): Numero con codigo de pais, sin + ni espacios',
                     '  Ejemplos: 5491123456789 (Argentina), 5215512345678 (Mexico)',
                     '',
-                    '- Nombre: Nombre de pila del contacto',
-                    '- Apellido: Apellido del contacto',
-                    '- Nombre completo: Nombre y apellido juntos (opcional)',
-                    '',
-                    '- Etiquetas: Etiquetas separadas por coma. Ej: cliente, vip',
-                    '- Notas: Notas adicionales sobre el contacto',
-                    '',
+                    '- Nombre, Apellido, Nombre completo: Datos del contacto',
+                    '- Etiquetas: Separadas por coma. Ej: cliente, vip',
+                    '- Notas: Notas adicionales',
                     '- Campo 1 a Campo 7: Campos personalizados',
                     '',
-                    'COMO CORREGIR NUMEROS DE TELEFONO:',
-                    '1. Exporta tus contactos actuales (boton Exportar)',
-                    '2. En el Excel exportado, modifica los numeros que necesites',
-                    '3. Mantene la columna ID intacta',
+                    'COMO ACTUALIZAR TELEFONOS:',
+                    '1. Exporta tus contactos (boton Exportar)',
+                    '2. En el Excel, modifica los telefonos que necesites',
+                    '3. Mantene la columna Contact ID intacta (es la clave)',
                     '4. Reimporta el archivo',
                     '5. El sistema actualizara los telefonos manteniendo etiquetas y datos',
                     '',
@@ -1886,10 +1915,11 @@ def api_send_campaign(campaign_id):
     # Crear logs pendientes
     for contact in contacts:
         # Verificar si ya existe log (para reintentos o campañas programadas que arrancan)
-        if not CampaignLog.query.filter_by(campaign_id=campaign.id, contact_phone=contact.phone_number).first():
+        if not CampaignLog.query.filter_by(campaign_id=campaign.id, contact_id=contact.id).first():
             log = CampaignLog(
                 campaign_id=campaign.id,
-                contact_phone=contact.phone_number,
+                contact_id=contact.id,  # Usar ID interno
+                contact_phone=contact.phone_number,  # Mantener para histórico
                 status='pending'
             )
             db.session.add(log)
@@ -1922,9 +1952,10 @@ def send_campaign_bg(app_context, cid):
                     parameters = []
                     # Variables es un dict {"1": "field_name", ...}
                     sorted_vars = sorted(camp.variables.items(), key=lambda x: int(x[0]))
-                    
-                    contact = Contact.query.get(log.contact_phone)
-                    
+
+                    # Usar contact_id para obtener el contacto (o la relación directa)
+                    contact = log.contact or Contact.query.get(log.contact_id)
+
                     for idx, field in sorted_vars:
                         value = "-"
                         if field == 'phone_number':
@@ -2017,10 +2048,11 @@ def run_scheduler():
                     
                     # Crear logs
                     for contact in contacts:
-                         if not CampaignLog.query.filter_by(campaign_id=camp.id, contact_phone=contact.phone_number).first():
+                         if not CampaignLog.query.filter_by(campaign_id=camp.id, contact_id=contact.id).first():
                             db.session.add(CampaignLog(
                                 campaign_id=camp.id,
-                                contact_phone=contact.phone_number,
+                                contact_id=contact.id,  # Usar ID interno
+                                contact_phone=contact.phone_number,  # Mantener para histórico
                                 status='pending'
                             ))
                     db.session.commit()
@@ -2082,7 +2114,7 @@ def api_get_campaign_stats_preview(campaign_id):
     # Preview de logs (últimos 50)
     preview_logs = []
     for l in logs[-50:]:
-        contact = Contact.query.get(l.contact_phone)
+        contact = l.contact or Contact.query.get(l.contact_id)
         preview_logs.append({
             'phone': l.contact_phone,
             'name': contact.name if contact else '',
@@ -2139,7 +2171,7 @@ def api_campaign_details(campaign_id):
         logs_query = db.session.query(
             CampaignLog, Contact.name
         ).outerjoin(
-            Contact, CampaignLog.contact_phone == Contact.phone_number
+            Contact, CampaignLog.contact_id == Contact.id
         ).filter(
             CampaignLog.campaign_id == campaign_id
         ).order_by(CampaignLog.created_at.desc()).limit(50).all()
@@ -2189,7 +2221,7 @@ def api_export_campaign_stats(campaign_id):
         
         data = []
         for l in logs:
-            contact = Contact.query.get(l.contact_phone)
+            contact = l.contact or Contact.query.get(l.contact_id)
             data.append({
                 'Telefono': l.contact_phone,
                 'Nombre Completo': contact.name if contact else '',
