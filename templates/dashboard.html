@@ -475,12 +475,57 @@
                         lastDate = msg.date;
                     }
 
-                    const content = escapeHtml(msg.content || '[Sin contenido]');
+                    // Logica de contenido multimedia
+                    let contentHtml = '';
+
+                    if (msg.media_url) {
+                        if (msg.message_type === 'image') {
+                            contentHtml = `
+                                <a href="/${msg.media_url}" target="_blank">
+                                    <img src="/${msg.media_url}" 
+                                        class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity" 
+                                        alt="Imagen">
+                                </a>`;
+                        } else if (msg.message_type === 'audio') {
+                            contentHtml = `
+                                <audio controls class="mb-2 max-w-full">
+                                    <source src="/${msg.media_url}" type="audio/ogg">
+                                    Tu navegador no soporta el audio.
+                                </audio>`;
+                        } else if (msg.message_type === 'video') {
+                            contentHtml = `
+                                <video controls class="rounded-lg mb-2 max-w-full max-h-64">
+                                    <source src="/${msg.media_url}">
+                                    Tu navegador no soporta video.
+                                </video>`;
+                        } else if (msg.message_type === 'document') {
+                            contentHtml = `
+                                <a href="/${msg.media_url}" target="_blank" 
+                                    class="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-2">
+                                    <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center">
+                                        <span class="material-symbols-outlined">description</span>
+                                    </div>
+                                    <div class="flex flex-col overflow-hidden">
+                                        <span class="font-medium truncate text-[#111812] dark:text-white">Documento</span>
+                                        <span class="text-xs text-gray-500">Click para ver</span>
+                                    </div>
+                                </a>`;
+                        }
+
+                        // Agregar caption si existe
+                        if (msg.caption) {
+                            contentHtml += `<p class="mt-1">${escapeHtml(msg.caption)}</p>`;
+                        }
+                    } else {
+                        // Mensaje de texto normal o fallback
+                        contentHtml = `<p>${escapeHtml(msg.content || '[Sin contenido]')}</p>`;
+                    }
+
                     if (msg.direction === 'inbound') {
                         html += `
                             <div class="flex flex-col items-start max-w-[80%]">
                                 <div class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
-                                    <p>${content}</p>
+                                    ${contentHtml}
                                     <div class="text-[10px] text-gray-400 text-right mt-1">${msg.time}</div>
                                 </div>
                             </div>`;
@@ -492,7 +537,7 @@
                         html += `
                             <div class="flex flex-col items-end max-w-[80%] self-end">
                                 <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
-                                    <p>${content}</p>
+                                    ${contentHtml}
                                     <div class="flex items-center justify-end gap-1 mt-1">
                                         <span class="text-[10px] text-white/80">${msg.time}</span>
                                         <span class="material-symbols-outlined text-[14px] text-white">${icon}</span>

@@ -36,28 +36,44 @@ def save_message(wa_message_id, phone_number, direction, message_type, content, 
     from app import app
     from models import db, Message, Contact
     
+    from sqlalchemy.exc import IntegrityError
+    
     try:
         with app.app_context():
-            # Verificar si ya existe
+            # Verificar si ya existe el mensaje
             existing = Message.query.filter_by(wa_message_id=wa_message_id).first()
             if existing:
                 logger.info(f"Mensaje {wa_message_id} ya existe, omitiendo...")
                 return
             
-            # --- AUTO REGISTRO DE CONTACTO ---
+            # --- AUTO REGISTRO DE CONTACTO (Con manejo de Race Condition) ---
             if phone_number and phone_number not in ['unknown', 'outbound', '']:
+                # Intentar buscar primero
                 contact = Contact.query.get(phone_number)
                 if not contact:
-                    new_contact = Contact(phone_number=phone_number)
-                    db.session.add(new_contact)
-                    logger.info(f"🆕 Contacto auto-registrado: {phone_number}")
-            
+                    try:
+                        # Intentar crear y commitear inmediatamente solo el contacto
+                        new_contact = Contact(phone_number=phone_number)
+                        db.session.add(new_contact)
+                        db.session.commit()
+                        logger.info(f"🆕 Contacto auto-registrado: {phone_number}")
+                    except IntegrityError:
+                        db.session.rollback()
+                        logger.info(f"Contacto {phone_number} ya fue creado concurrentemente.")
+                    except Exception as e:
+                        db.session.rollback()
+                        logger.error(f"Error creando contacto {phone_number}: {e}")
+
+            # Manejo de tipos interactivos si el contenido es nulo
+            if not content and message_type == "interactive":
+                content = "[Interactivo/Botón]"
+
             message = Message(
                 wa_message_id=wa_message_id,
                 phone_number=phone_number,
                 direction=direction,
                 message_type=message_type,
-                content=content,
+                content=content or "[Contenido no compatible]", # Fallback para evitar nulos confusos
                 media_id=media_id,
                 media_url=media_url,
                 caption=caption,
