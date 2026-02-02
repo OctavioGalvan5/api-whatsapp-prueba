@@ -803,6 +803,90 @@ def api_export_contacts():
         logger.error(f"Error exportando contactos: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route("/api/contacts/template", methods=["GET"])
+def api_contacts_template():
+    """Descargar plantilla Excel para importar contactos."""
+    try:
+        # Crear datos de ejemplo
+        example_data = [
+            {
+                'telefono': '5491123456789',
+                'nombre': 'Juan',
+                'apellido': 'Perez',
+                'etiquetas': 'cliente, vip',
+                'notas': 'Cliente desde 2024',
+                'custom_1': 'Valor personalizado 1',
+                'custom_2': 'Valor personalizado 2',
+                'custom_3': '',
+                'custom_4': '',
+                'custom_5': '',
+                'custom_6': '',
+                'custom_7': ''
+            },
+            {
+                'telefono': '5491198765432',
+                'nombre': 'Maria',
+                'apellido': 'Garcia',
+                'etiquetas': 'prospecto',
+                'notas': 'Interesada en servicios',
+                'custom_1': '',
+                'custom_2': '',
+                'custom_3': '',
+                'custom_4': '',
+                'custom_5': '',
+                'custom_6': '',
+                'custom_7': ''
+            }
+        ]
+
+        df = pd.DataFrame(example_data)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Contactos')
+
+            # Agregar hoja de instrucciones
+            instructions = pd.DataFrame({
+                'Instrucciones': [
+                    'PLANTILLA PARA IMPORTAR CONTACTOS',
+                    '',
+                    'Columnas disponibles:',
+                    '- telefono (REQUERIDO): Numero con codigo de pais sin + ni espacios. Ej: 5491123456789',
+                    '- nombre: Nombre del contacto',
+                    '- apellido: Apellido del contacto',
+                    '- etiquetas: Etiquetas separadas por coma. Ej: cliente, vip',
+                    '- notas: Notas adicionales sobre el contacto',
+                    '- custom_1 a custom_7: Campos personalizados',
+                    '',
+                    'Nombres alternativos aceptados:',
+                    '- telefono: phone, telefono, numero, phone_number',
+                    '- nombre: name, nombre, first_name',
+                    '- apellido: last_name, apellido',
+                    '- etiquetas: tags, etiquetas',
+                    '- notas: notes, notas',
+                    '',
+                    'IMPORTANTE:',
+                    '- Solo la columna telefono es obligatoria',
+                    '- El numero de telefono debe incluir el codigo de pais',
+                    '- No uses el simbolo + al inicio del numero',
+                    '- Las etiquetas se crean automaticamente si no existen'
+                ]
+            })
+            instructions.to_excel(writer, index=False, sheet_name='Instrucciones')
+
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='plantilla_contactos.xlsx'
+        )
+
+    except Exception as e:
+        logger.error(f"Error generando plantilla: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route("/api/messages/<phone>")
 def api_get_messages(phone):
     """API para obtener mensajes de un contacto (optimizado para AJAX)."""
@@ -1281,6 +1365,11 @@ def whatsapp_settings():
                          phone_numbers=phone_numbers,
                          profile=profile,
                          error=error)
+
+@app.route("/templates/new")
+def create_template_page():
+    """Página dedicada para crear nuevas plantillas de WhatsApp con vista previa en vivo."""
+    return render_template('create_template.html')
 
 @app.route("/api/whatsapp/templates")
 def api_whatsapp_templates():
