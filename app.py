@@ -1269,18 +1269,21 @@ def api_tags_bulk_action():
         # Normalizar columnas
         df.columns = [c.lower().strip() for c in df.columns]
 
-        # Buscar columna de teléfono
+        # Buscar columna de Contact ID (PRIORIDAD)
+        contact_id_candidates = ['contact id', 'contact_id', 'contactid', 'id externo', 'external_id']
+        contact_id_col = next((c for c in df.columns if c in contact_id_candidates), None)
+
+        # Buscar columna de teléfono (fallback)
         phone_candidates = ['telefono', 'phone', 'phone_number', 'numero']
         phone_col = next((c for c in df.columns if c in phone_candidates), None)
 
-        if not phone_col:
-            return jsonify({'error': 'Columna de teléfono no encontrada (Telefono, Phone, Numero)'}), 400
+        if not contact_id_col and not phone_col:
+            return jsonify({'error': 'Se requiere columna "Contact ID" o "Telefono"'}), 400
 
         # Obtener o crear tag
         tag = Tag.query.filter_by(name=tag_name).first()
         if not tag:
             if action == 'remove':
-                # No existe el tag, no hay nada que quitar
                 return jsonify({'success': True, 'added': 0, 'removed': 0, 'skipped': 0})
             tag = Tag(name=tag_name)
             db.session.add(tag)
@@ -1289,28 +1292,34 @@ def api_tags_bulk_action():
         added = 0
         removed = 0
         skipped = 0
+        not_found = 0
 
         for _, row in df.iterrows():
-            phone = str(row[phone_col]).replace('.0', '').strip()
-            if not phone:
-                skipped += 1
+            contact = None
+
+            # 1. PRIORIDAD: Buscar por Contact ID
+            if contact_id_col and pd.notna(row.get(contact_id_col)):
+                ext_id = str(row[contact_id_col]).strip()
+                if ext_id:
+                    contact = Contact.query.filter_by(contact_id=ext_id).first()
+
+            # 2. Fallback: Buscar por teléfono
+            if not contact and phone_col and pd.notna(row.get(phone_col)):
+                phone = str(row[phone_col]).replace('.0', '').strip()
+                if phone:
+                    contact = Contact.query.filter_by(phone_number=phone).first()
+
+            if not contact:
+                not_found += 1
                 continue
 
-            contact = Contact.query.get(phone)
-
             if action == 'add':
-                if not contact:
-                    contact = Contact(phone_number=phone)
-                    db.session.add(contact)
                 if tag not in contact.tags:
                     contact.tags.append(tag)
                     added += 1
                 else:
                     skipped += 1
             elif action == 'remove':
-                if not contact:
-                    skipped += 1
-                    continue
                 if tag in contact.tags:
                     contact.tags = [t for t in contact.tags if t.id != tag.id]
                     removed += 1
@@ -1318,7 +1327,13 @@ def api_tags_bulk_action():
                     skipped += 1
 
         db.session.commit()
-        return jsonify({'success': True, 'added': added, 'removed': removed, 'skipped': skipped})
+        return jsonify({
+            'success': True,
+            'added': added,
+            'removed': removed,
+            'skipped': skipped,
+            'not_found': not_found
+        })
 
     except Exception as e:
         db.session.rollback()
