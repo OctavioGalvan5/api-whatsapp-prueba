@@ -945,11 +945,10 @@ def api_export_contacts():
 def api_contacts_template():
     """Descargar plantilla Excel para importar contactos."""
     try:
-        # Crear datos de ejemplo con los nombres EXACTOS que espera la funcion de importacion
+        # Crear datos de ejemplo - Contact ID es el identificador principal
         example_data = [
             {
-                'ID': '',  # Dejar vacio para nuevos contactos
-                'Contact ID': 'CLI-001',  # ID externo personalizable
+                'Contact ID': 'CLI-001',
                 'Telefono': '5491123456789',
                 'Nombre': 'Juan',
                 'Apellido': 'Perez',
@@ -965,7 +964,6 @@ def api_contacts_template():
                 'Campo 7': ''
             },
             {
-                'ID': '',
                 'Contact ID': 'CLI-002',
                 'Telefono': '5491198765432',
                 'Nombre': 'Maria',
@@ -998,34 +996,26 @@ def api_contacts_template():
                     'IDENTIFICADOR PRINCIPAL: Contact ID',
                     '============================================',
                     '',
-                    '- Contact ID es el IDENTIFICADOR PRINCIPAL para buscar y actualizar contactos',
-                    '- Usa tu propio codigo: CLI-001, EXP-2024-001, DNI-12345678, etc.',
-                    '- Al importar, el sistema busca por Contact ID primero',
-                    '- Si encuentra el Contact ID, actualiza ese contacto (incluyendo telefono)',
+                    '- Contact ID es TU identificador para cada contacto',
+                    '- Usa codigos de tu sistema: legajo, DNI, expediente, etc.',
+                    '- Al importar, el sistema busca por Contact ID',
+                    '- Si existe, actualiza el contacto (incluyendo telefono)',
+                    '- Si no existe, crea uno nuevo',
                     '',
-                    'COLUMNAS DISPONIBLES:',
+                    'COLUMNAS:',
                     '',
-                    '- Contact ID (RECOMENDADO): Tu identificador personalizado.',
-                    '  * PRINCIPAL para buscar y actualizar contactos',
-                    '  * Usa codigos de tu sistema: legajo, DNI, numero de expediente, etc.',
-                    '  * Debe ser unico para cada contacto',
-                    '',
-                    '- ID (opcional): Identificador interno del sistema (solo lectura).',
-                    '  * Se usa como fallback si no hay Contact ID',
-                    '  * Se obtiene al exportar contactos',
-                    '',
-                    '- Telefono (REQUERIDO): Numero con codigo de pais, sin + ni espacios',
-                    '  Ejemplos: 5491123456789 (Argentina), 5215512345678 (Mexico)',
-                    '',
-                    '- Nombre, Apellido, Nombre completo: Datos del contacto',
+                    '- Contact ID: Tu identificador unico (legajo, DNI, codigo cliente)',
+                    '- Telefono (REQUERIDO): Con codigo de pais, sin + ni espacios',
+                    '  Ejemplo: 5491123456789',
+                    '- Nombre, Apellido: Datos del contacto',
                     '- Etiquetas: Separadas por coma. Ej: cliente, vip',
                     '- Notas: Notas adicionales',
-                    '- Campo 1 a Campo 7: Campos personalizados',
+                    '- Campo 1-7: Campos personalizados',
                     '',
-                    'COMO ACTUALIZAR TELEFONOS:',
-                    '1. Exporta tus contactos (boton Exportar)',
-                    '2. En el Excel, modifica los telefonos que necesites',
-                    '3. Mantene la columna Contact ID intacta (es la clave)',
+                    'COMO ACTUALIZAR CONTACTOS:',
+                    '1. Exporta tus contactos actuales',
+                    '2. Modifica lo que necesites (telefono, nombre, etc)',
+                    '3. Mantene el Contact ID igual (es la clave de busqueda)',
                     '4. Reimporta el archivo',
                     '5. El sistema actualizara los telefonos manteniendo etiquetas y datos',
                     '',
