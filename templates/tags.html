@@ -353,6 +353,7 @@
                     if (data.added > 0) parts.push(`${data.added} agregado${data.added !== 1 ? 's' : ''}`);
                     if (data.removed > 0) parts.push(`${data.removed} eliminado${data.removed !== 1 ? 's' : ''}`);
                     if (data.skipped > 0) parts.push(`${data.skipped} sin cambios`);
+                    if (data.not_found > 0) parts.push(`${data.not_found} no encontrado${data.not_found !== 1 ? 's' : ''}`);
                     showBulkResult('success', parts.join(', ') || 'Operación completada');
                 } else {
                     showBulkResult('error', data.error || 'Error desconocido');
