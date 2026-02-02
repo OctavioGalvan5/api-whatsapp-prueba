@@ -609,26 +609,80 @@ def register_contact_if_new(phone_number, name=None):
 # API CRM CONTACTOS
 # ==========================================
 
-@app.route("/api/contacts/<phone_number>", methods=["GET", "POST"])
-def api_contact_detail(phone_number):
-    """API para obtener o actualizar un contacto."""
-    contact = Contact.query.get(phone_number)
-    
+@app.route("/api/contacts/<identifier>", methods=["GET", "POST"])
+def api_contact_detail(identifier):
+    """API para obtener o actualizar un contacto.
+
+    El identificador puede ser:
+    - Un ID numérico interno (ej: 123) - solo dígitos cortos
+    - Un contact_id externo (ej: CLI-001) - si contiene letras/guiones
+    - Un número de teléfono (ej: 5491123456789) - solo dígitos largos
+
+    POST permite cambiar el phone_number y contact_id.
+    """
+    # Determinar tipo de identificador
+    contact = None
+    is_internal_id = identifier.isdigit() and len(identifier) <= 10  # IDs internos son cortos
+    is_phone = identifier.isdigit() and len(identifier) > 10  # Teléfonos son largos
+
+    if is_internal_id:
+        contact = Contact.query.get(int(identifier))
+    elif is_phone:
+        contact = Contact.query.filter_by(phone_number=identifier).first()
+    else:
+        # Buscar por contact_id externo
+        contact = Contact.query.filter_by(contact_id=identifier).first()
+
     if request.method == "POST":
         data = request.json
+        is_new = False
+
         if not contact:
-            contact = Contact(phone_number=phone_number)
+            # Crear nuevo contacto (solo si se pasa un teléfono, no un ID)
+            if is_internal_id:
+                return jsonify({'error': f'Contacto con ID {identifier} no encontrado'}), 404
+            if not is_phone:
+                return jsonify({'error': f'Contacto con contact_id "{identifier}" no encontrado'}), 404
+            contact = Contact(phone_number=identifier)
             db.session.add(contact)
-        
+            is_new = True
+
+        # Permitir cambio de contact_id (ID externo editable)
+        if 'contact_id' in data:
+            new_contact_id = data['contact_id'].strip() if data['contact_id'] else None
+            if new_contact_id and new_contact_id != contact.contact_id:
+                # Verificar que no exista otro contacto con ese contact_id
+                existing = Contact.query.filter_by(contact_id=new_contact_id).first()
+                if existing and existing.id != contact.id:
+                    return jsonify({
+                        'error': f'El ID externo "{new_contact_id}" ya pertenece a otro contacto (ID interno: {existing.id}, Nombre: {existing.name or "Sin nombre"})'
+                    }), 400
+                contact.contact_id = new_contact_id
+                logger.info(f"🆔 Contact ID actualizado para contacto ID {contact.id}: → {new_contact_id}")
+            elif not new_contact_id:
+                contact.contact_id = None
+
+        # Permitir cambio de teléfono si viene en el payload
+        if 'phone_number' in data and data['phone_number'] != contact.phone_number:
+            new_phone = str(data['phone_number']).strip()
+            # Verificar que no exista otro contacto con ese número
+            existing = Contact.query.filter_by(phone_number=new_phone).first()
+            if existing and existing.id != contact.id:
+                return jsonify({
+                    'error': f'El número {new_phone} ya pertenece a otro contacto (ID: {existing.id}, Nombre: {existing.name or "Sin nombre"})'
+                }), 400
+            contact.phone_number = new_phone
+            logger.info(f"📱 Teléfono actualizado para contacto ID {contact.id}: {identifier} → {new_phone}")
+
         # Mapeo de campos
-        fields = ['name', 'first_name', 'last_name', 'notes', 
-                  'custom_field_1', 'custom_field_2', 'custom_field_3', 
+        fields = ['name', 'first_name', 'last_name', 'notes',
+                  'custom_field_1', 'custom_field_2', 'custom_field_3',
                   'custom_field_4', 'custom_field_5', 'custom_field_6', 'custom_field_7']
-        
+
         for field in fields:
             if field in data:
                 setattr(contact, field, data[field])
-                
+
         if 'tags' in data:
             new_tag_names = set(data['tags'])
             current_tag_names = {t.name for t in contact.tags}
@@ -643,55 +697,65 @@ def api_contact_detail(phone_number):
             # Tags a eliminar
             to_remove = current_tag_names - new_tag_names
             contact.tags = [t for t in contact.tags if t.name not in to_remove]
-            
+
         try:
             db.session.commit()
-            logger.info(f"✅ Contacto actualizado: {phone_number}")
+            action = "creado" if is_new else "actualizado"
+            logger.info(f"✅ Contacto {action}: ID={contact.id}, Tel={contact.phone_number}")
             return jsonify({'success': True, 'contact': contact.to_dict()})
         except Exception as e:
             db.session.rollback()
             return jsonify({'error': str(e)}), 500
-            
+
     # GET method
     if not contact:
-        return jsonify({'found': False, 'details': {'phone_number': phone_number}})
-    
+        return jsonify({'found': False, 'details': {'phone_number': identifier if is_phone else None, 'id': int(identifier) if is_internal_id else None}})
+
     return jsonify({'found': True, 'details': contact.to_dict()})
 
 @app.route("/api/contacts/import", methods=["POST"])
 
 def api_import_contacts():
-    """Importar contactos desde Excel/CSV con mapeo estricto."""
+    """Importar contactos desde Excel/CSV con mapeo estricto.
+
+    Prioridad de búsqueda:
+    1. Si existe columna ID y tiene valor → buscar por ID (permite cambiar teléfono)
+    2. Si no hay ID → buscar por Teléfono (comportamiento tradicional)
+    """
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-    
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-        
+
     try:
         # Leer archivo
         if file.filename.endswith('.csv'):
             df = pd.read_csv(file)
         else:
             df = pd.read_excel(file)
-            
-        # Normalizar columnas (strip y lower)
+
+        # Normalizar columnas (strip solamente, mantener case)
         df.columns = [str(c).strip() for c in df.columns]
-        
-        # Mapeo de columnas del Excel (Nombre visible o variaciones) a atributos del modelo
-        # Requeridos: Telefono
-        # Opcionales: Nombre completo, Nombre, Apellido, Campo 1..7, Notas
-        
-        # Identificar columna de teléfono
+
+        # Identificar columna de ID interno (opcional, para actualizaciones)
+        id_cols = ['ID', 'Id', 'id']
+        id_col = next((c for c in df.columns if c in id_cols), None)
+
+        # Identificar columna de Contact ID externo (opcional)
+        contact_id_cols = ['Contact ID', 'ContactID', 'contact_id', 'ID Externo', 'External ID']
+        contact_id_col = next((c for c in df.columns if c in contact_id_cols), None)
+
+        # Identificar columna de teléfono (requerida)
         phone_cols = ['Telefono', 'Teléfono', 'Phone', 'Celular']
         phone_col = next((c for c in df.columns if c in phone_cols), None)
-        
+
         if not phone_col:
             return jsonify({'error': f'Columna de teléfono no encontrada. Se busca una de: {", ".join(phone_cols)}'}), 400
-            
+
         col_map = {
-            'Nombre completo': 'name', 
+            'Nombre completo': 'name',
             'Nombre': 'first_name',
             'Apellido': 'last_name',
             'Notas': 'notes',
@@ -703,9 +767,11 @@ def api_import_contacts():
             'Campo 6': 'custom_field_6',
             'Campo 7': 'custom_field_7'
         }
-        
+
         count = 0
         updated = 0
+        phone_updated = 0
+        errors = []
 
         # Pre-calcular tag de importación
         import_tag = None
@@ -717,22 +783,49 @@ def api_import_contacts():
                 db.session.add(import_tag)
                 db.session.flush()
 
-        for _, row in df.iterrows():
+        for idx, row in df.iterrows():
             # Procesar teléfono
             raw_phone = row[phone_col]
             if pd.isna(raw_phone) or str(raw_phone).strip() == '':
                 continue
-                
+
             phone = str(raw_phone).replace('.0', '').strip()
-            
-            contact = Contact.query.get(phone)
+
+            # Buscar contacto: priorizar ID si existe
+            contact = None
             is_new = False
+            row_id = None
+
+            if id_col and pd.notna(row.get(id_col)):
+                try:
+                    row_id = int(float(row[id_col]))
+                    contact = Contact.query.get(row_id)
+                except (ValueError, TypeError):
+                    pass
+
+            # Si no se encontró por ID, buscar por teléfono
             if not contact:
+                contact = Contact.query.filter_by(phone_number=phone).first()
+
+            if not contact:
+                # Crear nuevo contacto
                 contact = Contact(phone_number=phone)
                 db.session.add(contact)
                 is_new = True
                 count += 1
             else:
+                # Actualizar contacto existente
+                # Si vino por ID y el teléfono es diferente, actualizar teléfono
+                if row_id and contact.phone_number != phone:
+                    # Verificar que el nuevo teléfono no exista
+                    existing = Contact.query.filter_by(phone_number=phone).first()
+                    if existing and existing.id != contact.id:
+                        errors.append(f"Fila {idx+2}: El teléfono {phone} ya pertenece a otro contacto")
+                        continue
+                    old_phone = contact.phone_number
+                    contact.phone_number = phone
+                    phone_updated += 1
+                    logger.info(f"📱 Teléfono actualizado ID {contact.id}: {old_phone} → {phone}")
                 updated += 1
 
             # Actualizar campos mapeados
@@ -741,35 +834,55 @@ def api_import_contacts():
                     val = row[excel_col]
                     if pd.notna(val):
                         setattr(contact, model_attr, str(val))
-            
-            # Si se proveyó "Nombre completo" pero no Nombre/Apellido, dejarlo así.
-            # Si el usuario quiere concatenar, debe hacerlo en el Excel.
-            
+
+            # Actualizar contact_id externo si viene en el Excel
+            if contact_id_col and contact_id_col in df.columns:
+                ext_id = row[contact_id_col]
+                if pd.notna(ext_id) and str(ext_id).strip():
+                    new_ext_id = str(ext_id).strip()
+                    # Verificar que no exista en otro contacto
+                    if new_ext_id != contact.contact_id:
+                        existing = Contact.query.filter_by(contact_id=new_ext_id).first()
+                        if existing and existing.id != contact.id:
+                            errors.append(f"Fila {idx+2}: El Contact ID '{new_ext_id}' ya existe en otro contacto")
+                        else:
+                            contact.contact_id = new_ext_id
+
             # Tag asignado desde el formulario
             if import_tag and import_tag not in contact.tags:
                 contact.tags.append(import_tag)
-            
+
         db.session.commit()
-        return jsonify({
-            'success': True, 
-            'message': f'Procesados {count + updated} contactos ({count} nuevos, {updated} actualizados)'
-        })
-        
+
+        message = f'Procesados {count + updated} contactos ({count} nuevos, {updated} actualizados)'
+        if phone_updated > 0:
+            message += f', {phone_updated} teléfonos actualizados'
+
+        result = {'success': True, 'message': message}
+        if errors:
+            result['warnings'] = errors
+
+        return jsonify(result)
+
     except Exception as e:
         logger.error(f"Error importando contactos: {e}")
         return jsonify({'error': f"Error procesando archivo: {str(e)}"}), 500
 
 @app.route("/api/contacts/export", methods=["GET"])
 def api_export_contacts():
-    # ... (code for export remains same) ...
-    """Exportar contactos a Excel."""
+    """Exportar contactos a Excel.
+
+    Incluye columna ID y Contact ID para permitir reimportar y actualizar.
+    """
     try:
         contacts = Contact.query.all()
         data = []
         for c in contacts:
             data.append({
+                'ID': c.id,  # ID interno (no editable)
+                'Contact ID': c.contact_id,  # ID externo editable
                 'Telefono': c.phone_number,
-                'Nombre Completo': c.name,
+                'Nombre completo': c.name,
                 'Nombre': c.first_name,
                 'Apellido': c.last_name,
                 'Campo 1': c.custom_field_1,
@@ -810,6 +923,8 @@ def api_contacts_template():
         # Crear datos de ejemplo con los nombres EXACTOS que espera la funcion de importacion
         example_data = [
             {
+                'ID': '',  # Dejar vacio para nuevos contactos
+                'Contact ID': 'CLI-001',  # ID externo personalizable
                 'Telefono': '5491123456789',
                 'Nombre': 'Juan',
                 'Apellido': 'Perez',
@@ -825,6 +940,8 @@ def api_contacts_template():
                 'Campo 7': ''
             },
             {
+                'ID': '',
+                'Contact ID': 'CLI-002',
                 'Telefono': '5491198765432',
                 'Nombre': 'Maria',
                 'Apellido': 'Garcia',
@@ -854,28 +971,41 @@ def api_contacts_template():
                     '',
                     'COLUMNAS DISPONIBLES:',
                     '',
+                    '- ID (opcional): Identificador interno del sistema (NO editable).',
+                    '  * Dejar VACIO para crear nuevos contactos',
+                    '  * Usar el ID existente para ACTUALIZAR contactos (incluyendo su telefono)',
+                    '  * El ID se obtiene al exportar los contactos existentes',
+                    '',
+                    '- Contact ID (opcional): Identificador externo PERSONALIZABLE.',
+                    '  * Puedes usar tu propio codigo como CLI-001, EMP-123, etc.',
+                    '  * Util para integrar con otros sistemas (ERP, CRM externo)',
+                    '  * Debe ser unico para cada contacto',
+                    '',
                     '- Telefono (REQUERIDO): Numero con codigo de pais, sin + ni espacios',
                     '  Ejemplos: 5491123456789 (Argentina), 5215512345678 (Mexico)',
                     '',
                     '- Nombre: Nombre de pila del contacto',
                     '- Apellido: Apellido del contacto',
-                    '- Nombre completo: Nombre y apellido juntos (opcional si ya tienes Nombre/Apellido)',
+                    '- Nombre completo: Nombre y apellido juntos (opcional)',
                     '',
                     '- Etiquetas: Etiquetas separadas por coma. Ej: cliente, vip',
                     '- Notas: Notas adicionales sobre el contacto',
                     '',
-                    '- Campo 1 a Campo 7: Campos personalizados para datos adicionales',
+                    '- Campo 1 a Campo 7: Campos personalizados',
                     '',
-                    'NOMBRES ALTERNATIVOS ACEPTADOS:',
-                    '- Para telefono: Telefono, Teléfono, Phone, Celular',
+                    'COMO CORREGIR NUMEROS DE TELEFONO:',
+                    '1. Exporta tus contactos actuales (boton Exportar)',
+                    '2. En el Excel exportado, modifica los numeros que necesites',
+                    '3. Mantene la columna ID intacta',
+                    '4. Reimporta el archivo',
+                    '5. El sistema actualizara los telefonos manteniendo etiquetas y datos',
                     '',
                     'IMPORTANTE:',
                     '- Solo la columna Telefono es obligatoria',
                     '- El numero debe incluir codigo de pais (54 para Argentina)',
                     '- NO uses el simbolo + al inicio',
                     '- NO uses espacios, guiones ni parentesis',
-                    '- Las etiquetas se crean automaticamente si no existen',
-                    '- Podes eliminar las columnas que no necesites'
+                    '- Las etiquetas se crean automaticamente si no existen'
                 ]
             })
             instructions.to_excel(writer, index=False, sheet_name='Instrucciones')
@@ -1002,10 +1132,10 @@ def tags_page():
     """Página para ver etiquetas y estadísticas."""
     tags_with_count = db.session.query(
         Tag,
-        func.count(contact_tags.c.contact_phone).label('cnt')
+        func.count(contact_tags.c.contact_id).label('cnt')
     ).outerjoin(
         contact_tags, Tag.id == contact_tags.c.tag_id
-    ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_phone).desc()).all()
+    ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_id).desc()).all()
 
     tags_list = [(tag.name, cnt) for tag, cnt in tags_with_count]
     total_contacts = Contact.query.count()
@@ -1016,10 +1146,10 @@ def api_list_tags():
     """Lista todas las etiquetas con conteo de contactos."""
     tags_with_count = db.session.query(
         Tag,
-        func.count(contact_tags.c.contact_phone).label('cnt')
+        func.count(contact_tags.c.contact_id).label('cnt')
     ).outerjoin(
         contact_tags, Tag.id == contact_tags.c.tag_id
-    ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_phone).desc()).all()
+    ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_id).desc()).all()
 
     return jsonify([{'name': tag.name, 'count': cnt} for tag, cnt in tags_with_count])
 
@@ -1057,17 +1187,25 @@ def api_delete_tag(tag_name):
 
 @app.route("/api/contacts/bulk-tags", methods=["POST"])
 def api_bulk_tags():
-    """Asignar o remover tags de múltiples contactos."""
+    """Asignar o remover tags de múltiples contactos.
+
+    Acepta contact_ids (preferido) o phones (legacy) para identificar contactos.
+    """
     data = request.json
-    phones = data.get('phones', [])
+    contact_ids = data.get('contact_ids', [])
+    phones = data.get('phones', [])  # Legacy support
     tag_name = (data.get('tag') or '').strip()
     action = data.get('action')  # 'add' or 'remove'
 
-    if not phones or not tag_name or action not in ('add', 'remove'):
-        return jsonify({'error': 'phones, tag y action (add/remove) requeridos'}), 400
+    if (not contact_ids and not phones) or not tag_name or action not in ('add', 'remove'):
+        return jsonify({'error': 'contact_ids (o phones), tag y action (add/remove) requeridos'}), 400
 
     try:
-        contacts = Contact.query.filter(Contact.phone_number.in_(phones)).all()
+        # Preferir IDs sobre phones
+        if contact_ids:
+            contacts = Contact.query.filter(Contact.id.in_(contact_ids)).all()
+        else:
+            contacts = Contact.query.filter(Contact.phone_number.in_(phones)).all()
 
         if action == 'add':
             tag = Tag.query.filter_by(name=tag_name).first()
