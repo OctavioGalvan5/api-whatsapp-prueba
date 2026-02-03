@@ -9,6 +9,7 @@ import mimetypes
 import urllib3
 import boto3
 from botocore.client import Config as BotoConfig
+from botocore.exceptions import ClientError
 from config import Config
 
 # Suprimir warnings de SSL para certificados self-signed (MinIO)
@@ -24,6 +25,7 @@ CACHE_TTL = 300
 
 # Cliente MinIO/S3
 _s3_client = None
+_bucket_verified = False
 
 def get_s3_client():
     """Obtiene o crea el cliente S3 para MinIO."""
@@ -44,6 +46,38 @@ def get_s3_client():
         )
         logger.info(f"✅ Cliente MinIO inicializado: {endpoint_url}")
     return _s3_client
+
+
+def ensure_bucket_exists():
+    """Verifica que el bucket existe, lo crea si no."""
+    global _bucket_verified
+    if _bucket_verified:
+        return True
+
+    try:
+        s3 = get_s3_client()
+        bucket = Config.MINIO_BUCKET
+
+        # Intentar verificar si el bucket existe
+        try:
+            s3.head_bucket(Bucket=bucket)
+            logger.info(f"✅ Bucket '{bucket}' verificado")
+            _bucket_verified = True
+            return True
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', '')
+            if error_code in ['404', 'NoSuchBucket']:
+                # Bucket no existe, crearlo
+                logger.info(f"📦 Creando bucket '{bucket}'...")
+                s3.create_bucket(Bucket=bucket)
+                logger.info(f"✅ Bucket '{bucket}' creado exitosamente")
+                _bucket_verified = True
+                return True
+            else:
+                raise
+    except Exception as e:
+        logger.error(f"Error verificando/creando bucket: {str(e)}")
+        return False
 
 
 def get_minio_public_url(filename):
@@ -127,6 +161,9 @@ class WhatsAppAPI:
             try:
                 s3 = get_s3_client()
                 bucket = Config.MINIO_BUCKET
+
+                # Asegurar que el bucket existe
+                ensure_bucket_exists()
 
                 s3.put_object(
                     Bucket=bucket,
