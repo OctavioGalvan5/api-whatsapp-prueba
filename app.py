@@ -819,6 +819,17 @@ def api_import_contacts():
                     found_by = 'phone'
 
             if not contact:
+                # Validar que tenga Client ID (contact_id) para crear
+                has_contact_id = False
+                if contact_id_col and pd.notna(row.get(contact_id_col)):
+                    ext_id = str(row[contact_id_col]).strip()
+                    if ext_id:
+                        has_contact_id = True
+                
+                if not has_contact_id:
+                    errors.append(f"Fila {idx+2}: Ignorado - Se requiere Client ID (contact_id) para crear nuevos contactos")
+                    continue
+
                 # Crear nuevo contacto
                 contact = Contact(phone_number=phone)
                 # Asignar contact_id si viene en el Excel
