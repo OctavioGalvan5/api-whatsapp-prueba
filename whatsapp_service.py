@@ -48,8 +48,29 @@ def get_s3_client():
     return _s3_client
 
 
+def set_bucket_public_policy(s3, bucket):
+    """Configura el bucket para acceso público de lectura."""
+    import json
+    policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {"AWS": "*"},
+                "Action": ["s3:GetObject"],
+                "Resource": [f"arn:aws:s3:::{bucket}/*"]
+            }
+        ]
+    }
+    try:
+        s3.put_bucket_policy(Bucket=bucket, Policy=json.dumps(policy))
+        logger.info(f"✅ Política pública configurada para bucket '{bucket}'")
+    except Exception as e:
+        logger.warning(f"⚠️ No se pudo configurar política pública: {str(e)}")
+
+
 def ensure_bucket_exists():
-    """Verifica que el bucket existe, lo crea si no."""
+    """Verifica que el bucket existe, lo crea si no, y configura acceso público."""
     global _bucket_verified
     if _bucket_verified:
         return True
@@ -57,13 +78,12 @@ def ensure_bucket_exists():
     try:
         s3 = get_s3_client()
         bucket = Config.MINIO_BUCKET
+        created = False
 
         # Intentar verificar si el bucket existe
         try:
             s3.head_bucket(Bucket=bucket)
             logger.info(f"✅ Bucket '{bucket}' verificado")
-            _bucket_verified = True
-            return True
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', '')
             if error_code in ['404', 'NoSuchBucket']:
@@ -71,10 +91,15 @@ def ensure_bucket_exists():
                 logger.info(f"📦 Creando bucket '{bucket}'...")
                 s3.create_bucket(Bucket=bucket)
                 logger.info(f"✅ Bucket '{bucket}' creado exitosamente")
-                _bucket_verified = True
-                return True
+                created = True
             else:
                 raise
+
+        # Configurar política pública (siempre intentar, por si no está configurada)
+        set_bucket_public_policy(s3, bucket)
+
+        _bucket_verified = True
+        return True
     except Exception as e:
         logger.error(f"Error verificando/creando bucket: {str(e)}")
         return False
