@@ -2070,11 +2070,12 @@ def api_send_campaign(campaign_id):
     if not campaign.tag_id:
         return jsonify({'error': 'La campaña debe tener un tag asignado'}), 400
 
-    contacts = Contact.query.filter(
+    # Contar contactos con el tag (rápido, sin cargar en memoria)
+    contact_count = Contact.query.filter(
         Contact.tags.any(Tag.id == campaign.tag_id)
-    ).all()
+    ).count()
 
-    if not contacts:
+    if contact_count == 0:
         return jsonify({'error': 'No hay contactos con ese tag'}), 400
 
     # Actualizar estado
@@ -2082,27 +2083,21 @@ def api_send_campaign(campaign_id):
     campaign.started_at = datetime.utcnow()
     db.session.commit()
 
-    # Crear logs pendientes - OPTIMIZADO PARA LOTES
-    # 1. Obtener IDs de contactos que ya tienen log para esta campaña
-    existing_logs = db.session.query(CampaignLog.contact_id)\
-        .filter_by(campaign_id=campaign.id).all()
-    existing_contact_ids = {r[0] for r in existing_logs}
-
-    # 2. Preparar objetos para insert masivo
-    new_logs = []
-    for contact in contacts:
-        if contact.id not in existing_contact_ids:
-            new_logs.append(CampaignLog(
-                campaign_id=campaign.id,
-                contact_id=contact.id,
-                contact_phone=contact.phone_number,
-                status='pending'
-            ))
-    
-    # 3. Insertar y commitear
-    if new_logs:
-        db.session.bulk_save_objects(new_logs)
-        db.session.commit()
+    # Crear logs pendientes - SUPER OPTIMIZADO CON SQL DIRECTO
+    # Inserta todos los logs en una sola operación SQL sin cargar contactos en Python
+    now = datetime.utcnow()
+    db.session.execute(text("""
+        INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
+        SELECT :cid, c.id, c.phone_number, 'pending', :now
+        FROM whatsapp_contacts c
+        JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
+        WHERE ct.tag_id = :tid
+        AND NOT EXISTS (
+            SELECT 1 FROM whatsapp_campaign_logs cl 
+            WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
+        )
+    """), {'cid': campaign.id, 'tid': campaign.tag_id, 'now': now})
+    db.session.commit()
 
     ctx = app.app_context()
     t = threading.Thread(target=send_campaign_bg, args=(ctx, campaign.id))
@@ -2112,7 +2107,7 @@ def api_send_campaign(campaign_id):
     return jsonify({
         'success': True,
         'status': 'sending',
-        'total_contacts': len(contacts)
+        'total_contacts': contact_count
     })
 
 def send_campaign_bg(app_context, cid):
@@ -2209,12 +2204,12 @@ def run_scheduler():
                 for camp in pending:
                     logger.info(f"🚀 Ejecutando campaña programada: {camp.name}")
                     
-                    # Verificar contactos
-                    contacts = Contact.query.filter(
+                    # Contar contactos con el tag
+                    contact_count = Contact.query.filter(
                         Contact.tags.any(Tag.id == camp.tag_id)
-                    ).all()
+                    ).count()
                     
-                    if not contacts:
+                    if contact_count == 0:
                         camp.status = 'failed'
                         camp.completed_at = now
                         logger.warning(f"Campaña {camp.name} fallida: Sin contactos")
@@ -2226,27 +2221,19 @@ def run_scheduler():
                     camp.started_at = now
                     db.session.commit()
                     
-                    # Crear logs
-                    # Crear logs - OPTIMIZADO
-                    # 1. Obtener existentes
-                    existing_logs = db.session.query(CampaignLog.contact_id)\
-                        .filter_by(campaign_id=camp.id).all()
-                    existing_ids = {r[0] for r in existing_logs}
-                    
-                    # 2. Batch insert
-                    new_logs_sched = []
-                    for contact in contacts:
-                         if contact.id not in existing_ids:
-                            new_logs_sched.append(CampaignLog(
-                                campaign_id=camp.id,
-                                contact_id=contact.id,
-                                contact_phone=contact.phone_number,
-                                status='pending'
-                            ))
-                    
-                    if new_logs_sched:
-                        db.session.bulk_save_objects(new_logs_sched)
-                        db.session.commit()
+                    # Crear logs - SUPER OPTIMIZADO CON SQL DIRECTO
+                    db.session.execute(text("""
+                        INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
+                        SELECT :cid, c.id, c.phone_number, 'pending', :now
+                        FROM whatsapp_contacts c
+                        JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
+                        WHERE ct.tag_id = :tid
+                        AND NOT EXISTS (
+                            SELECT 1 FROM whatsapp_campaign_logs cl 
+                            WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
+                        )
+                    """), {'cid': camp.id, 'tid': camp.tag_id, 'now': now})
+                    db.session.commit()
                     
                     # Lanzar thread de envío
                     t = threading.Thread(target=send_campaign_bg, args=(app.app_context(), camp.id))
