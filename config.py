@@ -23,4 +23,4 @@ class Config:
     MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
     MINIO_SECRET_KEY = os.getenv("SECRET_KEY_MINIO")
     MINIO_BUCKET = os.getenv("MINIO_BUCKET")
-    MINIO_USE_SSL = os.getenv("MINIO_USE_SSL").lower() == "true"
+    MINIO_USE_SSL = str(os.getenv("MINIO_USE_SSL", "false")).lower() == "true"
