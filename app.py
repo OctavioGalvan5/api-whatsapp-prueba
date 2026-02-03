@@ -2059,11 +2059,13 @@ def api_delete_campaign(campaign_id):
 @app.route("/api/campaigns/<int:campaign_id>/send", methods=["POST"])
 def api_send_campaign(campaign_id):
     """Inicia el envío de una campaña en background."""
-    campaign = Campaign.query.get(campaign_id)
+    # Bloqueo de fila para prevenir race condition
+    campaign = Campaign.query.with_for_update().get(campaign_id)
     if not campaign:
         return jsonify({'error': 'Campaña no encontrada'}), 404
-    if campaign.status != 'draft':
-        return jsonify({'error': 'Solo se puede enviar una campaña en estado draft'}), 400
+    # Permitir enviar si es draft O si es scheduled (para "Iniciar Ahora")
+    if campaign.status not in ('draft', 'scheduled'):
+        return jsonify({'error': 'La campaña ya está en curso o completada'}), 400
 
     if not campaign.tag_id:
         return jsonify({'error': 'La campaña debe tener un tag asignado'}), 400
@@ -2198,10 +2200,11 @@ def run_scheduler():
             with app.app_context():
                 now = datetime.utcnow()
                 # Buscar campañas programadas que ya deberían salir
+                # skip_locked=True evita que el scheduler intente procesar algo que ya está bloqueado por el usuario
                 pending = Campaign.query.filter(
                     Campaign.status == 'scheduled',
                     Campaign.scheduled_at <= now
-                ).all()
+                ).with_for_update(skip_locked=True).all()
                 
                 for camp in pending:
                     logger.info(f"🚀 Ejecutando campaña programada: {camp.name}")
