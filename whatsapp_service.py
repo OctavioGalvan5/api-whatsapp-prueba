@@ -6,6 +6,8 @@ import logging
 import time
 import os
 import mimetypes
+import boto3
+from botocore.client import Config as BotoConfig
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -15,6 +17,36 @@ BASE_URL = "https://graph.facebook.com/v18.0"
 # Cache en memoria para templates (TTL: 5 minutos)
 _template_cache = {'data': None, 'expires_at': 0}
 CACHE_TTL = 300
+
+# Cliente MinIO/S3
+_s3_client = None
+
+def get_s3_client():
+    """Obtiene o crea el cliente S3 para MinIO."""
+    global _s3_client
+    if _s3_client is None:
+        endpoint = Config.MINIO_ENDPOINT
+        protocol = "https" if Config.MINIO_USE_SSL else "http"
+        endpoint_url = f"{protocol}://{endpoint}"
+
+        _s3_client = boto3.client(
+            's3',
+            endpoint_url=endpoint_url,
+            aws_access_key_id=Config.MINIO_ACCESS_KEY,
+            aws_secret_access_key=Config.MINIO_SECRET_KEY,
+            config=BotoConfig(signature_version='s3v4'),
+            region_name='us-east-1'
+        )
+        logger.info(f"✅ Cliente MinIO inicializado: {endpoint_url}")
+    return _s3_client
+
+
+def get_minio_public_url(filename):
+    """Genera la URL pública para un archivo en MinIO."""
+    endpoint = Config.MINIO_ENDPOINT
+    protocol = "https" if Config.MINIO_USE_SSL else "http"
+    bucket = Config.MINIO_BUCKET
+    return f"{protocol}://{endpoint}/{bucket}/{filename}"
 
 
 class WhatsAppAPI:
@@ -35,89 +67,91 @@ class WhatsAppAPI:
 
     def download_media(self, media_id):
         """
-        Descarga un archivo multimedia de WhatsApp.
-        Retorna la ruta relativa (ej: 'static/media/12345.jpg') o None si falla.
+        Descarga un archivo multimedia de WhatsApp y lo sube a MinIO.
+        Retorna la URL pública del archivo en MinIO o None si falla.
         """
-        # Debug logger
-        debug_handler = logging.FileHandler('media_debug.log')
-        debug_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        logger.addHandler(debug_handler)
-        
         try:
             if not self.is_configured():
                 logger.error("API no configurada para descargar media")
                 return None
-                
+
             logger.info(f"⬇️ Iniciando descarga media_id: {media_id}")
-            
-            # 1. Obtener URL de descarga
+
+            # 1. Obtener URL de descarga desde WhatsApp
             url_info = f"{BASE_URL}/{media_id}"
-            logger.info(f"GET info: {url_info}")
-            
             res_info = requests.get(url_info, headers=self.headers, timeout=10)
-            
+
             if res_info.status_code != 200:
                 logger.error(f"Error info media {media_id}: {res_info.status_code} - {res_info.text}")
                 return None
-                
+
             data = res_info.json()
             media_url = data.get("url")
-            mime_type = data.get("mime_type")
-            
+            mime_type = data.get("mime_type", "application/octet-stream")
+
             logger.info(f"Media info OK. Mime: {mime_type}, URL: {media_url}")
-            
+
             if not media_url:
                 logger.error("No URL found in media info")
                 return None
-                
+
             # 2. Determinar extensión
             ext = mimetypes.guess_extension(mime_type)
             if not ext:
                 if 'image' in mime_type: ext = '.jpg'
-                elif 'audio' in mime_type: ext = '.ogg' # WhatsApp often uses audio/ogg; codecs=opus
+                elif 'audio' in mime_type: ext = '.ogg'
                 elif 'video' in mime_type: ext = '.mp4'
                 elif 'pdf' in mime_type: ext = '.pdf'
                 else: ext = '.bin'
-                
+
             filename = f"{media_id}{ext}"
-            
-            # Use absolute path based on this file's location to find 'static/media'
-            # Assuming structure is: app_root/whatsapp_service.py and app_root/static/media
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            local_dir = os.path.join(base_dir, "static", "media")
-            
-            if not os.path.exists(local_dir):
-                os.makedirs(local_dir)
-                logger.info(f"Creado directorio: {local_dir}")
-                
-            local_path = os.path.join(local_dir, filename)
-            
-            # 3. Descargar contenido
-            logger.info(f"Descargando contenido de: {media_url} -> {local_path}")
+
+            # 3. Descargar contenido de WhatsApp
+            logger.info(f"Descargando contenido de WhatsApp...")
             res_media = requests.get(media_url, headers=self.headers, timeout=30)
-            
+
             if res_media.status_code != 200:
-                logger.error(f"Error descargando binario: {res_media.status_code} - {res_media.text[:200]}")
-                return None
-                
-            with open(local_path, 'wb') as f:
-                f.write(res_media.content)
-                
-            if os.path.getsize(local_path) == 0:
-                logger.error(f"Error: Archivo descargado tiene 0 bytes: {local_path}")
+                logger.error(f"Error descargando binario: {res_media.status_code}")
                 return None
 
-            logger.info(f"✅ Media descargado exitosamente: {local_path} ({len(res_media.content)} bytes)")
-            
-            # Remove handler
-            logger.removeHandler(debug_handler)
-            return f"static/media/{filename}"
-            
+            if len(res_media.content) == 0:
+                logger.error(f"Error: Archivo descargado tiene 0 bytes")
+                return None
+
+            # 4. Subir a MinIO
+            try:
+                s3 = get_s3_client()
+                bucket = Config.MINIO_BUCKET
+
+                s3.put_object(
+                    Bucket=bucket,
+                    Key=filename,
+                    Body=res_media.content,
+                    ContentType=mime_type
+                )
+
+                public_url = get_minio_public_url(filename)
+                logger.info(f"✅ Media subido a MinIO: {public_url} ({len(res_media.content)} bytes)")
+
+                return public_url
+
+            except Exception as e:
+                logger.error(f"Error subiendo a MinIO: {str(e)}")
+                # Fallback: guardar localmente si MinIO falla
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                local_dir = os.path.join(base_dir, "static", "media")
+                if not os.path.exists(local_dir):
+                    os.makedirs(local_dir)
+                local_path = os.path.join(local_dir, filename)
+                with open(local_path, 'wb') as f:
+                    f.write(res_media.content)
+                logger.warning(f"⚠️ Fallback a almacenamiento local: {local_path}")
+                return f"static/media/{filename}"
+
         except Exception as e:
             logger.error(f"EXCEPTION descargando media {media_id}: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
-            logger.removeHandler(debug_handler)
             return None
     
     def get_templates(self):
