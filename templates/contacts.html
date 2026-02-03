@@ -3,143 +3,209 @@
 {% block title %}Contactos - WhatsApp CRM{% endblock %}
 
 {% block content %}
-        <!-- Main Content -->
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
-            <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-xl font-bold text-[#111812] dark:text-white">Contactos</h1>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Gestión de clientes y prospectos</p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="document.getElementById('importModal').classList.remove('hidden')"
-                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
-                            <span class="material-symbols-outlined text-lg">upload</span>
-                            Importar
-                        </button>
-                        <a href="/api/contacts/export" class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
-                            <span class="material-symbols-outlined text-lg">download</span>
-                            Exportar
-                        </a>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Filter Alert -->
-            {% if tag_filter %}
-            <div class="mx-6 mt-4 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">label</span>
-                    <span class="text-sm">Filtrando por: <strong class="text-primary">{{ tag_filter }}</strong></span>
-                </div>
-                <a href="/contacts" class="text-sm text-red-500 hover:text-red-600 font-medium flex items-center gap-1">
-                    <span class="material-symbols-outlined text-lg">close</span>
-                    Quitar filtro
+<!-- Main Content -->
+<main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Contactos</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Gestión de clientes y prospectos</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="document.getElementById('importModal').classList.remove('hidden')"
+                    class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+                    <span class="material-symbols-outlined text-lg">upload</span>
+                    Importar
+                </button>
+                <a href="/api/contacts/export"
+                    class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+                    <span class="material-symbols-outlined text-lg">download</span>
+                    Exportar
                 </a>
             </div>
-            {% endif %}
+        </div>
+    </header>
 
-            <!-- Search -->
-            <div class="px-6 py-4">
-                <div class="relative">
-                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">search</span>
-                    <input id="search-input" type="text" value="{{ search_query or '' }}"
-                        class="w-full pl-12 pr-4 py-3 bg-white dark:bg-[#152a17] border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                        placeholder="Buscar por nombre, teléfono o ID externo..." />
-                </div>
+    <!-- Advanced Filter Bar -->
+    <div
+        class="px-6 py-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-gray-50/50 dark:bg-gray-800/20 border-b border-gray-200 dark:border-gray-800">
+        <!-- Search (Expanded) -->
+        <div class="md:col-span-5 relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+            <input id="search-input" type="text" value="{{ search_query or '' }}"
+                class="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#152a17] border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-primary"
+                placeholder="Buscar por nombre, teléfono o ID..." />
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="md:col-span-7 flex flex-wrap items-center gap-3">
+            <div
+                class="flex items-center gap-2 bg-white dark:bg-[#152a17] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">
+                <span class="text-xs font-semibold text-gray-500 uppercase">Etiqueta:</span>
+                <select id="filter-tag-select"
+                    class="text-sm bg-transparent focus:outline-none min-w-[120px] dark:text-gray-200">
+                    <option value="">Todas</option>
+                    <!-- Options filled by JS -->
+                </select>
             </div>
 
-            <!-- Table -->
-            <div class="flex-1 overflow-auto px-6 pb-6 custom-scrollbar">
-                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-gray-50 dark:bg-[#0c1a0e] border-b border-gray-200 dark:border-gray-800">
-                                <th class="px-4 py-3 w-10">
-                                    <input type="checkbox" id="select-all" class="w-4 h-4 accent-primary cursor-pointer" onchange="toggleSelectAll()" />
-                                </th>
-                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID Externo</th>
-                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre</th>
-                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Teléfono</th>
-                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Etiquetas</th>
-                                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Notas</th>
-                                <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            {% for contact in contacts %}
-                            <tr class="contact-row hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                                data-id="{{ contact.id }}"
-                                data-contact-id="{{ contact.contact_id or '' }}"
-                                data-phone="{{ contact.phone_number }}"
-                                data-search="{{ contact.contact_id or '' }} {{ contact.name or '' }} {{ contact.phone_number }} {{ (contact.tags or [])|join(' ') }}">
-                                <td class="px-4 py-3">
-                                    <input type="checkbox" class="row-checkbox w-4 h-4 accent-primary cursor-pointer" value="{{ contact.phone_number }}" onchange="updateBulkBar()" />
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 font-mono contact-external-id">{{ contact.contact_id or '-' }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
-                                            {{ contact.name[0] if contact.name else contact.phone_number[-2:] }}
-                                        </div>
-                                        <span class="font-medium text-sm">{{ contact.name or '-' }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 font-mono contact-phone">{{ contact.phone_number }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="flex flex-wrap gap-1">
-                                        {% for tag in contact.tags or [] %}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">{{ tag }}</span>
-                                        {% endfor %}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate">{{ contact.notes or '-' }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center justify-center gap-2">
-                                        <a href="/dashboard?phone={{ contact.phone_number }}"
-                                            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors chat-link" title="Ir al chat">
-                                            <span class="material-symbols-outlined text-lg text-gray-500">chat</span>
-                                        </a>
-                                        <button onclick="openEditModal({{ contact.id }})"
-                                            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Editar">
-                                            <span class="material-symbols-outlined text-lg text-gray-500">edit</span>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="7" class="px-4 py-12 text-center">
-                                    <span class="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600">person_off</span>
-                                    <p class="mt-2 text-gray-500 dark:text-gray-400">No hay contactos registrados</p>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+            <div
+                class="flex items-center gap-2 bg-white dark:bg-[#152a17] border border-gray-200 dark:border-gray-700 rounded-lg p-1">
+                <button onclick="setFilterMode('include')" id="btn-mode-include"
+                    class="px-3 py-1 rounded text-xs font-medium transition-colors {{ 'bg-primary/10 text-primary' if not exclude_tag and tag_filter else 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                    Incluir
+                </button>
+                <button onclick="setFilterMode('exclude')" id="btn-mode-exclude"
+                    class="px-3 py-1 rounded text-xs font-medium transition-colors {{ 'bg-red-500/10 text-red-500' if exclude_tag else 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                    Excluir
+                </button>
+            </div>
 
-                <!-- Pagination Controls -->
-                {% if pagination and pagination.pages > 1 %}
-                <div class="mt-4 flex items-center justify-between px-4">
-                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                        Mostrando {{ (pagination.page - 1) * pagination.per_page + 1 }} -
-                        {% if pagination.page * pagination.per_page < pagination.total %}
-                            {{ pagination.page * pagination.per_page }}
-                        {% else %}
-                            {{ pagination.total }}
-                        {% endif %}
-                        de {{ pagination.total }} contactos
-                    </div>
+            <button onclick="applyFilters()"
+                class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">
+                Filtrar
+            </button>
+
+            {% if tag_filter or exclude_tag or search_query %}
+            <a href="/contacts"
+                class="text-gray-500 hover:text-red-500 flex items-center justify-center p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                title="Limpiar filtros">
+                <span class="material-symbols-outlined text-xl">filter_alt_off</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Filters Indicators -->
+    {% if tag_filter or exclude_tag %}
+    <div class="px-6 pb-2 flex gap-2">
+        {% if tag_filter %}
+        <span
+            class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20">
+            <span class="material-symbols-outlined text-xs">check</span>
+            Incluye: {{ tag_filter }}
+        </span>
+        {% endif %}
+        {% if exclude_tag %}
+        <span
+            class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-500/10 text-red-500 text-xs font-medium border border-red-500/20">
+            <span class="material-symbols-outlined text-xs">block</span>
+            Excluye: {{ exclude_tag }}
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Table -->
+    <div class="flex-1 overflow-auto px-6 pb-6 custom-scrollbar">
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-50 dark:bg-[#0c1a0e] border-b border-gray-200 dark:border-gray-800">
+                        <th class="px-4 py-3 w-10">
+                            <input type="checkbox" id="select-all" class="w-4 h-4 accent-primary cursor-pointer"
+                                onchange="toggleSelectAll()" />
+                        </th>
+                        <th
+                            class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            ID Externo</th>
+                        <th
+                            class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Nombre</th>
+                        <th
+                            class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Teléfono</th>
+                        <th
+                            class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Etiquetas</th>
+                        <th
+                            class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Notas</th>
+                        <th
+                            class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    {% for contact in contacts %}
+                    <tr class="contact-row hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                        data-id="{{ contact.id }}" data-contact-id="{{ contact.contact_id or '' }}"
+                        data-phone="{{ contact.phone_number }}"
+                        data-search="{{ contact.contact_id or '' }} {{ contact.name or '' }} {{ contact.phone_number }} {{ (contact.tags or [])|join(' ') }}">
+                        <td class="px-4 py-3">
+                            <input type="checkbox" class="row-checkbox w-4 h-4 accent-primary cursor-pointer"
+                                value="{{ contact.phone_number }}" onchange="updateBulkBar()" />
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 font-mono contact-external-id">{{
+                            contact.contact_id or '-' }}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
+                                    {{ contact.name[0] if contact.name else contact.phone_number[-2:] }}
+                                </div>
+                                <span class="font-medium text-sm">{{ contact.name or '-' }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 font-mono contact-phone">{{
+                            contact.phone_number }}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-wrap gap-1">
+                                {% for tag in contact.tags or [] %}
+                                <span
+                                    class="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">{{
+                                    tag }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] truncate">{{
+                            contact.notes or '-' }}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="/dashboard?phone={{ contact.phone_number }}"
+                                    class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors chat-link"
+                                    title="Ir al chat">
+                                    <span class="material-symbols-outlined text-lg text-gray-500">chat</span>
+                                </a>
+                                <button onclick="openEditModal({{ contact.id }})"
+                                    class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    title="Editar">
+                                    <span class="material-symbols-outlined text-lg text-gray-500">edit</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-12 text-center">
+                            <span
+                                class="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600">person_off</span>
+                            <p class="mt-2 text-gray-500 dark:text-gray-400">No hay contactos registrados</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if pagination and pagination.pages > 1 %}
+        <div class="mt-4 flex items-center justify-between px-4">
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+                Mostrando {{ (pagination.page - 1) * pagination.per_page + 1 }} -
+                {% if pagination.page * pagination.per_page < pagination.total %} {{ pagination.page *
+                    pagination.per_page }} {% else %} {{ pagination.total }} {% endif %} de {{ pagination.total }}
+                    contactos </div>
                     <div class="flex items-center gap-2">
                         {% if pagination.has_prev %}
-                        <a href="?page={{ pagination.prev_num }}{% if tag_filter %}&tag={{ tag_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
-                           class="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <a href="?page={{ pagination.prev_num }}{% if tag_filter %}&tag={{ tag_filter }}{% endif %}{% if exclude_tag %}&exclude_tag={{ exclude_tag }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
+                            class="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                             <span class="material-symbols-outlined text-base">chevron_left</span>
                         </a>
                         {% else %}
-                        <button disabled class="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm opacity-50 cursor-not-allowed">
+                        <button disabled
+                            class="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm opacity-50 cursor-not-allowed">
                             <span class="material-symbols-outlined text-base">chevron_left</span>
                         </button>
                         {% endif %}
@@ -149,665 +215,774 @@
                         </span>
 
                         {% if pagination.has_next %}
-                        <a href="?page={{ pagination.next_num }}{% if tag_filter %}&tag={{ tag_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
-                           class="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <a href="?page={{ pagination.next_num }}{% if tag_filter %}&tag={{ tag_filter }}{% endif %}{% if exclude_tag %}&exclude_tag={{ exclude_tag }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}"
+                            class="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                             <span class="material-symbols-outlined text-base">chevron_right</span>
                         </a>
                         {% else %}
-                        <button disabled class="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm opacity-50 cursor-not-allowed">
+                        <button disabled
+                            class="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm opacity-50 cursor-not-allowed">
                             <span class="material-symbols-outlined text-base">chevron_right</span>
                         </button>
                         {% endif %}
                     </div>
-                </div>
-                {% endif %}
             </div>
-        </main>
-
-    <!-- Bulk Action Bar (floating bottom) -->
-    <div id="bulkBar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-[#152a17] border border-gray-200 dark:border-gray-800 shadow-xl rounded-2xl px-5 py-3 flex items-center gap-4">
-        <span id="bulk-count" class="text-sm font-semibold text-gray-700 dark:text-gray-200">0 seleccionados</span>
-        <div class="h-5 w-px bg-gray-200 dark:bg-gray-700"></div>
-        <div class="flex items-center gap-2">
-            <select id="bulk-tag-select" class="px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary w-48">
-                <option value="">Seleccionar etiqueta...</option>
-            </select>
-            <button onclick="bulkAssignTag()" class="px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                <span class="material-symbols-outlined text-base mr-1">add</span>Asignar
-            </button>
-            <button onclick="bulkRemoveTag()" class="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-colors">
-                <span class="material-symbols-outlined text-base mr-1">remove</span>Quitar
-            </button>
+            {% endif %}
         </div>
-        <div class="h-5 w-px bg-gray-200 dark:bg-gray-700"></div>
-        <button onclick="clearSelection()" class="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-            <span class="material-symbols-outlined text-lg">close</span>
+</main>
+
+<!-- Bulk Action Bar (floating bottom) -->
+<div id="bulkBar"
+    class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-[#152a17] border border-gray-200 dark:border-gray-800 shadow-xl rounded-2xl px-5 py-3 flex items-center gap-4">
+    <span id="bulk-count" class="text-sm font-semibold text-gray-700 dark:text-gray-200">0 seleccionados</span>
+    <div class="h-5 w-px bg-gray-200 dark:bg-gray-700"></div>
+    <div class="flex items-center gap-2">
+        <select id="bulk-tag-select"
+            class="px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary w-48">
+            <option value="">Seleccionar etiqueta...</option>
+        </select>
+        <button onclick="bulkAssignTag()"
+            class="px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+            <span class="material-symbols-outlined text-base mr-1">add</span>Asignar
+        </button>
+        <button onclick="bulkRemoveTag()"
+            class="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-colors">
+            <span class="material-symbols-outlined text-base mr-1">remove</span>Quitar
         </button>
     </div>
+    <div class="h-5 w-px bg-gray-200 dark:bg-gray-700"></div>
+    <button onclick="clearSelection()" class="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+        <span class="material-symbols-outlined text-lg">close</span>
+    </button>
+</div>
 
-    <!-- Import Modal -->
-    <div id="importModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/50" onclick="document.getElementById('importModal').classList.add('hidden')"></div>
-        <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-lg font-semibold">Importar Contactos</h3>
-                <button onclick="document.getElementById('importModal').classList.add('hidden')" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
-            <div class="space-y-4">
-                <!-- Download Template -->
-                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <div class="flex items-start gap-3">
-                        <span class="material-symbols-outlined text-blue-500 mt-0.5">lightbulb</span>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium text-blue-800 dark:text-blue-300">Descarga la plantilla</p>
-                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Usa nuestra plantilla Excel con el formato correcto y ejemplos para evitar errores.</p>
-                            <a href="/api/contacts/template"
-                               class="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors">
-                                <span class="material-symbols-outlined text-sm">download</span>
-                                Descargar Plantilla Excel
-                            </a>
-                        </div>
+<!-- Import Modal -->
+<div id="importModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="document.getElementById('importModal').classList.add('hidden')">
+    </div>
+    <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold">Importar Contactos</h3>
+            <button onclick="document.getElementById('importModal').classList.add('hidden')"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="space-y-4">
+            <!-- Download Template -->
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined text-blue-500 mt-0.5">lightbulb</span>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-blue-800 dark:text-blue-300">Descarga la plantilla</p>
+                        <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">Usa nuestra plantilla Excel con el
+                            formato correcto y ejemplos para evitar errores.</p>
+                        <a href="/api/contacts/template"
+                            class="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors">
+                            <span class="material-symbols-outlined text-sm">download</span>
+                            Descargar Plantilla Excel
+                        </a>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Archivo (Excel o CSV)</label>
-                    <input type="file" id="import-file" accept=".xlsx,.xls,.csv"
-                        class="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer" />
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Asignar etiqueta (opcional)</label>
-                    <select id="import-tag-select" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
-                        <option value="">Sin etiqueta</option>
-                    </select>
-                </div>
-                <p class="text-xs text-gray-400 dark:text-gray-500">Columnas soportadas: phone/telefono, name/nombre, tags/etiquetas, notes/notas, custom_1–7</p>
             </div>
-            <div id="import-result" class="hidden mt-4 p-3 rounded-lg text-sm"></div>
-            <div class="flex justify-end gap-3 mt-6">
-                <button onclick="document.getElementById('importModal').classList.add('hidden')" class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                    Cancelar
-                </button>
-                <button id="import-btn" onclick="importContacts()" class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                    Importar
-                </button>
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Archivo (Excel o
+                    CSV)</label>
+                <input type="file" id="import-file" accept=".xlsx,.xls,.csv"
+                    class="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer" />
             </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Asignar etiqueta
+                    (opcional)</label>
+                <select id="import-tag-select"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                    <option value="">Sin etiqueta</option>
+                </select>
+            </div>
+            <p class="text-xs text-gray-400 dark:text-gray-500">Columnas soportadas: phone/telefono, name/nombre,
+                tags/etiquetas, notes/notas, custom_1–7</p>
+        </div>
+        <div id="import-result" class="hidden mt-4 p-3 rounded-lg text-sm"></div>
+        <div class="flex justify-end gap-3 mt-6">
+            <button onclick="document.getElementById('importModal').classList.add('hidden')"
+                class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                Cancelar
+            </button>
+            <button id="import-btn" onclick="importContacts()"
+                class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                Importar
+            </button>
         </div>
     </div>
+</div>
 
-    <!-- Edit Modal -->
-    <div id="contactModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/50" onclick="closeModal()"></div>
-        <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
-            <div class="flex items-center justify-between p-6 pb-3">
-                <h3 class="text-lg font-semibold">Editar Contacto</h3>
-                <button onclick="closeModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
+<!-- Edit Modal -->
+<div id="contactModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="closeModal()"></div>
+    <div
+        class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between p-6 pb-3">
+            <h3 class="text-lg font-semibold">Editar Contacto</h3>
+            <button onclick="closeModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="px-6 pb-4 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+            <!-- ID oculto -->
+            <input type="hidden" id="edit-id" />
+            <!-- ID Externo (editable) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">ID Externo
+                    (opcional)</label>
+                <input type="text" id="edit-contact-id"
+                    class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary font-mono"
+                    placeholder="CLI-001" />
+                <p class="text-xs text-gray-400 mt-1">Identificador personalizado para integración con otros sistemas
+                </p>
             </div>
-            <div class="px-6 pb-4 overflow-y-auto custom-scrollbar flex-1 space-y-4">
-                <!-- ID oculto -->
-                <input type="hidden" id="edit-id" />
-                <!-- ID Externo (editable) -->
+            <!-- Teléfono (ahora editable) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
+                <input type="text" id="edit-phone"
+                    class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary"
+                    placeholder="5491123456789" />
+                <p class="text-xs text-gray-400 mt-1">Formato: código de país + número, sin + ni espacios</p>
+            </div>
+            <!-- Nombre + Apellido -->
+            <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">ID Externo (opcional)</label>
-                    <input type="text" id="edit-contact-id" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary font-mono" placeholder="CLI-001" />
-                    <p class="text-xs text-gray-400 mt-1">Identificador personalizado para integración con otros sistemas</p>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nombre</label>
+                    <input type="text" id="edit-first-name"
+                        class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary"
+                        placeholder="Juan" />
                 </div>
-                <!-- Teléfono (ahora editable) -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
-                    <input type="text" id="edit-phone" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" placeholder="5491123456789" />
-                    <p class="text-xs text-gray-400 mt-1">Formato: código de país + número, sin + ni espacios</p>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Apellido</label>
+                    <input type="text" id="edit-last-name"
+                        class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary"
+                        placeholder="García" />
                 </div>
-                <!-- Nombre + Apellido -->
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nombre</label>
-                        <input type="text" id="edit-first-name" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" placeholder="Juan" />
+            </div>
+            <!-- Notas -->
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Notas</label>
+                <textarea id="edit-notes" rows="2"
+                    class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary resize-none"
+                    placeholder="Notas sobre el contacto..."></textarea>
+            </div>
+            <!-- Etiquetas (selector de pills) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1.5">Etiquetas</label>
+                <div class="relative">
+                    <div class="min-h-[38px] border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 flex flex-wrap gap-1.5 items-center focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors"
+                        onclick="document.getElementById('edit-tags-input').focus()">
+                        <span id="edit-tags-pills"></span>
+                        <input type="text" id="edit-tags-input"
+                            class="flex-1 min-w-[60px] text-sm bg-transparent dark:text-white focus:outline-none placeholder-gray-400"
+                            placeholder="Buscar o crear..." autocomplete="off" />
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Apellido</label>
-                        <input type="text" id="edit-last-name" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" placeholder="García" />
-                    </div>
-                </div>
-                <!-- Notas -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Notas</label>
-                    <textarea id="edit-notes" rows="2" class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary resize-none" placeholder="Notas sobre el contacto..."></textarea>
-                </div>
-                <!-- Etiquetas (selector de pills) -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1.5">Etiquetas</label>
-                    <div class="relative">
-                        <div class="min-h-[38px] border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 flex flex-wrap gap-1.5 items-center focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors" onclick="document.getElementById('edit-tags-input').focus()">
-                            <span id="edit-tags-pills"></span>
-                            <input type="text" id="edit-tags-input" class="flex-1 min-w-[60px] text-sm bg-transparent dark:text-white focus:outline-none placeholder-gray-400" placeholder="Buscar o crear..." autocomplete="off" />
-                        </div>
-                        <div id="edit-tags-dropdown" class="hidden absolute z-10 w-full mt-1 bg-white dark:bg-[#152a17] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-40 overflow-y-auto custom-scrollbar"></div>
-                    </div>
-                </div>
-                <!-- Campos personalizados (desplegable) -->
-                <div>
-                    <button type="button" onclick="toggleCustomFields()" class="flex items-center justify-between w-full text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-                        <span>Campos personalizados</span>
-                        <span class="material-symbols-outlined text-lg transition-transform duration-200" id="custom-fields-chevron">expand_more</span>
-                    </button>
-                    <div id="custom-fields-section" class="hidden mt-3">
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo 1</label>
-                                <input type="text" id="edit-custom-1" class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo 2</label>
-                                <input type="text" id="edit-custom-2" class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo 3</label>
-                                <input type="text" id="edit-custom-3" class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo 4</label>
-                                <input type="text" id="edit-custom-4" class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo 5</label>
-                                <input type="text" id="edit-custom-5" class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo 6</label>
-                                <input type="text" id="edit-custom-6" class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo 7</label>
-                                <input type="text" id="edit-custom-7" class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                            </div>
-                        </div>
+                    <div id="edit-tags-dropdown"
+                        class="hidden absolute z-10 w-full mt-1 bg-white dark:bg-[#152a17] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-40 overflow-y-auto custom-scrollbar">
                     </div>
                 </div>
             </div>
-            <div class="flex justify-end gap-3 p-6 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <button onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                    Cancelar
+            <!-- Campos personalizados (desplegable) -->
+            <div>
+                <button type="button" onclick="toggleCustomFields()"
+                    class="flex items-center justify-between w-full text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                    <span>Campos personalizados</span>
+                    <span class="material-symbols-outlined text-lg transition-transform duration-200"
+                        id="custom-fields-chevron">expand_more</span>
                 </button>
-                <button id="save-btn" onclick="saveContact()" class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                    Guardar
-                </button>
+                <div id="custom-fields-section" class="hidden mt-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo
+                                1</label>
+                            <input type="text" id="edit-custom-1"
+                                class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo
+                                2</label>
+                            <input type="text" id="edit-custom-2"
+                                class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo
+                                3</label>
+                            <input type="text" id="edit-custom-3"
+                                class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo
+                                4</label>
+                            <input type="text" id="edit-custom-4"
+                                class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo
+                                5</label>
+                            <input type="text" id="edit-custom-5"
+                                class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo
+                                6</label>
+                            <input type="text" id="edit-custom-6"
+                                class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Campo
+                                7</label>
+                            <input type="text" id="edit-custom-7"
+                                class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+        <div class="flex justify-end gap-3 p-6 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <button onclick="closeModal()"
+                class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                Cancelar
+            </button>
+            <button id="save-btn" onclick="saveContact()"
+                class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                Guardar
+            </button>
+        </div>
     </div>
+</div>
 
-    <script>
-        // Load tags for selectors
-        async function loadTags() {
-            try {
-                const resp = await fetch('/api/tags');
-                const tags = await resp.json();
-                const selectors = ['bulk-tag-select', 'import-tag-select'];
-                selectors.forEach(id => {
-                    const sel = document.getElementById(id);
-                    if (!sel) return;
-                    // Keep first option, remove rest
-                    while (sel.options.length > 1) sel.remove(1);
-                    tags.forEach(t => {
-                        const opt = document.createElement('option');
-                        opt.value = t.name;
-                        opt.textContent = `${t.name} (${t.count})`;
-                        sel.appendChild(opt);
-                    });
+<script>
+    // Initial State from Server
+    const CURRENT_TAG = "{{ tag_filter or '' }}";
+    const CURRENT_EXCLUDE = "{{ exclude_tag or '' }}";
+    let filterMode = CURRENT_EXCLUDE ? 'exclude' : 'include';
+
+    // Load tags for selectors
+    async function loadTags() {
+        try {
+            const resp = await fetch('/api/tags');
+            const tags = await resp.json();
+
+            // Populate Filter Dropdown
+            const filterSel = document.getElementById('filter-tag-select');
+            if (filterSel) {
+                tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.name;
+                    opt.textContent = `${t.name} (${t.count})`;
+                    if (t.name === CURRENT_TAG || t.name === CURRENT_EXCLUDE) opt.selected = true;
+                    filterSel.appendChild(opt);
                 });
-            } catch (e) { console.error('Error loading tags:', e); }
-        }
-        loadTags();
+            }
 
-        // Search functionality with server-side search and debounce
-        let searchTimeout;
-        document.getElementById('search-input').addEventListener('input', function (e) {
-            const term = e.target.value.trim();
-
-            // Clear previous timeout
-            clearTimeout(searchTimeout);
-
-            // Set new timeout for 500ms
-            searchTimeout = setTimeout(() => {
-                // Build URL with search parameter
-                const params = new URLSearchParams(window.location.search);
-
-                if (term) {
-                    params.set('search', term);
-                } else {
-                    params.delete('search');
-                }
-
-                // Reset to page 1 when searching
-                params.delete('page');
-
-                // Redirect with new search
-                window.location.href = `/contacts?${params.toString()}`;
-            }, 500);
-        });
-
-        // ===== Bulk selection =====
-        function toggleSelectAll() {
-            const checked = document.getElementById('select-all').checked;
-            document.querySelectorAll('.row-checkbox').forEach(cb => {
-                // Only toggle visible rows
-                if (cb.closest('tr').style.display !== 'none') {
-                    cb.checked = checked;
-                }
+            const selectors = ['bulk-tag-select', 'import-tag-select'];
+            selectors.forEach(id => {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                // Keep first option, remove rest
+                while (sel.options.length > 1) sel.remove(1);
+                tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.name;
+                    opt.textContent = `${t.name} (${t.count})`;
+                    sel.appendChild(opt);
+                });
             });
-            updateBulkBar();
-        }
+        } catch (e) { console.error('Error loading tags:', e); }
+    }
+    loadTags();
 
-        function getSelectedIds() {
-            return [...document.querySelectorAll('.row-checkbox:checked')].map(cb => {
-                const row = cb.closest('tr');
-                return parseInt(row.dataset.id);
-            }).filter(id => !isNaN(id));
-        }
+    // Filter Logic
+    function setFilterMode(mode) {
+        filterMode = mode;
+        const btnInc = document.getElementById('btn-mode-include');
+        const btnExc = document.getElementById('btn-mode-exclude');
 
-        function getSelectedPhones() {
-            return [...document.querySelectorAll('.row-checkbox:checked')].map(cb => cb.value);
+        if (mode === 'include') {
+            if (btnInc) btnInc.className = 'px-3 py-1 rounded text-xs font-medium transition-colors bg-primary/10 text-primary';
+            if (btnExc) btnExc.className = 'px-3 py-1 rounded text-xs font-medium transition-colors text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700';
+        } else {
+            if (btnExc) btnExc.className = 'px-3 py-1 rounded text-xs font-medium transition-colors bg-red-500/10 text-red-500';
+            if (btnInc) btnInc.className = 'px-3 py-1 rounded text-xs font-medium transition-colors text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700';
         }
+    }
 
-        function updateBulkBar() {
-            const ids = getSelectedIds();
-            const bar = document.getElementById('bulkBar');
-            if (ids.length > 0) {
-                bar.classList.remove('hidden');
-                document.getElementById('bulk-count').textContent = `${ids.length} seleccionado${ids.length !== 1 ? 's' : ''}`;
+    function applyFilters() {
+        const tag = document.getElementById('filter-tag-select').value;
+        const search = document.getElementById('search-input').value;
+        const params = new URLSearchParams();
+
+        if (search) params.set('search', search);
+
+        if (tag) {
+            if (filterMode === 'include') {
+                params.set('tag', tag);
             } else {
-                bar.classList.add('hidden');
+                params.set('exclude_tag', tag);
             }
-            // Update select-all state
-            const total = document.querySelectorAll('.row-checkbox').length;
-            document.getElementById('select-all').checked = ids.length > 0 && ids.length === total;
         }
 
-        function clearSelection() {
-            document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-            document.getElementById('select-all').checked = false;
-            updateBulkBar();
+        window.location.href = `/contacts?${params.toString()}`;
+    }
+
+    // Search functionality with Enter key
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') applyFilters();
+        });
+    }
+
+    // Search functionality with server-side search and debounce
+    let searchTimeout;
+    document.getElementById('search-input').addEventListener('input', function (e) {
+        const term = e.target.value.trim();
+
+        // Clear previous timeout
+        clearTimeout(searchTimeout);
+
+        // Set new timeout for 500ms
+        searchTimeout = setTimeout(() => {
+            // Build URL with search parameter
+            const params = new URLSearchParams(window.location.search);
+
+            if (term) {
+                params.set('search', term);
+            } else {
+                params.delete('search');
+            }
+
+            // Reset to page 1 when searching
+            params.delete('page');
+
+            // Redirect with new search
+            window.location.href = `/contacts?${params.toString()}`;
+        }, 500);
+    });
+
+    // ===== Bulk selection =====
+    function toggleSelectAll() {
+        const checked = document.getElementById('select-all').checked;
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            // Only toggle visible rows
+            if (cb.closest('tr').style.display !== 'none') {
+                cb.checked = checked;
+            }
+        });
+        updateBulkBar();
+    }
+
+    function getSelectedIds() {
+        return [...document.querySelectorAll('.row-checkbox:checked')].map(cb => {
+            const row = cb.closest('tr');
+            return parseInt(row.dataset.id);
+        }).filter(id => !isNaN(id));
+    }
+
+    function getSelectedPhones() {
+        return [...document.querySelectorAll('.row-checkbox:checked')].map(cb => cb.value);
+    }
+
+    function updateBulkBar() {
+        const ids = getSelectedIds();
+        const bar = document.getElementById('bulkBar');
+        if (ids.length > 0) {
+            bar.classList.remove('hidden');
+            document.getElementById('bulk-count').textContent = `${ids.length} seleccionado${ids.length !== 1 ? 's' : ''}`;
+        } else {
+            bar.classList.add('hidden');
         }
+        // Update select-all state
+        const total = document.querySelectorAll('.row-checkbox').length;
+        document.getElementById('select-all').checked = ids.length > 0 && ids.length === total;
+    }
 
-        async function bulkAssignTag() {
-            const tag = document.getElementById('bulk-tag-select').value;
-            if (!tag) { alert('Selecciona una etiqueta primero'); return; }
-            const contact_ids = getSelectedIds();
-            if (!contact_ids.length) return;
+    function clearSelection() {
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('select-all').checked = false;
+        updateBulkBar();
+    }
 
-            try {
-                const resp = await fetch('/api/contacts/bulk-tags', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contact_ids, tag, action: 'add' })
-                });
-                const data = await resp.json();
-                if (data.success) {
-                    // Update visible rows by ID
-                    contact_ids.forEach(id => {
-                        const row = document.querySelector(`tr[data-id="${id}"]`);
-                        if (row) {
-                            const tagsCell = row.querySelectorAll('td')[4]; // checkbox, id_externo, name, phone, tags
-                            if (!tagsCell.innerHTML.includes(tag)) {
-                                tagsCell.querySelector('.flex').innerHTML += `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">${tag}</span>`;
-                            }
-                            row.dataset.search = row.dataset.search + ' ' + tag;
+    async function bulkAssignTag() {
+        const tag = document.getElementById('bulk-tag-select').value;
+        if (!tag) { alert('Selecciona una etiqueta primero'); return; }
+        const contact_ids = getSelectedIds();
+        if (!contact_ids.length) return;
+
+        try {
+            const resp = await fetch('/api/contacts/bulk-tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contact_ids, tag, action: 'add' })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                // Update visible rows by ID
+                contact_ids.forEach(id => {
+                    const row = document.querySelector(`tr[data-id="${id}"]`);
+                    if (row) {
+                        const tagsCell = row.querySelectorAll('td')[4]; // checkbox, id_externo, name, phone, tags
+                        if (!tagsCell.innerHTML.includes(tag)) {
+                            tagsCell.querySelector('.flex').innerHTML += `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">${tag}</span>`;
                         }
-                    });
-                    clearSelection();
-                    loadTags();
-                } else {
-                    alert('Error: ' + (data.error || 'Unknown'));
-                }
-            } catch (e) { alert('Error: ' + e.message); }
-        }
-
-        async function bulkRemoveTag() {
-            const tag = document.getElementById('bulk-tag-select').value;
-            if (!tag) { alert('Selecciona una etiqueta primero'); return; }
-            const contact_ids = getSelectedIds();
-            if (!contact_ids.length) return;
-
-            try {
-                const resp = await fetch('/api/contacts/bulk-tags', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contact_ids, tag, action: 'remove' })
+                        row.dataset.search = row.dataset.search + ' ' + tag;
+                    }
                 });
-                const data = await resp.json();
-                if (data.success) {
-                    // Reload page to reflect changes accurately
-                    location.reload();
-                } else {
-                    alert('Error: ' + (data.error || 'Unknown'));
-                }
-            } catch (e) { alert('Error: ' + e.message); }
-        }
-
-        // ===== Import =====
-        async function importContacts() {
-            const file = document.getElementById('import-file').files[0];
-            if (!file) { alert('Selecciona un archivo primero'); return; }
-
-            const btn = document.getElementById('import-btn');
-            const resultDiv = document.getElementById('import-result');
-            btn.disabled = true;
-            btn.textContent = 'Importando...';
-            resultDiv.classList.add('hidden');
-
-            const formData = new FormData();
-            formData.append('file', file);
-            const assignTag = document.getElementById('import-tag-select').value;
-            if (assignTag) formData.append('assign_tag', assignTag);
-
-            try {
-                const resp = await fetch('/api/contacts/import', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await resp.json();
-                btn.disabled = false;
-                btn.textContent = 'Importar';
-
-                resultDiv.classList.remove('hidden');
-                if (data.success) {
-                    resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-primary/10 text-primary';
-                    resultDiv.textContent = data.message;
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-red-500/10 text-red-500';
-                    resultDiv.textContent = data.error || 'Error desconocido';
-                }
-            } catch (e) {
-                btn.disabled = false;
-                btn.textContent = 'Importar';
-                resultDiv.classList.remove('hidden');
-                resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-red-500/10 text-red-500';
-                resultDiv.textContent = 'Error de conexión: ' + e.message;
+                clearSelection();
+                loadTags();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown'));
             }
+        } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    async function bulkRemoveTag() {
+        const tag = document.getElementById('bulk-tag-select').value;
+        if (!tag) { alert('Selecciona una etiqueta primero'); return; }
+        const contact_ids = getSelectedIds();
+        if (!contact_ids.length) return;
+
+        try {
+            const resp = await fetch('/api/contacts/bulk-tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contact_ids, tag, action: 'remove' })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                // Reload page to reflect changes accurately
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown'));
+            }
+        } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    // ===== Import =====
+    async function importContacts() {
+        const file = document.getElementById('import-file').files[0];
+        if (!file) { alert('Selecciona un archivo primero'); return; }
+
+        const btn = document.getElementById('import-btn');
+        const resultDiv = document.getElementById('import-result');
+        btn.disabled = true;
+        btn.textContent = 'Importando...';
+        resultDiv.classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('file', file);
+        const assignTag = document.getElementById('import-tag-select').value;
+        if (assignTag) formData.append('assign_tag', assignTag);
+
+        try {
+            const resp = await fetch('/api/contacts/import', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            btn.disabled = false;
+            btn.textContent = 'Importar';
+
+            resultDiv.classList.remove('hidden');
+            if (data.success) {
+                resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-primary/10 text-primary';
+                resultDiv.textContent = data.message;
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-red-500/10 text-red-500';
+                resultDiv.textContent = data.error || 'Error desconocido';
+            }
+        } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'Importar';
+            resultDiv.classList.remove('hidden');
+            resultDiv.className = 'mt-4 p-3 rounded-lg text-sm bg-red-500/10 text-red-500';
+            resultDiv.textContent = 'Error de conexión: ' + e.message;
         }
+    }
 
-        // ===== Edit Modal =====
-        let editAvailableTags = [];
-        let editSelectedTags = [];
+    // ===== Edit Modal =====
+    let editAvailableTags = [];
+    let editSelectedTags = [];
 
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
 
-        function renderEditTagPills() {
-            const container = document.getElementById('edit-tags-pills');
-            container.innerHTML = editSelectedTags.map((tag, i) => `
+    function renderEditTagPills() {
+        const container = document.getElementById('edit-tags-pills');
+        container.innerHTML = editSelectedTags.map((tag, i) => `
                 <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">
                     ${escapeHtml(tag)}
                     <span class="material-symbols-outlined text-base cursor-pointer hover:opacity-60" data-remove-idx="${i}">close</span>
                 </span>
             `).join('');
-            container.querySelectorAll('[data-remove-idx]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const idx = parseInt(btn.dataset.removeIdx);
-                    editSelectedTags.splice(idx, 1);
-                    renderEditTagPills();
-                    showTagDropdown();
-                });
+        container.querySelectorAll('[data-remove-idx]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.removeIdx);
+                editSelectedTags.splice(idx, 1);
+                renderEditTagPills();
+                showTagDropdown();
             });
-        }
+        });
+    }
 
-        function showTagDropdown() {
-            const input = document.getElementById('edit-tags-input');
-            const dropdown = document.getElementById('edit-tags-dropdown');
-            const term = input.value.toLowerCase().trim();
+    function showTagDropdown() {
+        const input = document.getElementById('edit-tags-input');
+        const dropdown = document.getElementById('edit-tags-dropdown');
+        const term = input.value.toLowerCase().trim();
 
-            const filtered = editAvailableTags.filter(t =>
-                !editSelectedTags.includes(t) && t.toLowerCase().includes(term)
-            );
+        const filtered = editAvailableTags.filter(t =>
+            !editSelectedTags.includes(t) && t.toLowerCase().includes(term)
+        );
 
-            let html = filtered.map(tag =>
-                `<button class="w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10 hover:text-primary rounded-md transition-colors" data-add-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`
-            ).join('');
+        let html = filtered.map(tag =>
+            `<button class="w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10 hover:text-primary rounded-md transition-colors" data-add-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`
+        ).join('');
 
-            if (term && !editSelectedTags.includes(term)) {
-                const exactMatch = editAvailableTags.some(t => t.toLowerCase() === term);
-                if (!exactMatch) {
-                    html += `<div class="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
+        if (term && !editSelectedTags.includes(term)) {
+            const exactMatch = editAvailableTags.some(t => t.toLowerCase() === term);
+            if (!exactMatch) {
+                html += `<div class="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
                         <button class="w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10 hover:text-primary rounded-md transition-colors" data-add-tag="${escapeHtml(term)}">
                             <span class="material-symbols-outlined text-sm mr-1">add</span>Crear "${escapeHtml(term)}"
                         </button>
                     </div>`;
-                }
-            }
-
-            if (html) {
-                dropdown.innerHTML = html;
-                dropdown.classList.remove('hidden');
-                dropdown.querySelectorAll('[data-add-tag]').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const tag = btn.dataset.addTag;
-                        if (!editSelectedTags.includes(tag)) {
-                            editSelectedTags.push(tag);
-                            if (!editAvailableTags.includes(tag)) editAvailableTags.push(tag);
-                        }
-                        input.value = '';
-                        renderEditTagPills();
-                        dropdown.classList.add('hidden');
-                    });
-                });
-            } else {
-                dropdown.classList.add('hidden');
             }
         }
 
-        // Cerrar dropdown al hacer clic fuera
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('edit-tags-dropdown');
-            const wrapper = dropdown?.closest('.relative');
-            if (wrapper && !wrapper.contains(e.target)) {
-                dropdown.classList.add('hidden');
+        if (html) {
+            dropdown.innerHTML = html;
+            dropdown.classList.remove('hidden');
+            dropdown.querySelectorAll('[data-add-tag]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const tag = btn.dataset.addTag;
+                    if (!editSelectedTags.includes(tag)) {
+                        editSelectedTags.push(tag);
+                        if (!editAvailableTags.includes(tag)) editAvailableTags.push(tag);
+                    }
+                    input.value = '';
+                    renderEditTagPills();
+                    dropdown.classList.add('hidden');
+                });
+            });
+        } else {
+            dropdown.classList.add('hidden');
+        }
+    }
+
+    // Cerrar dropdown al hacer clic fuera
+    document.addEventListener('click', (e) => {
+        const dropdown = document.getElementById('edit-tags-dropdown');
+        const wrapper = dropdown?.closest('.relative');
+        if (wrapper && !wrapper.contains(e.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+
+    // Eventos del input de etiquetas
+    (function () {
+        const tagsInput = document.getElementById('edit-tags-input');
+        if (!tagsInput) return;
+        tagsInput.addEventListener('input', showTagDropdown);
+        tagsInput.addEventListener('focus', showTagDropdown);
+        tagsInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const term = e.target.value.trim();
+                if (term && !editSelectedTags.includes(term)) {
+                    editSelectedTags.push(term);
+                    if (!editAvailableTags.includes(term)) editAvailableTags.push(term);
+                    e.target.value = '';
+                    renderEditTagPills();
+                    document.getElementById('edit-tags-dropdown').classList.add('hidden');
+                }
+            } else if (e.key === 'Backspace' && e.target.value === '' && editSelectedTags.length > 0) {
+                editSelectedTags.pop();
+                renderEditTagPills();
+                showTagDropdown();
             }
         });
+    })();
 
-        // Eventos del input de etiquetas
-        (function () {
-            const tagsInput = document.getElementById('edit-tags-input');
-            if (!tagsInput) return;
-            tagsInput.addEventListener('input', showTagDropdown);
-            tagsInput.addEventListener('focus', showTagDropdown);
-            tagsInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const term = e.target.value.trim();
-                    if (term && !editSelectedTags.includes(term)) {
-                        editSelectedTags.push(term);
-                        if (!editAvailableTags.includes(term)) editAvailableTags.push(term);
-                        e.target.value = '';
-                        renderEditTagPills();
-                        document.getElementById('edit-tags-dropdown').classList.add('hidden');
-                    }
-                } else if (e.key === 'Backspace' && e.target.value === '' && editSelectedTags.length > 0) {
-                    editSelectedTags.pop();
-                    renderEditTagPills();
-                    showTagDropdown();
+    function toggleCustomFields() {
+        const section = document.getElementById('custom-fields-section');
+        const chevron = document.getElementById('custom-fields-chevron');
+        const isHidden = section.classList.contains('hidden');
+        section.classList.toggle('hidden');
+        chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+    }
+
+    function openEditModal(contactId) {
+        const modal = document.getElementById('contactModal');
+        const saveBtn = document.getElementById('save-btn');
+
+        modal.classList.remove('hidden');
+        document.getElementById('edit-id').value = contactId;
+        document.getElementById('edit-contact-id').value = '';
+        document.getElementById('edit-phone').value = '';
+
+        // Limpiar todos los campos
+        document.getElementById('edit-first-name').value = '';
+        document.getElementById('edit-last-name').value = '';
+        document.getElementById('edit-notes').value = '';
+        document.getElementById('edit-tags-input').value = '';
+        document.getElementById('edit-tags-dropdown').classList.add('hidden');
+        document.getElementById('custom-fields-section').classList.add('hidden');
+        document.getElementById('custom-fields-chevron').style.transform = '';
+        for (let i = 1; i <= 7; i++) {
+            document.getElementById(`edit-custom-${i}`).value = '';
+        }
+        editSelectedTags = [];
+        renderEditTagPills();
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Cargando...';
+
+        // Cargar etiquetas disponibles y datos del contacto en paralelo (usando ID)
+        Promise.all([
+            fetch('/api/tags').then(r => r.json()).catch(() => []),
+            fetch(`/api/contacts/${contactId}`).then(r => r.json())
+        ]).then(([tags, data]) => {
+            editAvailableTags = tags.map(t => t.name);
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Guardar';
+
+            if (data.details) {
+                const d = data.details;
+                // Guardar el ID externo y teléfono actual
+                document.getElementById('edit-contact-id').value = d.contact_id || '';
+                document.getElementById('edit-phone').value = d.phone_number || '';
+
+                // Si tiene first/last name, usar esos; sino poner name en first_name
+                if (d.first_name || d.last_name) {
+                    document.getElementById('edit-first-name').value = d.first_name || '';
+                    document.getElementById('edit-last-name').value = d.last_name || '';
+                } else if (d.name) {
+                    document.getElementById('edit-first-name').value = d.name;
                 }
-            });
-        })();
+                document.getElementById('edit-notes').value = d.notes || '';
 
-        function toggleCustomFields() {
-            const section = document.getElementById('custom-fields-section');
-            const chevron = document.getElementById('custom-fields-chevron');
-            const isHidden = section.classList.contains('hidden');
-            section.classList.toggle('hidden');
-            chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+                editSelectedTags = d.tags || [];
+                renderEditTagPills();
+
+                // Campos personalizados
+                let hasCustom = false;
+                for (let i = 1; i <= 7; i++) {
+                    const val = d[`custom_field_${i}`] || '';
+                    document.getElementById(`edit-custom-${i}`).value = val;
+                    if (val) hasCustom = true;
+                }
+                // Auto-abrir campos personalizados si alguno tiene valor
+                if (hasCustom) {
+                    document.getElementById('custom-fields-section').classList.remove('hidden');
+                    document.getElementById('custom-fields-chevron').style.transform = 'rotate(180deg)';
+                }
+            }
+        }).catch(() => {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Guardar';
+        });
+    }
+
+    function closeModal() {
+        document.getElementById('contactModal').classList.add('hidden');
+        document.getElementById('edit-tags-dropdown').classList.add('hidden');
+    }
+
+    function saveContact() {
+        const contactId = document.getElementById('edit-id').value;
+        const externalId = document.getElementById('edit-contact-id').value.trim();
+        const phone = document.getElementById('edit-phone').value.trim();
+        const firstName = document.getElementById('edit-first-name').value.trim();
+        const lastName = document.getElementById('edit-last-name').value.trim();
+        const name = [firstName, lastName].filter(Boolean).join(' ');
+        const notes = document.getElementById('edit-notes').value.trim();
+
+        // Validar teléfono
+        if (!phone) {
+            alert('El teléfono es requerido');
+            return;
         }
 
-        function openEditModal(contactId) {
-            const modal = document.getElementById('contactModal');
-            const saveBtn = document.getElementById('save-btn');
+        const payload = {
+            contact_id: externalId || null,  // ID externo editable
+            phone_number: phone,  // Incluir teléfono para permitir cambios
+            name,
+            first_name: firstName,
+            last_name: lastName,
+            notes,
+            tags: editSelectedTags
+        };
+        for (let i = 1; i <= 7; i++) {
+            payload[`custom_field_${i}`] = document.getElementById(`edit-custom-${i}`).value.trim();
+        }
 
-            modal.classList.remove('hidden');
-            document.getElementById('edit-id').value = contactId;
-            document.getElementById('edit-contact-id').value = '';
-            document.getElementById('edit-phone').value = '';
+        const saveBtn = document.getElementById('save-btn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Guardando...';
 
-            // Limpiar todos los campos
-            document.getElementById('edit-first-name').value = '';
-            document.getElementById('edit-last-name').value = '';
-            document.getElementById('edit-notes').value = '';
-            document.getElementById('edit-tags-input').value = '';
-            document.getElementById('edit-tags-dropdown').classList.add('hidden');
-            document.getElementById('custom-fields-section').classList.add('hidden');
-            document.getElementById('custom-fields-chevron').style.transform = '';
-            for (let i = 1; i <= 7; i++) {
-                document.getElementById(`edit-custom-${i}`).value = '';
-            }
-            editSelectedTags = [];
-            renderEditTagPills();
-
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Cargando...';
-
-            // Cargar etiquetas disponibles y datos del contacto en paralelo (usando ID)
-            Promise.all([
-                fetch('/api/tags').then(r => r.json()).catch(() => []),
-                fetch(`/api/contacts/${contactId}`).then(r => r.json())
-            ]).then(([tags, data]) => {
-                editAvailableTags = tags.map(t => t.name);
+        // Usar ID para la llamada API (permite cambiar el teléfono)
+        fetch(`/api/contacts/${contactId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(r => r.json())
+            .then(data => {
                 saveBtn.disabled = false;
                 saveBtn.textContent = 'Guardar';
-
-                if (data.details) {
-                    const d = data.details;
-                    // Guardar el ID externo y teléfono actual
-                    document.getElementById('edit-contact-id').value = d.contact_id || '';
-                    document.getElementById('edit-phone').value = d.phone_number || '';
-
-                    // Si tiene first/last name, usar esos; sino poner name en first_name
-                    if (d.first_name || d.last_name) {
-                        document.getElementById('edit-first-name').value = d.first_name || '';
-                        document.getElementById('edit-last-name').value = d.last_name || '';
-                    } else if (d.name) {
-                        document.getElementById('edit-first-name').value = d.name;
+                if (data.success) {
+                    // Actualizar fila en la tabla usando el ID
+                    const row = document.querySelector(`tr[data-id="${contactId}"]`);
+                    if (row) {
+                        const cells = row.querySelectorAll('td');
+                        // cells[0] = checkbox, cells[1] = ID Externo, cells[2] = Nombre, cells[3] = Teléfono, cells[4] = Etiquetas, cells[5] = Notas
+                        // Actualizar ID Externo
+                        cells[1].textContent = externalId || '-';
+                        // Actualizar Nombre
+                        const avatar = cells[2].querySelector('div > div');
+                        const nameSpan = cells[2].querySelector('span');
+                        const displayName = name || '-';
+                        if (avatar) avatar.textContent = name ? name[0] : phone.slice(-2);
+                        if (nameSpan) nameSpan.textContent = displayName;
+                        // Actualizar teléfono en la celda
+                        cells[3].textContent = phone;
+                        // Actualizar Etiquetas
+                        cells[4].innerHTML = '<div class="flex flex-wrap gap-1">' + editSelectedTags.map(t =>
+                            `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">${escapeHtml(t)}</span>`
+                        ).join('') + '</div>';
+                        // Actualizar Notas
+                        cells[5].textContent = notes || '-';
+                        // Actualizar data attributes
+                        row.dataset.contactId = externalId || '';
+                        row.dataset.phone = phone;
+                        row.dataset.search = `${externalId || ''} ${name} ${phone} ${editSelectedTags.join(' ')}`;
+                        // Actualizar checkbox value y link de chat
+                        const checkbox = row.querySelector('.row-checkbox');
+                        if (checkbox) checkbox.value = phone;
+                        const chatLink = row.querySelector('.chat-link');
+                        if (chatLink) chatLink.href = `/dashboard?phone=${phone}`;
                     }
-                    document.getElementById('edit-notes').value = d.notes || '';
-
-                    editSelectedTags = d.tags || [];
-                    renderEditTagPills();
-
-                    // Campos personalizados
-                    let hasCustom = false;
-                    for (let i = 1; i <= 7; i++) {
-                        const val = d[`custom_field_${i}`] || '';
-                        document.getElementById(`edit-custom-${i}`).value = val;
-                        if (val) hasCustom = true;
-                    }
-                    // Auto-abrir campos personalizados si alguno tiene valor
-                    if (hasCustom) {
-                        document.getElementById('custom-fields-section').classList.remove('hidden');
-                        document.getElementById('custom-fields-chevron').style.transform = 'rotate(180deg)';
-                    }
+                    closeModal();
+                    loadTags();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown'));
                 }
-            }).catch(() => {
-                saveBtn.disabled = false;
-                saveBtn.textContent = 'Guardar';
-            });
-        }
-
-        function closeModal() {
-            document.getElementById('contactModal').classList.add('hidden');
-            document.getElementById('edit-tags-dropdown').classList.add('hidden');
-        }
-
-        function saveContact() {
-            const contactId = document.getElementById('edit-id').value;
-            const externalId = document.getElementById('edit-contact-id').value.trim();
-            const phone = document.getElementById('edit-phone').value.trim();
-            const firstName = document.getElementById('edit-first-name').value.trim();
-            const lastName = document.getElementById('edit-last-name').value.trim();
-            const name = [firstName, lastName].filter(Boolean).join(' ');
-            const notes = document.getElementById('edit-notes').value.trim();
-
-            // Validar teléfono
-            if (!phone) {
-                alert('El teléfono es requerido');
-                return;
-            }
-
-            const payload = {
-                contact_id: externalId || null,  // ID externo editable
-                phone_number: phone,  // Incluir teléfono para permitir cambios
-                name,
-                first_name: firstName,
-                last_name: lastName,
-                notes,
-                tags: editSelectedTags
-            };
-            for (let i = 1; i <= 7; i++) {
-                payload[`custom_field_${i}`] = document.getElementById(`edit-custom-${i}`).value.trim();
-            }
-
-            const saveBtn = document.getElementById('save-btn');
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Guardando...';
-
-            // Usar ID para la llamada API (permite cambiar el teléfono)
-            fetch(`/api/contacts/${contactId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
             })
-                .then(r => r.json())
-                .then(data => {
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = 'Guardar';
-                    if (data.success) {
-                        // Actualizar fila en la tabla usando el ID
-                        const row = document.querySelector(`tr[data-id="${contactId}"]`);
-                        if (row) {
-                            const cells = row.querySelectorAll('td');
-                            // cells[0] = checkbox, cells[1] = ID Externo, cells[2] = Nombre, cells[3] = Teléfono, cells[4] = Etiquetas, cells[5] = Notas
-                            // Actualizar ID Externo
-                            cells[1].textContent = externalId || '-';
-                            // Actualizar Nombre
-                            const avatar = cells[2].querySelector('div > div');
-                            const nameSpan = cells[2].querySelector('span');
-                            const displayName = name || '-';
-                            if (avatar) avatar.textContent = name ? name[0] : phone.slice(-2);
-                            if (nameSpan) nameSpan.textContent = displayName;
-                            // Actualizar teléfono en la celda
-                            cells[3].textContent = phone;
-                            // Actualizar Etiquetas
-                            cells[4].innerHTML = '<div class="flex flex-wrap gap-1">' + editSelectedTags.map(t =>
-                                `<span class="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">${escapeHtml(t)}</span>`
-                            ).join('') + '</div>';
-                            // Actualizar Notas
-                            cells[5].textContent = notes || '-';
-                            // Actualizar data attributes
-                            row.dataset.contactId = externalId || '';
-                            row.dataset.phone = phone;
-                            row.dataset.search = `${externalId || ''} ${name} ${phone} ${editSelectedTags.join(' ')}`;
-                            // Actualizar checkbox value y link de chat
-                            const checkbox = row.querySelector('.row-checkbox');
-                            if (checkbox) checkbox.value = phone;
-                            const chatLink = row.querySelector('.chat-link');
-                            if (chatLink) chatLink.href = `/dashboard?phone=${phone}`;
-                        }
-                        closeModal();
-                        loadTags();
-                    } else {
-                        alert('Error: ' + (data.error || 'Unknown'));
-                    }
-                })
-                .catch(e => {
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = 'Guardar';
-                    alert('Error: ' + e.message);
-                });
-        }
-    </script>
+            .catch(e => {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Guardar';
+                alert('Error: ' + e.message);
+            });
+    }
+</script>
 {% endblock %}

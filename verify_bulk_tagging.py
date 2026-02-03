@@ -36,20 +36,11 @@ def verify_bulk_tagging():
         db.session.commit()
         print("Contacts created.")
 
-        # Create Excel file
-        data = []
-        for i in range(COUNT):
-            data.append({
-                "Contact ID": f"{CONTACT_PREFIX}{i}",
-                "Telefono": str(base_phone + i)
-            })
-        
-        df = pd.DataFrame(data)
-        csv_buffer = io.BytesIO()
-        df.to_csv(csv_buffer, index=False)
-        csv_buffer.seek(0)
-        
-        print("--- Starting Bulk Tagging Request ---")
+        # Get IDs back
+        contacts = Contact.query.filter(Contact.contact_id.like(f'{CONTACT_PREFIX}%')).all()
+        contact_ids = [c.id for c in contacts]
+
+        print("--- Starting Bulk Tagging Request (UI Endpoint) ---")
         client = app.test_client()
         
         # MOCK LOGIN
@@ -59,12 +50,12 @@ def verify_bulk_tagging():
         start_time = time.time()
         
         data = {
-            'file': (csv_buffer, 'tag_test.csv'),
-            'tag_name': TEST_TAG,
+            'contact_ids': contact_ids,
+            'tag': TEST_TAG,
             'action': 'add'
         }
         
-        response = client.post('/api/tags/bulk-action', data=data, content_type='multipart/form-data')
+        response = client.post('/api/contacts/bulk-tags', json=data)
         
         end_time = time.time()
         duration = end_time - start_time
