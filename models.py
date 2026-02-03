@@ -186,4 +186,9 @@ class CampaignLog(db.Model):
     error_detail = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Restricción única para evitar duplicados por campaña/contacto
+    __table_args__ = (
+        db.UniqueConstraint('campaign_id', 'contact_id', name='uq_campaign_contact_log'),
+    )
+
     contact = db.relationship('Contact', backref='campaign_logs', foreign_keys=[contact_id])
