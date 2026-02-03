@@ -11,6 +11,7 @@ import threading
 import time as time_module
 from event_handlers import process_event
 from sqlalchemy import func, or_
+from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta, timezone
 import logging
 import pytz
@@ -1400,7 +1401,7 @@ def api_tags_bulk_action():
 
         # Fetch por Contact ID
         if all_contact_ids:
-            results_cid = Contact.query.filter(Contact.contact_id.in_(all_contact_ids)).all()
+            results_cid = Contact.query.options(joinedload(Contact.tags)).filter(Contact.contact_id.in_(all_contact_ids)).all()
             for c in results_cid:
                 existing_contacts_by_cid[c.contact_id] = c
                 existing_contacts_by_phone[c.phone_number] = c  # Indexar también por teléfono
@@ -1408,7 +1409,7 @@ def api_tags_bulk_action():
         # Fetch por Phone (evitando duplicados)
         phones_to_fetch = all_phones - set(existing_contacts_by_phone.keys())
         if phones_to_fetch:
-             results_phone = Contact.query.filter(Contact.phone_number.in_(phones_to_fetch)).all()
+             results_phone = Contact.query.options(joinedload(Contact.tags)).filter(Contact.phone_number.in_(phones_to_fetch)).all()
              for c in results_phone:
                  existing_contacts_by_phone[c.phone_number] = c
                  if c.contact_id:
