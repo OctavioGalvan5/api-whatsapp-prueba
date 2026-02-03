@@ -10,7 +10,7 @@ from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campa
 import threading
 import time as time_module
 from event_handlers import process_event
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_, and_, text
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta, timezone
 import logging
