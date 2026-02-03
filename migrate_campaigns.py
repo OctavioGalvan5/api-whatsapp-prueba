@@ -5,7 +5,7 @@ from app import app, db
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+# probando
 def add_column_if_not_exists(table_name, column_name, column_type):
     """Agrega una columna a una tabla si no existe."""
     with app.app_context():
