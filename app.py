@@ -196,7 +196,7 @@ def dashboard():
             .limit(MESSAGE_LIMIT).all()
         messages = sorted(recent_messages, key=lambda m: m.timestamp)
         
-        contact_details = Contact.query.get(selected_phone)
+        contact_details = Contact.query.filter_by(phone_number=selected_phone).first()
         
         # Estadísticas del contacto (estas sí pueden requerir contar todos, o podemos estimar)
         # Para mantener rendimiento, calculamos stats solo de lo que traemos o hacemos count query aparte si es crítico
@@ -592,7 +592,7 @@ def register_contact_if_new(phone_number, name=None):
         if not phone_number or phone_number in ['unknown', 'outbound', '']:
             return
             
-        contact = Contact.query.get(phone_number)
+        contact = Contact.query.filter_by(phone_number=phone_number).first()
         if not contact:
             new_contact = Contact(phone_number=phone_number, name=name)
             db.session.add(new_contact)
@@ -1058,7 +1058,7 @@ def api_get_messages(phone):
         messages = sorted(recent_messages, key=lambda m: m.timestamp)
         
         # Obtener info de contacto
-        contact = Contact.query.get(phone)
+        contact = Contact.query.filter_by(phone_number=phone).first()
         contact_dict = contact.to_dict() if contact else None
         
         # Calcular stats básicos
@@ -1630,7 +1630,7 @@ def api_send_template():
     components = data.get("components") # Permitir componentes manuales si se envían
     
     if variable_mapping and not components:
-        contact = Contact.query.get(to_phone)
+        contact = Contact.query.filter_by(phone_number=to_phone).first()
         parameters = []
         
         for field in variable_mapping:

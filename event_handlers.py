@@ -49,7 +49,7 @@ def save_message(wa_message_id, phone_number, direction, message_type, content, 
             # --- AUTO REGISTRO DE CONTACTO (Con manejo de Race Condition) ---
             if phone_number and phone_number not in ['unknown', 'outbound', '']:
                 # Intentar buscar primero
-                contact = Contact.query.get(phone_number)
+                contact = Contact.query.filter_by(phone_number=phone_number).first()
                 if not contact:
                     try:
                         # Intentar crear y commitear inmediatamente solo el contacto
