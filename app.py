@@ -10,7 +10,7 @@ from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campa
 import threading
 import time as time_module
 from event_handlers import process_event
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime, timedelta, timezone
 import logging
 import pytz
@@ -1123,17 +1123,41 @@ def api_get_messages(phone):
 
 @app.route("/contacts")
 def contacts_page():
-    """Página para ver listado de contactos."""
+    """Página para ver listado de contactos con paginación y búsqueda."""
     tag_filter = request.args.get('tag')
+    search_query = request.args.get('search', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
 
+    # Base query
+    query = Contact.query
+
+    # Apply tag filter
     if tag_filter:
-        contacts = Contact.query.filter(
-            Contact.tags.any(Tag.name == tag_filter)
-        ).order_by(Contact.created_at.desc()).limit(500).all()
-    else:
-        contacts = Contact.query.order_by(Contact.created_at.desc()).limit(500).all()
+        query = query.filter(Contact.tags.any(Tag.name == tag_filter))
 
-    return render_template('contacts.html', contacts=contacts, tag_filter=tag_filter)
+    # Apply search filter
+    if search_query:
+        search_pattern = f"%{search_query}%"
+        query = query.filter(
+            or_(
+                Contact.name.ilike(search_pattern),
+                Contact.phone_number.ilike(search_pattern),
+                Contact.contact_id.ilike(search_pattern)
+            )
+        )
+
+    # Order and paginate
+    query = query.order_by(Contact.created_at.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    return render_template(
+        'contacts.html',
+        contacts=pagination.items,
+        pagination=pagination,
+        tag_filter=tag_filter,
+        search_query=search_query
+    )
 
 @app.route("/tags")
 def tags_page():
