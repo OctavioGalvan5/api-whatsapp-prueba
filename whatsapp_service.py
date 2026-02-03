@@ -6,9 +6,13 @@ import logging
 import time
 import os
 import mimetypes
+import urllib3
 import boto3
 from botocore.client import Config as BotoConfig
 from config import Config
+
+# Suprimir warnings de SSL para certificados self-signed (MinIO)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +39,8 @@ def get_s3_client():
             aws_access_key_id=Config.MINIO_ACCESS_KEY,
             aws_secret_access_key=Config.MINIO_SECRET_KEY,
             config=BotoConfig(signature_version='s3v4'),
-            region_name='us-east-1'
+            region_name='us-east-1',
+            verify=False  # Deshabilitar verificación SSL para certificados self-signed
         )
         logger.info(f"✅ Cliente MinIO inicializado: {endpoint_url}")
     return _s3_client
