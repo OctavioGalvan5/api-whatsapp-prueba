@@ -2229,6 +2229,7 @@ def api_export_campaign_stats(campaign_id):
             contact = l.contact or Contact.query.get(l.contact_id)
             data.append({
                 'Telefono': l.contact_phone,
+                'ID Cliente': contact.contact_id if contact else '',
                 'Nombre Completo': contact.name if contact else '',
                 'Nombre': contact.first_name if contact else '',
                 'Apellido': contact.last_name if contact else '',
