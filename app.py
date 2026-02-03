@@ -708,7 +708,7 @@ def api_contact_detail(identifier):
 @app.route("/api/contacts/import", methods=["POST"])
 
 def api_import_contacts():
-    """Importar contactos desde Excel/CSV con mapeo estricto.
+    """Importar contactos desde Excel/CSV con mapeo estricto y optimización por lotes.
 
     Prioridad de búsqueda:
     1. Si existe columna ID y tiene valor → buscar por ID (permite cambiar teléfono)
@@ -760,11 +760,6 @@ def api_import_contacts():
             'Campo 7': 'custom_field_7'
         }
 
-        count = 0
-        updated = 0
-        phone_updated = 0
-        errors = []
-
         # Pre-calcular tag de importación
         import_tag = None
         import_tag_name = request.form.get('assign_tag', '').strip()
@@ -775,80 +770,142 @@ def api_import_contacts():
                 db.session.add(import_tag)
                 db.session.flush()
 
+        # =====================================================
+        # OPTIMIZACIÓN POR LOTES (BATCH PROCESSING)
+        # =====================================================
+        
+        # 1. Recolectar todos los identificadores del archivo para hacer un solo query
+        all_contact_ids = set()
+        all_phones = set()
+        all_internal_ids = set()
+        
+        # Normalizar datos en el dataframe para facilitar procesamiento
+        # Convertir a string y limpiar
+        df['clean_phone'] = df[phone_col].apply(lambda x: str(x).replace('.0', '').strip() if pd.notna(x) else '')
+        
+        if contact_id_col:
+            df['clean_contact_id'] = df[contact_id_col].apply(lambda x: str(x).strip() if pd.notna(x) else None)
+            all_contact_ids = set(df['clean_contact_id'].dropna().unique())
+            # Eliminar strings vacíos
+            all_contact_ids = {cid for cid in all_contact_ids if cid}
+            
+        if id_col:
+            # IDs internos suelen ser enteros
+            def clean_id(x):
+                try: 
+                    return int(float(x)) 
+                except: 
+                    return None
+            df['clean_internal_id'] = df[id_col].apply(clean_id)
+            all_internal_ids = set(df['clean_internal_id'].dropna().unique())
+
+        all_phones = set(df['clean_phone'].dropna().unique())
+        all_phones = {p for p in all_phones if p} # Eliminar vacíos
+        
+        # 2. Pre-cargar contactos existentes de la base de datos
+        existing_contacts_by_cid = {}
+        existing_contacts_by_phone = {}
+        existing_contacts_by_iid = {}
+        
+        # Buscar por Contact ID
+        if all_contact_ids:
+            results_cid = Contact.query.filter(Contact.contact_id.in_(all_contact_ids)).all()
+            for c in results_cid:
+                existing_contacts_by_cid[c.contact_id] = c
+                existing_contacts_by_phone[c.phone_number] = c # También indexar por tel para evitar dups
+                existing_contacts_by_iid[c.id] = c
+
+        # Buscar por Phone (que no hayamos traído ya)
+        phones_to_fetch = all_phones - set(existing_contacts_by_phone.keys())
+        if phones_to_fetch:
+            # Optimización: Consultar en chunks si son muchísimos (>1000)
+            # SQLAlchemy maneja bien IN clauses grandes pero postgres tiene límites de parámetros (~65k)
+            # Para 3000 filas es seguro hacerlo de una vez
+            results_phone = Contact.query.filter(Contact.phone_number.in_(phones_to_fetch)).all()
+            for c in results_phone:
+                existing_contacts_by_phone[c.phone_number] = c
+                if c.contact_id: existing_contacts_by_cid[c.contact_id] = c
+                existing_contacts_by_iid[c.id] = c
+                
+        # Buscar por Internal ID (fallback)
+        ids_to_fetch = all_internal_ids - set(existing_contacts_by_iid.keys())
+        if ids_to_fetch:
+            results_iid = Contact.query.filter(Contact.id.in_(ids_to_fetch)).all()
+            for c in results_iid:
+                existing_contacts_by_iid[c.id] = c
+                existing_contacts_by_phone[c.phone_number] = c
+                if c.contact_id: existing_contacts_by_cid[c.contact_id] = c
+
+        count = 0
+        updated = 0
+        phone_updated = 0
+        errors = []
+        
+        # 3. Procesar filas en memoria
         for idx, row in df.iterrows():
-            # Procesar teléfono
-            raw_phone = row[phone_col]
-            if pd.isna(raw_phone) or str(raw_phone).strip() == '':
+            phone = row['clean_phone']
+            if not phone:
                 continue
 
-            phone = str(raw_phone).replace('.0', '').strip()
-
-            # =====================================================
-            # BUSCAR CONTACTO - PRIORIDAD:
-            # 1. Contact ID externo (PRINCIPAL para integraciones)
-            # 2. ID interno (compatibilidad)
-            # 3. Teléfono (fallback)
-            # =====================================================
             contact = None
-            is_new = False
-            found_by = None  # 'contact_id', 'id', 'phone'
-
-            # 1. PRIORIDAD: Buscar por Contact ID externo
-            if contact_id_col and pd.notna(row.get(contact_id_col)):
-                ext_id = str(row[contact_id_col]).strip()
-                if ext_id:
-                    contact = Contact.query.filter_by(contact_id=ext_id).first()
-                    if contact:
-                        found_by = 'contact_id'
-
-            # 2. Si no se encontró, buscar por ID interno
-            if not contact and id_col and pd.notna(row.get(id_col)):
-                try:
-                    row_id = int(float(row[id_col]))
-                    contact = Contact.query.get(row_id)
-                    if contact:
-                        found_by = 'id'
-                except (ValueError, TypeError):
-                    pass
-
-            # 3. Fallback: buscar por teléfono (SOLO si no se proveyó Contact ID ni ID interno)
-            # Si se proveyó Contact ID y no se encontró, se debe crear uno nuevo, NO asociar a otro teléfono existente
-            if not contact and (not contact_id_col or pd.isna(row.get(contact_id_col))):
-                contact = Contact.query.filter_by(phone_number=phone).first()
-                if contact:
-                    found_by = 'phone'
-
-            if not contact:
-                # Validar que tenga Client ID (contact_id) para crear
-                has_contact_id = False
-                if contact_id_col and pd.notna(row.get(contact_id_col)):
-                    ext_id = str(row[contact_id_col]).strip()
-                    if ext_id:
-                        has_contact_id = True
+            found_by = None
+            
+            # A. Buscar en memoria
+            # 1. Contact ID
+            ext_id = row.get('clean_contact_id') if contact_id_col else None
+            if ext_id and ext_id in existing_contacts_by_cid:
+                contact = existing_contacts_by_cid[ext_id]
+                found_by = 'contact_id'
+            
+            # 2. Internal ID
+            int_id = row.get('clean_internal_id') if id_col else None
+            if not contact and int_id and int_id in existing_contacts_by_iid:
+                contact = existing_contacts_by_iid[int_id]
+                found_by = 'id'
                 
-                if not has_contact_id:
+            # 3. Phone
+            if not contact and phone in existing_contacts_by_phone:
+                contact = existing_contacts_by_phone[phone]
+                found_by = 'phone'
+            
+            is_new = False
+            
+            if not contact:
+                # CREACIÓN
+                
+                # Validar Client ID obligatorio
+                if not ext_id: # ext_id ya está limpio y verificado
                     errors.append(f"Fila {idx+2}: Ignorado - Se requiere Client ID (contact_id) para crear nuevos contactos")
                     continue
-
-                # Crear nuevo contacto
+                
+                # Crear nuevo
                 contact = Contact(phone_number=phone)
-                # Asignar contact_id si viene en el Excel
-                if contact_id_col and pd.notna(row.get(contact_id_col)):
-                    ext_id = str(row[contact_id_col]).strip()
-                    if ext_id:
-                        contact.contact_id = ext_id
+                contact.contact_id = ext_id
+                
                 db.session.add(contact)
+                
+                # Actualizar índices en memoria para futuras filas en este mismo loop (por si hay reps)
+                existing_contacts_by_cid[ext_id] = contact
+                existing_contacts_by_phone[phone] = contact
+                
                 is_new = True
                 count += 1
             else:
-                # Actualizar contacto existente
-                # Si se encontró por contact_id o id interno → permitir cambiar teléfono
+                # ACTUALIZACIÓN
                 if found_by in ('contact_id', 'id') and contact.phone_number != phone:
-                    # Permitir duplicados: No verificamos si existe otro contacto con ese número
                     old_phone = contact.phone_number
+                    # Actualizar índice en memoria: quitar el viejo teléfono
+                    if old_phone in existing_contacts_by_phone:
+                        # Solo si apunta a este contacto (cuidado con colisiones)
+                        if existing_contacts_by_phone[old_phone] == contact:
+                            del existing_contacts_by_phone[old_phone]
+                            
                     contact.phone_number = phone
+                    # Actualizar índice con nuevo teléfono
+                    existing_contacts_by_phone[phone] = contact
+                    
                     phone_updated += 1
-                    logger.info(f"📱 Teléfono actualizado [{contact.contact_id or contact.id}]: {old_phone} → {phone}")
+                    # logger.info(...) # Evitar exceso de logs en loop
                 updated += 1
 
             # Actualizar campos mapeados
@@ -858,25 +915,32 @@ def api_import_contacts():
                     if pd.notna(val):
                         setattr(contact, model_attr, str(val))
 
-            # Asignar contact_id si el contacto fue encontrado por teléfono o ID interno
-            # (si fue encontrado por contact_id, ya tiene el correcto)
-            if found_by in ('phone', 'id') and contact_id_col and contact_id_col in df.columns:
-                ext_id = row[contact_id_col]
-                if pd.notna(ext_id) and str(ext_id).strip():
-                    new_ext_id = str(ext_id).strip()
-                    if new_ext_id != contact.contact_id:
-                        # Verificar que no exista en otro contacto
-                        existing = Contact.query.filter_by(contact_id=new_ext_id).first()
-                        if existing and existing.id != contact.id:
-                            errors.append(f"Fila {idx+2}: El Contact ID '{new_ext_id}' ya existe en otro contacto")
-                        else:
-                            contact.contact_id = new_ext_id
-                            logger.info(f"🆔 Contact ID asignado: {new_ext_id} → Tel: {contact.phone_number}")
+            # Actualizar Contact ID si fue encontrado por teléfono y el archivo tiene uno nuevo
+            if found_by in ('phone', 'id') and ext_id:
+                if ext_id != contact.contact_id:
+                    # Verificar unicidad (en los ya cargados o en DB)
+                    # Si ya existe otro contacto con ese ID en memoria...
+                    if ext_id in existing_contacts_by_cid and existing_contacts_by_cid[ext_id] != contact:
+                         errors.append(f"Fila {idx+2}: El Contact ID '{ext_id}' ya existe en otro contacto")
+                    else:
+                        contact.contact_id = ext_id
+                        existing_contacts_by_cid[ext_id] = contact # Actualizar índice
 
-            # Tag asignado desde el formulario
-            if import_tag and import_tag not in contact.tags:
-                contact.tags.append(import_tag)
+            # Asignar tag
+            if import_tag:
+                # Verificar si ya tiene el tag. 
+                # Nota: acceder a contact.tags dispara query si no está cargado.
+                # Para optimización extrema se podría hacer eager loading al principio join tags.
+                # Al ser lazy='select', esto hará N queries si son updates. 
+                # Pero como SQLAlchemy tiene identity map, si ya cargamos tags quizas reusa.
+                # Una optimización simple: si es nuevo, append directo.
+                if is_new:
+                    contact.tags.append(import_tag)
+                else:
+                    if import_tag not in contact.tags:
+                        contact.tags.append(import_tag)
 
+        # 4. Commit masivo
         db.session.commit()
 
         message = f'Procesados {count + updated} contactos ({count} nuevos, {updated} actualizados)'
@@ -885,7 +949,7 @@ def api_import_contacts():
 
         result = {'success': True, 'message': message}
         if errors:
-            result['warnings'] = errors
+            result['warnings'] = errors[:100] # Limitar warnings para no saturar respuesta
 
         return jsonify(result)
 
@@ -1273,7 +1337,7 @@ def api_bulk_tags():
 
 @app.route("/api/tags/bulk-action", methods=["POST"])
 def api_tags_bulk_action():
-    """Agregar o quitar etiqueta de múltiples contactos via archivo Excel/CSV."""
+    """Agregar o quitar etiqueta de múltiples contactos via archivo Excel/CSV con optimización por lotes."""
     tag_name = request.form.get('tag_name', '').strip()
     action = request.form.get('action', '').strip()
 
@@ -1291,14 +1355,14 @@ def api_tags_bulk_action():
             df = pd.read_excel(file)
 
         # Normalizar columnas
-        df.columns = [c.lower().strip() for c in df.columns]
+        df.columns = [str(c).lower().strip() for c in df.columns]
 
         # Buscar columna de Contact ID (PRIORIDAD)
         contact_id_candidates = ['contact id', 'contact_id', 'contactid', 'id externo', 'external_id']
         contact_id_col = next((c for c in df.columns if c in contact_id_candidates), None)
 
         # Buscar columna de teléfono (fallback)
-        phone_candidates = ['telefono', 'phone', 'phone_number', 'numero']
+        phone_candidates = ['telefono', 'phone', 'phone_number', 'numero', 'celular']
         phone_col = next((c for c in df.columns if c in phone_candidates), None)
 
         if not contact_id_col and not phone_col:
@@ -1313,30 +1377,71 @@ def api_tags_bulk_action():
             db.session.add(tag)
             db.session.flush()
 
+        # =====================================================
+        # OPTIMIZACIÓN POR LOTES
+        # =====================================================
+
+        # 1. Recolectar identificadores
+        all_contact_ids = set()
+        all_phones = set()
+
+        # Limpiar datos
+        if contact_id_col:
+            df['clean_contact_id'] = df[contact_id_col].apply(lambda x: str(x).strip() if pd.notna(x) else None)
+            all_contact_ids = {cid for cid in df['clean_contact_id'].dropna().unique() if cid}
+
+        if phone_col:
+            df['clean_phone'] = df[phone_col].apply(lambda x: str(x).replace('.0', '').strip() if pd.notna(x) else '')
+            all_phones = {p for p in df['clean_phone'].dropna().unique() if p}
+
+        # 2. Batch Fetch de contactos existentes
+        existing_contacts_by_cid = {}
+        existing_contacts_by_phone = {}
+
+        # Fetch por Contact ID
+        if all_contact_ids:
+            results_cid = Contact.query.filter(Contact.contact_id.in_(all_contact_ids)).all()
+            for c in results_cid:
+                existing_contacts_by_cid[c.contact_id] = c
+                existing_contacts_by_phone[c.phone_number] = c  # Indexar también por teléfono
+
+        # Fetch por Phone (evitando duplicados)
+        phones_to_fetch = all_phones - set(existing_contacts_by_phone.keys())
+        if phones_to_fetch:
+             results_phone = Contact.query.filter(Contact.phone_number.in_(phones_to_fetch)).all()
+             for c in results_phone:
+                 existing_contacts_by_phone[c.phone_number] = c
+                 if c.contact_id:
+                     existing_contacts_by_cid[c.contact_id] = c
+
         added = 0
         removed = 0
         skipped = 0
         not_found = 0
 
+        # 3. Procesar en memoria
         for _, row in df.iterrows():
             contact = None
 
-            # 1. PRIORIDAD: Buscar por Contact ID
-            if contact_id_col and pd.notna(row.get(contact_id_col)):
-                ext_id = str(row[contact_id_col]).strip()
-                if ext_id:
-                    contact = Contact.query.filter_by(contact_id=ext_id).first()
-
-            # 2. Fallback: Buscar por teléfono
-            if not contact and phone_col and pd.notna(row.get(phone_col)):
-                phone = str(row[phone_col]).replace('.0', '').strip()
-                if phone:
-                    contact = Contact.query.filter_by(phone_number=phone).first()
+            # Buscar
+            if contact_id_col:
+                ext_id = row.get('clean_contact_id')
+                if ext_id and ext_id in existing_contacts_by_cid:
+                    contact = existing_contacts_by_cid[ext_id]
+            
+            if not contact and phone_col:
+                phone = row.get('clean_phone')
+                if phone and phone in existing_contacts_by_phone:
+                    contact = existing_contacts_by_phone[phone]
 
             if not contact:
                 not_found += 1
                 continue
 
+            # Nota: Acceder a contact.tags puede disparar lazy loads si no están cargados.
+            # Sin embargo, Identity Map de SQLAlchemy ayuda.
+            # Para optimización máxima, se debería cargar con joinedload, pero batch fetch es el mayor paso.
+            
             if action == 'add':
                 if tag not in contact.tags:
                     contact.tags.append(tag)
@@ -1345,12 +1450,14 @@ def api_tags_bulk_action():
                     skipped += 1
             elif action == 'remove':
                 if tag in contact.tags:
+                    # Remover tag de la lista
                     contact.tags = [t for t in contact.tags if t.id != tag.id]
                     removed += 1
                 else:
                     skipped += 1
 
         db.session.commit()
+        
         return jsonify({
             'success': True,
             'added': added,
