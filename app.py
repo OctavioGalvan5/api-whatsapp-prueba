@@ -1204,7 +1204,7 @@ def contacts_page():
     exclude_tag = request.args.get('exclude_tag')
     search_query = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
 
     # Base query
     query = Contact.query
@@ -2086,18 +2086,32 @@ def api_send_campaign(campaign_id):
     # Crear logs pendientes - SUPER OPTIMIZADO CON SQL DIRECTO
     # Inserta todos los logs en una sola operación SQL sin cargar contactos en Python
     now = datetime.utcnow()
-    db.session.execute(text("""
-        INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
-        SELECT :cid, c.id, c.phone_number, 'pending', :now
-        FROM whatsapp_contacts c
-        JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
-        WHERE ct.tag_id = :tid
-        AND NOT EXISTS (
-            SELECT 1 FROM whatsapp_campaign_logs cl 
-            WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
-        )
-    """), {'cid': campaign.id, 'tid': campaign.tag_id, 'now': now})
-    db.session.commit()
+    try:
+        result = db.session.execute(text("""
+            INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
+            SELECT :cid, c.id, c.phone_number, 'pending', :now
+            FROM whatsapp_contacts c
+            JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
+            WHERE ct.tag_id = :tid
+            AND NOT EXISTS (
+                SELECT 1 FROM whatsapp_campaign_logs cl 
+                WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
+            )
+        """), {'cid': campaign.id, 'tid': campaign.tag_id, 'now': now})
+        db.session.commit()
+        logger.info(f"📊 Logs creados para campaña {campaign.id}, tag {campaign.tag_id}, contactos: {contact_count}, insertados: {result.rowcount}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error creando logs para campaña {campaign.id}: {e}")
+        # Fallback: método anterior
+        contacts = Contact.query.filter(Contact.tags.any(Tag.id == campaign.tag_id)).all()
+        for contact in contacts:
+            existing = CampaignLog.query.filter_by(campaign_id=campaign.id, contact_id=contact.id).first()
+            if not existing:
+                log = CampaignLog(campaign_id=campaign.id, contact_id=contact.id, contact_phone=contact.phone_number, status='pending')
+                db.session.add(log)
+        db.session.commit()
+        logger.info(f"📊 Logs creados con fallback para campaña {campaign.id}")
 
     ctx = app.app_context()
     t = threading.Thread(target=send_campaign_bg, args=(ctx, campaign.id))
