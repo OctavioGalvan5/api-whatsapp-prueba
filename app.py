@@ -2048,18 +2048,27 @@ def api_send_campaign(campaign_id):
     campaign.started_at = datetime.utcnow()
     db.session.commit()
 
-    # Crear logs pendientes
+    # Crear logs pendientes - OPTIMIZADO PARA LOTES
+    # 1. Obtener IDs de contactos que ya tienen log para esta campaña
+    existing_logs = db.session.query(CampaignLog.contact_id)\
+        .filter_by(campaign_id=campaign.id).all()
+    existing_contact_ids = {r[0] for r in existing_logs}
+
+    # 2. Preparar objetos para insert masivo
+    new_logs = []
     for contact in contacts:
-        # Verificar si ya existe log (para reintentos o campañas programadas que arrancan)
-        if not CampaignLog.query.filter_by(campaign_id=campaign.id, contact_id=contact.id).first():
-            log = CampaignLog(
+        if contact.id not in existing_contact_ids:
+            new_logs.append(CampaignLog(
                 campaign_id=campaign.id,
-                contact_id=contact.id,  # Usar ID interno
-                contact_phone=contact.phone_number,  # Mantener para histórico
+                contact_id=contact.id,
+                contact_phone=contact.phone_number,
                 status='pending'
-            )
-            db.session.add(log)
-    db.session.commit()
+            ))
+    
+    # 3. Insertar y commitear
+    if new_logs:
+        db.session.bulk_save_objects(new_logs)
+        db.session.commit()
 
     ctx = app.app_context()
     t = threading.Thread(target=send_campaign_bg, args=(ctx, campaign.id))
@@ -2183,15 +2192,26 @@ def run_scheduler():
                     db.session.commit()
                     
                     # Crear logs
+                    # Crear logs - OPTIMIZADO
+                    # 1. Obtener existentes
+                    existing_logs = db.session.query(CampaignLog.contact_id)\
+                        .filter_by(campaign_id=camp.id).all()
+                    existing_ids = {r[0] for r in existing_logs}
+                    
+                    # 2. Batch insert
+                    new_logs_sched = []
                     for contact in contacts:
-                         if not CampaignLog.query.filter_by(campaign_id=camp.id, contact_id=contact.id).first():
-                            db.session.add(CampaignLog(
+                         if contact.id not in existing_ids:
+                            new_logs_sched.append(CampaignLog(
                                 campaign_id=camp.id,
-                                contact_id=contact.id,  # Usar ID interno
-                                contact_phone=contact.phone_number,  # Mantener para histórico
+                                contact_id=contact.id,
+                                contact_phone=contact.phone_number,
                                 status='pending'
                             ))
-                    db.session.commit()
+                    
+                    if new_logs_sched:
+                        db.session.bulk_save_objects(new_logs_sched)
+                        db.session.commit()
                     
                     # Lanzar thread de envío
                     t = threading.Thread(target=send_campaign_bg, args=(app.app_context(), camp.id))
@@ -2304,16 +2324,20 @@ def api_campaign_details(campaign_id):
         total_successful = sent_count + delivered_count + read_count
         
         # Logs preview (últimos 50)
-        logs_query = db.session.query(
+        # Logs preview con PAGINACIÓN
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        
+        pagination = db.session.query(
             CampaignLog, Contact.name
         ).outerjoin(
             Contact, CampaignLog.contact_id == Contact.id
         ).filter(
             CampaignLog.campaign_id == campaign_id
-        ).order_by(CampaignLog.created_at.desc()).limit(50).all()
+        ).order_by(CampaignLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
         
         logs_preview = []
-        for log, contact_name in logs_query:
+        for log, contact_name in pagination.items:
             logs_preview.append({
                 'phone': log.contact_phone,
                 'name': contact_name,
@@ -2338,7 +2362,15 @@ def api_campaign_details(campaign_id):
                 'read': read_count, 
                 'failed': failed_count
             },
-            'logs_preview': logs_preview
+            'logs_preview': logs_preview,
+            'pagination': {
+                'page': pagination.page,
+                'per_page': pagination.per_page,
+                'total_pages': pagination.pages,
+                'total_items': pagination.total,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
         })
         
     except Exception as e:

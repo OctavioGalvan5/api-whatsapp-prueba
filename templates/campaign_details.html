@@ -80,7 +80,18 @@
 
                     <!-- Logs Preview -->
                     <div class="col-span-1 lg:col-span-2 bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5 flex flex-col">
-                        <h3 class="font-semibold mb-4">Últimos envíos</h3>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold">Últimos envíos</h3>
+                            <div class="flex items-center gap-2 text-sm">
+                                <button id="btn-prev" onclick="changePage(-1)" class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50" disabled>
+                                    <span class="material-symbols-outlined text-sm">chevron_left</span>
+                                </button>
+                                <span id="page-info" class="text-gray-500">Pág 1</span>
+                                <button id="btn-next" onclick="changePage(1)" class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50" disabled>
+                                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+                                </button>
+                            </div>
+                        </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm text-left">
                                 <thead class="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-800/50">
@@ -103,10 +114,16 @@
 
     <script>
         const CAMPAIGN_ID = {{ campaign_id }};
+        let currentPage = 1;
+        let totalPages = 1;
         
-        async function loadCampaignData() {
+        async function loadCampaignData(page = 1) {
             try {
-                const resp = await fetch(`/api/campaigns/${CAMPAIGN_ID}`);
+                // Mantener estado de página
+                if (page < 1) page = 1;
+                currentPage = page;
+
+                const resp = await fetch(`/api/campaigns/${CAMPAIGN_ID}?page=${currentPage}&per_page=50`);
                 const data = await resp.json();
                 
                 if (data.error) {
@@ -164,17 +181,36 @@
                         tbody.insertAdjacentHTML('beforeend', row);
                     });
                 }
+
+                // Update Pagination UI
+                if (data.pagination) {
+                    totalPages = data.pagination.total_pages || 1;
+                    document.getElementById('page-info').textContent = `Pág ${data.pagination.page} de ${totalPages}`;
+                    
+                    const btnPrev = document.getElementById('btn-prev');
+                    const btnNext = document.getElementById('btn-next');
+                    
+                    if (btnPrev) btnPrev.disabled = !data.pagination.has_prev;
+                    if (btnNext) btnNext.disabled = !data.pagination.has_next;
+                }
                 
-                // Auto reload if sending
-                if (data.status === 'sending') {
-                    setTimeout(loadCampaignData, 3000);
+                // Auto reload if sending (solo si estamos en la primera página)
+                if (data.status === 'sending' && currentPage === 1) {
+                    setTimeout(() => loadCampaignData(1), 3000);
                 }
                 
             } catch (e) {
                 console.error("Error loading campaign:", e);
             }
         }
+
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage > 0 && newPage <= totalPages) {
+                loadCampaignData(newPage);
+            }
+        }
         
-        loadCampaignData();
+        loadCampaignData(1);
     </script>
 {% endblock %}
