@@ -103,7 +103,7 @@ class Contact(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)  # ID interno (no editable)
     contact_id = db.Column(db.String(50), unique=True, nullable=True, index=True)  # ID externo (editable por usuario)
-    phone_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    phone_number = db.Column(db.String(20), unique=False, nullable=False, index=True)
     name = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     tags_json = db.Column('tags', db.JSON, default=list)  # Legacy JSON, usar 'tags' relationship

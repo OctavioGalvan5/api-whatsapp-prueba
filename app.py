@@ -663,14 +663,6 @@ def api_contact_detail(identifier):
                 contact.contact_id = None
 
         # Permitir cambio de teléfono si viene en el payload
-        if 'phone_number' in data and data['phone_number'] != contact.phone_number:
-            new_phone = str(data['phone_number']).strip()
-            # Verificar que no exista otro contacto con ese número
-            existing = Contact.query.filter_by(phone_number=new_phone).first()
-            if existing and existing.id != contact.id:
-                return jsonify({
-                    'error': f'El número {new_phone} ya pertenece a otro contacto (ID: {existing.id}, Nombre: {existing.name or "Sin nombre"})'
-                }), 400
             contact.phone_number = new_phone
             logger.info(f"📱 Teléfono actualizado para contacto ID {contact.id}: {identifier} → {new_phone}")
 
@@ -819,8 +811,9 @@ def api_import_contacts():
                 except (ValueError, TypeError):
                     pass
 
-            # 3. Fallback: buscar por teléfono
-            if not contact:
+            # 3. Fallback: buscar por teléfono (SOLO si no se proveyó Contact ID ni ID interno)
+            # Si se proveyó Contact ID y no se encontró, se debe crear uno nuevo, NO asociar a otro teléfono existente
+            if not contact and (not contact_id_col or pd.isna(row.get(contact_id_col))):
                 contact = Contact.query.filter_by(phone_number=phone).first()
                 if contact:
                     found_by = 'phone'
@@ -840,11 +833,7 @@ def api_import_contacts():
                 # Actualizar contacto existente
                 # Si se encontró por contact_id o id interno → permitir cambiar teléfono
                 if found_by in ('contact_id', 'id') and contact.phone_number != phone:
-                    # Verificar que el nuevo teléfono no exista en otro contacto
-                    existing = Contact.query.filter_by(phone_number=phone).first()
-                    if existing and existing.id != contact.id:
-                        errors.append(f"Fila {idx+2}: El teléfono {phone} ya pertenece a otro contacto ({existing.contact_id or existing.id})")
-                        continue
+                    # Permitir duplicados: No verificamos si existe otro contacto con ese número
                     old_phone = contact.phone_number
                     contact.phone_number = phone
                     phone_updated += 1
