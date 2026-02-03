@@ -13,6 +13,11 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">Gestión de clientes y prospectos</p>
             </div>
             <div class="flex items-center gap-3">
+                <button onclick="openCreateModal()"
+                    class="flex items-center gap-2 px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                    <span class="material-symbols-outlined text-lg">person_add</span>
+                    Agregar
+                </button>
                 <button onclick="document.getElementById('importModal').classList.remove('hidden')"
                     class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
                     <span class="material-symbols-outlined text-lg">upload</span>
@@ -322,7 +327,7 @@
     <div
         class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
         <div class="flex items-center justify-between p-6 pb-3">
-            <h3 class="text-lg font-semibold">Editar Contacto</h3>
+            <h3 id="modal-title" class="text-lg font-semibold">Editar Contacto</h3>
             <button onclick="closeModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
                 <span class="material-symbols-outlined">close</span>
             </button>
@@ -893,9 +898,43 @@
         });
     }
 
+    // ===== Create Modal (nuevo contacto) =====
+    function openCreateModal() {
+        const modal = document.getElementById('contactModal');
+        const saveBtn = document.getElementById('save-btn');
+        const title = document.getElementById('modal-title');
+
+        modal.classList.remove('hidden');
+        title.textContent = 'Nuevo Contacto';
+        document.getElementById('edit-id').value = '';  // Sin ID = modo creación
+        document.getElementById('edit-contact-id').value = '';
+        document.getElementById('edit-phone').value = '';
+        document.getElementById('edit-first-name').value = '';
+        document.getElementById('edit-last-name').value = '';
+        document.getElementById('edit-notes').value = '';
+        document.getElementById('edit-tags-input').value = '';
+        document.getElementById('edit-tags-dropdown').classList.add('hidden');
+        document.getElementById('custom-fields-section').classList.add('hidden');
+        document.getElementById('custom-fields-chevron').style.transform = '';
+        for (let i = 1; i <= 7; i++) {
+            document.getElementById(`edit-custom-${i}`).value = '';
+        }
+        editSelectedTags = [];
+        renderEditTagPills();
+
+        // Cargar etiquetas disponibles
+        fetch('/api/tags').then(r => r.json()).then(tags => {
+            editAvailableTags = tags.map(t => t.name);
+        }).catch(() => { });
+
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Crear';
+    }
+
     function closeModal() {
         document.getElementById('contactModal').classList.add('hidden');
         document.getElementById('edit-tags-dropdown').classList.add('hidden');
+        document.getElementById('modal-title').textContent = 'Editar Contacto';
     }
 
     function saveContact() {
@@ -930,9 +969,12 @@
         saveBtn.disabled = true;
         saveBtn.textContent = 'Guardando...';
 
-        // Usar ID para la llamada API (permite cambiar el teléfono)
-        fetch(`/api/contacts/${contactId}`, {
-            method: 'POST',
+        const isCreate = !contactId;  // Si no hay ID, es creación
+        const url = isCreate ? '/api/contacts' : `/api/contacts/${contactId}`;
+        const method = 'POST';
+
+        fetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
@@ -974,6 +1016,10 @@
                     }
                     closeModal();
                     loadTags();
+                    // Si fue creación, recargar la página para mostrar el nuevo contacto
+                    if (isCreate) {
+                        window.location.reload();
+                    }
                 } else {
                     alert('Error: ' + (data.error || 'Unknown'));
                 }

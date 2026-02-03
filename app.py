@@ -130,25 +130,14 @@ def webhook_handler():
 
 @app.route("/dashboard")
 def dashboard():
-    """Dashboard para visualizar conversaciones tipo WhatsApp."""
+    """Dashboard para visualizar conversaciones tipo WhatsApp - OPTIMIZADO."""
     selected_phone = request.args.get('phone')
     
-    # Estadísticas generales
-    total = Message.query.count()
-    sent = db.session.query(func.count(MessageStatus.id)).filter(
-        MessageStatus.status == 'sent'
-    ).scalar() or 0
-    read = db.session.query(func.count(MessageStatus.id)).filter(
-        MessageStatus.status == 'read'
-    ).scalar() or 0
-    failed = db.session.query(func.count(MessageStatus.id)).filter(
-        MessageStatus.status == 'failed'
-    ).scalar() or 0
+    # OPTIMIZACIÓN: Removidas queries de stats generales (no se usan en UI del chat)
+    # Si se necesitan, se pueden cargar via AJAX o en /analytics
+    stats = {'total': 0, 'sent': 0, 'read': 0, 'failed': 0}
     
-    stats = {'total': total, 'sent': sent, 'read': read, 'failed': failed}
-    
-    # Lista de contactos con estadísticas y datos CRM
-    # 1. Obtener estadísticas de mensajes por teléfono
+    # Lista de contactos con últimos mensajes - REDUCIDO A 50
     stats_query = db.session.query(
         Message.phone_number,
         func.count(Message.id).label('message_count'),
@@ -156,10 +145,9 @@ def dashboard():
         func.max(Message.content).label('last_message')
     ).filter(
         Message.phone_number.notin_(['unknown', 'outbound', ''])
-    ).group_by(Message.phone_number).order_by(func.max(Message.timestamp).desc()).limit(100).all()
+    ).group_by(Message.phone_number).order_by(func.max(Message.timestamp).desc()).limit(50).all()
     
-    # 2. Obtener contactos para enriquecer la data
-    # Optimizamos trayendo solo los necesarios si hay muchos, pero para dashboard está bien traer los relevantes
+    # Obtener contactos para enriquecer la data (batch fetch)
     phones_in_view = [s.phone_number for s in stats_query]
     contacts_map = {}
     if phones_in_view:
@@ -184,14 +172,12 @@ def dashboard():
     selected_contact = None
     contact_details = None
     
-    # Límite de mensajes para mostrar en el chat (optimización)
+    # Límite de mensajes para mostrar en el chat
     MESSAGE_LIMIT = 100
 
     if selected_phone:
         selected_contact = selected_phone
-        # Optimización: Solo traer los últimos 100 mensajes
-        # Primero obtenemos los últimos N por fecha descendente (los más nuevos)
-        # Luego los reordenamos ascendente para mostrar en el chat
+        # Solo traer los últimos mensajes
         recent_messages = Message.query.filter_by(phone_number=selected_phone)\
             .order_by(Message.timestamp.desc())\
             .limit(MESSAGE_LIMIT).all()
@@ -199,16 +185,10 @@ def dashboard():
         
         contact_details = Contact.query.filter_by(phone_number=selected_phone).first()
         
-        # Estadísticas del contacto (estas sí pueden requerir contar todos, o podemos estimar)
-        # Para mantener rendimiento, calculamos stats solo de lo que traemos o hacemos count query aparte si es crítico
-        # Hacemos query ligera solo para cuentas
-        outbound_count = Message.query.filter_by(phone_number=selected_phone, direction='outbound').count()
-        # Estimación rápida basada en lo cargado para evitar query pesada de status específico
-        # Si se necesita precisión absoluta, se deben hacer queries count() específicas
-        
+        # Stats simplificadas basadas en mensajes cargados (evita queries adicionales)
         outbound_msgs = [m for m in messages if m.direction == 'outbound']
         contact_stats = {
-            'message_count': Message.query.filter_by(phone_number=selected_phone).count(), # Total real
+            'message_count': len(messages),  # Aproximado de lo cargado
             'sent': sum(1 for m in outbound_msgs if m.latest_status in ['sent', 'delivered', 'read']),
             'delivered': sum(1 for m in outbound_msgs if m.latest_status in ['delivered', 'read']),
             'read': sum(1 for m in outbound_msgs if m.latest_status == 'read')
@@ -223,35 +203,17 @@ def dashboard():
         
         outbound_msgs = [m for m in messages if m.direction == 'outbound']
         contact_stats = {
-            'message_count': Message.query.filter_by(phone_number=selected_contact).count(),
+            'message_count': len(messages),
             'sent': sum(1 for m in outbound_msgs if m.latest_status in ['sent', 'delivered', 'read']),
             'delivered': sum(1 for m in outbound_msgs if m.latest_status in ['delivered', 'read']),
             'read': sum(1 for m in outbound_msgs if m.latest_status == 'read')
         }
     
-    # Datos para gráficos
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
-    
-    # Mensajes por día
-    messages_by_day = db.session.query(
-        func.date(Message.timestamp).label('date'),
-        func.count(Message.id).label('count')
-    ).filter(Message.timestamp >= seven_days_ago).group_by(func.date(Message.timestamp)).all()
-    
-    # Mensajes por hora
-    messages_by_hour = db.session.query(
-        func.extract('hour', Message.timestamp).label('hour'),
-        func.count(Message.id).label('count')
-    ).group_by(func.extract('hour', Message.timestamp)).order_by('hour').all()
-    
-    # Entrantes vs Salientes
-    inbound_count = Message.query.filter_by(direction='inbound').count()
-    outbound_count = Message.query.filter_by(direction='outbound').count()
-    
+    # OPTIMIZACIÓN: Removidas queries de gráficos (se cargan en /analytics)
     chart_data = {
-        'messages_by_day': [{'date': str(d.date), 'count': d.count} for d in messages_by_day],
-        'messages_by_hour': [{'hour': int(h.hour) if h.hour else 0, 'count': h.count} for h in messages_by_hour],
-        'direction_stats': {'inbound': inbound_count, 'outbound': outbound_count}
+        'messages_by_day': [],
+        'messages_by_hour': [],
+        'direction_stats': {'inbound': 0, 'outbound': 0}
     }
     
     # Verificar ventana de 24 horas para envío de mensajes
@@ -261,16 +223,13 @@ def dashboard():
     whatsapp_configured = whatsapp_api.is_configured()
     
     if selected_contact and whatsapp_configured:
-        # Buscar último mensaje entrante del contacto
+        # Buscar último mensaje entrante del contacto (optimizado: buscar en mensajes ya cargados)
         twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
-        last_inbound = Message.query.filter_by(
-            phone_number=selected_contact,
-            direction='inbound'
-        ).filter(Message.timestamp >= twenty_four_hours_ago).order_by(Message.timestamp.desc()).first()
+        inbound_recent = [m for m in messages if m.direction == 'inbound' and m.timestamp >= twenty_four_hours_ago]
         
-        if last_inbound:
+        if inbound_recent:
             can_send_free_text = True
-            last_inbound_msg = last_inbound.timestamp
+            last_inbound_msg = max(m.timestamp for m in inbound_recent)
         
         # Obtener templates aprobados
         templates_result = whatsapp_api.get_templates()
@@ -609,6 +568,54 @@ def register_contact_if_new(phone_number, name=None):
 # ==========================================
 # API CRM CONTACTOS
 # ==========================================
+
+@app.route("/api/contacts", methods=["POST"])
+def api_create_contact():
+    """API para crear un nuevo contacto."""
+    data = request.get_json()
+    
+    phone = data.get('phone_number', '').strip()
+    if not phone:
+        return jsonify({'success': False, 'error': 'El teléfono es requerido'}), 400
+    
+    # Crear nuevo contacto
+    contact = Contact(
+        phone_number=phone,
+        contact_id=data.get('contact_id') or None,
+        name=data.get('name', '').strip() or None,
+        first_name=data.get('first_name', '').strip() or None,
+        last_name=data.get('last_name', '').strip() or None,
+        notes=data.get('notes', '').strip() or None,
+        custom_field_1=data.get('custom_field_1', '').strip() or None,
+        custom_field_2=data.get('custom_field_2', '').strip() or None,
+        custom_field_3=data.get('custom_field_3', '').strip() or None,
+        custom_field_4=data.get('custom_field_4', '').strip() or None,
+        custom_field_5=data.get('custom_field_5', '').strip() or None,
+        custom_field_6=data.get('custom_field_6', '').strip() or None,
+        custom_field_7=data.get('custom_field_7', '').strip() or None
+    )
+    
+    db.session.add(contact)
+    db.session.flush()  # Para obtener el ID
+    
+    # Procesar tags
+    new_tags = data.get('tags', [])
+    if new_tags:
+        for tag_name in new_tags:
+            tag = Tag.query.filter_by(name=tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                db.session.add(tag)
+                db.session.flush()
+            contact.tags.append(tag)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'id': contact.id,
+        'message': 'Contacto creado correctamente'
+    })
 
 @app.route("/api/contacts/<identifier>", methods=["GET", "POST"])
 def api_contact_detail(identifier):
@@ -2083,35 +2090,42 @@ def api_send_campaign(campaign_id):
     campaign.started_at = datetime.utcnow()
     db.session.commit()
 
-    # Crear logs pendientes - SUPER OPTIMIZADO CON SQL DIRECTO
+    # Crear logs pendientes - SUPER OPTIMIZADO CON SQL DIRECTO + ON CONFLICT
     # Inserta todos los logs en una sola operación SQL sin cargar contactos en Python
     now = datetime.utcnow()
     try:
+        # Usar ON CONFLICT DO NOTHING para evitar subconsulta NOT EXISTS (mucho más rápido)
         result = db.session.execute(text("""
             INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
             SELECT :cid, c.id, c.phone_number, 'pending', :now
             FROM whatsapp_contacts c
             JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
             WHERE ct.tag_id = :tid
-            AND NOT EXISTS (
-                SELECT 1 FROM whatsapp_campaign_logs cl 
-                WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
-            )
+            ON CONFLICT (campaign_id, contact_id) DO NOTHING
         """), {'cid': campaign.id, 'tid': campaign.tag_id, 'now': now})
         db.session.commit()
         logger.info(f"📊 Logs creados para campaña {campaign.id}, tag {campaign.tag_id}, contactos: {contact_count}, insertados: {result.rowcount}")
     except Exception as e:
         db.session.rollback()
-        logger.error(f"❌ Error creando logs para campaña {campaign.id}: {e}")
-        # Fallback: método anterior
-        contacts = Contact.query.filter(Contact.tags.any(Tag.id == campaign.tag_id)).all()
-        for contact in contacts:
-            existing = CampaignLog.query.filter_by(campaign_id=campaign.id, contact_id=contact.id).first()
-            if not existing:
-                log = CampaignLog(campaign_id=campaign.id, contact_id=contact.id, contact_phone=contact.phone_number, status='pending')
-                db.session.add(log)
-        db.session.commit()
-        logger.info(f"📊 Logs creados con fallback para campaña {campaign.id}")
+        logger.error(f"❌ Error creando logs con ON CONFLICT para campaña {campaign.id}: {e}")
+        # Fallback: INSERT sin ON CONFLICT (para SQLite u otras BD)
+        try:
+            result = db.session.execute(text("""
+                INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
+                SELECT :cid, c.id, c.phone_number, 'pending', :now
+                FROM whatsapp_contacts c
+                JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
+                WHERE ct.tag_id = :tid
+                AND NOT EXISTS (
+                    SELECT 1 FROM whatsapp_campaign_logs cl 
+                    WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
+                )
+            """), {'cid': campaign.id, 'tid': campaign.tag_id, 'now': now})
+            db.session.commit()
+            logger.info(f"📊 Logs creados con fallback SQL para campaña {campaign.id}, insertados: {result.rowcount}")
+        except Exception as e2:
+            db.session.rollback()
+            logger.error(f"❌ Error creando logs con fallback para campaña {campaign.id}: {e2}")
 
     ctx = app.app_context()
     t = threading.Thread(target=send_campaign_bg, args=(ctx, campaign.id))
@@ -2125,82 +2139,101 @@ def api_send_campaign(campaign_id):
     })
 
 def send_campaign_bg(app_context, cid):
-    """Función de envío en background (reutilizable)."""
+    """Función de envío en background con procesamiento por lotes."""
     with app_context:
         camp = Campaign.query.get(cid)
         if not camp: return
         
-        logs = CampaignLog.query.filter_by(campaign_id=cid, status='pending').all()
+        BATCH_SIZE = 100  # Procesar en lotes para no saturar memoria
+        total_sent = 0
+        total_failed = 0
+        
+        while True:
+            # Cargar solo un lote de logs pendientes a la vez
+            logs = CampaignLog.query.filter_by(
+                campaign_id=cid, 
+                status='pending'
+            ).limit(BATCH_SIZE).all()
+            
+            if not logs:
+                break  # No hay más logs pendientes
+            
+            for log in logs:
+                try:
+                    # Construir componentes con variables dinámicas
+                    components = None
+                    if camp.variables:
+                        parameters = []
+                        # Variables es un dict {"1": "field_name", ...}
+                        sorted_vars = sorted(camp.variables.items(), key=lambda x: int(x[0]))
 
-        for log in logs:
-            try:
-                # Construir componentes con variables dinámicas
-                components = None
-                if camp.variables:
-                    parameters = []
-                    # Variables es un dict {"1": "field_name", ...}
-                    sorted_vars = sorted(camp.variables.items(), key=lambda x: int(x[0]))
+                        # Usar contact_id para obtener el contacto (o la relación directa)
+                        contact = log.contact or Contact.query.get(log.contact_id)
 
-                    # Usar contact_id para obtener el contacto (o la relación directa)
-                    contact = log.contact or Contact.query.get(log.contact_id)
-
-                    for idx, field in sorted_vars:
-                        value = "-"
-                        if field == 'phone_number':
-                            value = contact.phone_number
-                        elif contact:
-                            val = getattr(contact, field, None)
-                            if val:
-                                value = str(val)
+                        for idx, field in sorted_vars:
+                            value = "-"
+                            if field == 'phone_number':
+                                value = contact.phone_number
+                            elif contact:
+                                val = getattr(contact, field, None)
+                                if val:
+                                    value = str(val)
+                            
+                            parameters.append({
+                                "type": "text",
+                                "text": value
+                            })
                         
-                        parameters.append({
-                            "type": "text",
-                            "text": value
-                        })
+                        if parameters:
+                            components = [{
+                                "type": "body",
+                                "parameters": parameters
+                            }]
+
+                    result = whatsapp_api.send_template_message(
+                        log.contact_phone,
+                        camp.template_name,
+                        camp.template_language,
+                        components=components
+                    )
                     
-                    if parameters:
-                        components = [{
-                            "type": "body",
-                            "parameters": parameters
-                        }]
-
-                result = whatsapp_api.send_template_message(
-                    log.contact_phone,
-                    camp.template_name,
-                    camp.template_language,
-                    components=components
-                )
-                
-                if result.get('success'):
-                    log.status = 'sent'
-                    log.message_id = result.get('message_id')
-                    wa_id = result.get('message_id')
-                    if wa_id:
-                        # Reemplazar placeholders para el historial local simplificado
-                        content_preview = f'[Campaña: {camp.name}] [Template: {camp.template_name}]'
-                        
-                        new_msg = Message(
-                            wa_message_id=wa_id,
-                            phone_number=log.contact_phone,
-                            direction='outbound',
-                            message_type='template',
-                            content=content_preview,
-                            timestamp=datetime.utcnow()
-                        )
-                        db.session.add(new_msg)
-                else:
+                    if result.get('success'):
+                        log.status = 'sent'
+                        log.message_id = result.get('message_id')
+                        total_sent += 1
+                        wa_id = result.get('message_id')
+                        if wa_id:
+                            # Reemplazar placeholders para el historial local simplificado
+                            content_preview = f'[Campaña: {camp.name}] [Template: {camp.template_name}]'
+                            
+                            new_msg = Message(
+                                wa_message_id=wa_id,
+                                phone_number=log.contact_phone,
+                                direction='outbound',
+                                message_type='template',
+                                content=content_preview,
+                                timestamp=datetime.utcnow()
+                            )
+                            db.session.add(new_msg)
+                    else:
+                        log.status = 'failed'
+                        log.error_detail = str(result.get('error') or result)
+                        total_failed += 1
+                except Exception as e:
                     log.status = 'failed'
-                    log.error_detail = str(result.get('error') or result)
-            except Exception as e:
-                log.status = 'failed'
-                log.error_detail = str(e)
+                    log.error_detail = str(e)
+                    total_failed += 1
 
-            db.session.commit()
-            time_module.sleep(1)  # Rate limiting
+                db.session.commit()
+                time_module.sleep(1)  # Rate limiting
+            
+            # Log de progreso cada lote
+            logger.info(f"📊 Campaña {cid}: Lote procesado. Enviados: {total_sent}, Fallidos: {total_failed}")
 
         camp.status = 'completed'
         camp.completed_at = datetime.utcnow()
         db.session.commit()
+        logger.info(f"✅ Campaña {cid} completada. Total enviados: {total_sent}, fallidos: {total_failed}")
 
 def run_scheduler():
     """Scheduler para verificar campañas programadas."""
@@ -2235,19 +2268,33 @@ def run_scheduler():
                     camp.started_at = now
                     db.session.commit()
                     
-                    # Crear logs - SUPER OPTIMIZADO CON SQL DIRECTO
-                    db.session.execute(text("""
-                        INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
-                        SELECT :cid, c.id, c.phone_number, 'pending', :now
-                        FROM whatsapp_contacts c
-                        JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
-                        WHERE ct.tag_id = :tid
-                        AND NOT EXISTS (
-                            SELECT 1 FROM whatsapp_campaign_logs cl 
-                            WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
-                        )
-                    """), {'cid': camp.id, 'tid': camp.tag_id, 'now': now})
-                    db.session.commit()
+                    # Crear logs - SUPER OPTIMIZADO CON SQL DIRECTO + ON CONFLICT
+                    try:
+                        db.session.execute(text("""
+                            INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
+                            SELECT :cid, c.id, c.phone_number, 'pending', :now
+                            FROM whatsapp_contacts c
+                            JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
+                            WHERE ct.tag_id = :tid
+                            ON CONFLICT (campaign_id, contact_id) DO NOTHING
+                        """), {'cid': camp.id, 'tid': camp.tag_id, 'now': now})
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        logger.error(f"Error con ON CONFLICT en scheduler: {e}")
+                        # Fallback sin ON CONFLICT
+                        db.session.execute(text("""
+                            INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
+                            SELECT :cid, c.id, c.phone_number, 'pending', :now
+                            FROM whatsapp_contacts c
+                            JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
+                            WHERE ct.tag_id = :tid
+                            AND NOT EXISTS (
+                                SELECT 1 FROM whatsapp_campaign_logs cl 
+                                WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
+                            )
+                        """), {'cid': camp.id, 'tid': camp.tag_id, 'now': now})
+                        db.session.commit()
                     
                     # Lanzar thread de envío
                     t = threading.Thread(target=send_campaign_bg, args=(app.app_context(), camp.id))

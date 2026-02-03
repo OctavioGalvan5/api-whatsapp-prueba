@@ -20,11 +20,10 @@ class Message(db.Model):
     # Relación con estados — lazy='joined' carga statuses en un solo JOIN al traer mensajes
     statuses = db.relationship('MessageStatus', backref='message', lazy='joined', order_by='MessageStatus.timestamp')
 
-    # Índice compuesto para queries por contacto ordenadas por fecha
-    # Si la tabla ya existe, crear manualmente:
-    #   CREATE INDEX IF NOT EXISTS ix_messages_phone_ts ON whatsapp_messages (phone_number, timestamp);
+    # Índices para optimización de queries del dashboard
     __table_args__ = (
         db.Index('ix_messages_phone_ts', 'phone_number', 'timestamp'),
+        db.Index('idx_messages_timestamp', 'timestamp'),
     )
     
     @property
@@ -75,7 +74,8 @@ class MessageStatus(db.Model):
 # Tabla de asociación Contacto-Etiqueta (usa contact_id después de migración)
 contact_tags = db.Table('whatsapp_contact_tags',
     db.Column('contact_id', db.Integer, db.ForeignKey('whatsapp_contacts.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('whatsapp_tags.id'), primary_key=True)
+    db.Column('tag_id', db.Integer, db.ForeignKey('whatsapp_tags.id'), primary_key=True),
+    db.Index('idx_contact_tags_tag', 'tag_id')  # Índice para JOIN en campañas
 )
 
 class Tag(db.Model):
@@ -186,9 +186,11 @@ class CampaignLog(db.Model):
     error_detail = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Restricción única para evitar duplicados por campaña/contacto
+    # Restricción única e índices para evitar duplicados y optimizar queries
     __table_args__ = (
         db.UniqueConstraint('campaign_id', 'contact_id', name='uq_campaign_contact_log'),
+        db.Index('idx_campaign_logs_campaign_status', 'campaign_id', 'status'),
+        db.Index('idx_campaign_logs_campaign_contact', 'campaign_id', 'contact_id'),
     )
 
     contact = db.relationship('Contact', backref='campaign_logs', foreign_keys=[contact_id])
