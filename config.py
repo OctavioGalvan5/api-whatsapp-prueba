@@ -17,3 +17,10 @@ class Config:
     WHATSAPP_API_TOKEN = os.getenv("WHATSAPP_API_TOKEN")
     WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
     WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID")
+
+    # MinIO / S3 Storage
+    MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT")
+    MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
+    MINIO_SECRET_KEY = os.getenv("SECRET_KEY_MINIO")
+    MINIO_BUCKET = os.getenv("MINIO_BUCKET")
+    MINIO_USE_SSL = os.getenv("MINIO_USE_SSL").lower() == "true"

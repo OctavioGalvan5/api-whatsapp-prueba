@@ -164,24 +164,36 @@
                 class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
 
                 {% if msg.media_url %}
+                {% set media_src = msg.media_url if msg.media_url.startswith('http') else '/' ~ msg.media_url %}
                 {% if msg.message_type == 'image' %}
-                <a href="/{{ msg.media_url }}" target="_blank">
-                    <img src="/{{ msg.media_url }}"
+                <a href="{{ media_src }}" target="_blank">
+                    <img src="{{ media_src }}"
                         class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity"
                         alt="Imagen">
                 </a>
                 {% elif msg.message_type == 'audio' %}
                 <audio controls class="mb-2 max-w-full">
-                    <source src="/{{ msg.media_url }}" type="audio/ogg">
+                    <source src="{{ media_src }}" type="audio/ogg">
                     Tu navegador no soporta el audio.
                 </audio>
                 {% elif msg.message_type == 'video' %}
                 <video controls class="rounded-lg mb-2 max-w-full max-h-64">
-                    <source src="/{{ msg.media_url }}">
+                    <source src="{{ media_src }}">
                     Tu navegador no soporta video.
                 </video>
                 {% elif msg.message_type == 'document' %}
-                <a href="/{{ msg.media_url }}" target="_blank"
+                {% if msg.media_url.endswith('.pdf') %}
+                <div class="mb-2">
+                    <embed src="{{ media_src }}" type="application/pdf"
+                        class="w-full h-64 rounded-lg border border-gray-300 dark:border-gray-600">
+                    <a href="{{ media_src }}" target="_blank"
+                        class="flex items-center gap-2 mt-2 text-xs text-primary hover:underline">
+                        <span class="material-symbols-outlined text-sm">open_in_new</span>
+                        Abrir PDF en nueva pestaña
+                    </a>
+                </div>
+                {% else %}
+                <a href="{{ media_src }}" target="_blank"
                     class="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-2">
                     <div
                         class="w-10 h-10 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center">
@@ -189,9 +201,10 @@
                     </div>
                     <div class="flex flex-col overflow-hidden">
                         <span class="font-medium truncate text-[#111812] dark:text-white">Documento</span>
-                        <span class="text-xs text-gray-500">Click para ver</span>
+                        <span class="text-xs text-gray-500">Click para descargar</span>
                     </div>
                 </a>
+                {% endif %}
                 {% endif %}
 
                 {% if msg.caption %}
@@ -478,38 +491,57 @@
                     // Logica de contenido multimedia
                     let contentHtml = '';
 
+                    // Helper para URLs (MinIO = absoluta, local = relativa)
+                    const getMediaSrc = (url) => url.startsWith('http') ? url : '/' + url;
+
                     if (msg.media_url) {
+                        const mediaSrc = getMediaSrc(msg.media_url);
+
                         if (msg.message_type === 'image') {
                             contentHtml = `
-                                <a href="/${msg.media_url}" target="_blank">
-                                    <img src="/${msg.media_url}" 
-                                        class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity" 
+                                <a href="${mediaSrc}" target="_blank">
+                                    <img src="${mediaSrc}"
+                                        class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity"
                                         alt="Imagen">
                                 </a>`;
                         } else if (msg.message_type === 'audio') {
                             contentHtml = `
                                 <audio controls class="mb-2 max-w-full">
-                                    <source src="/${msg.media_url}" type="audio/ogg">
+                                    <source src="${mediaSrc}" type="audio/ogg">
                                     Tu navegador no soporta el audio.
                                 </audio>`;
                         } else if (msg.message_type === 'video') {
                             contentHtml = `
                                 <video controls class="rounded-lg mb-2 max-w-full max-h-64">
-                                    <source src="/${msg.media_url}">
+                                    <source src="${mediaSrc}">
                                     Tu navegador no soporta video.
                                 </video>`;
                         } else if (msg.message_type === 'document') {
-                            contentHtml = `
-                                <a href="/${msg.media_url}" target="_blank" 
-                                    class="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-2">
-                                    <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center">
-                                        <span class="material-symbols-outlined">description</span>
-                                    </div>
-                                    <div class="flex flex-col overflow-hidden">
-                                        <span class="font-medium truncate text-[#111812] dark:text-white">Documento</span>
-                                        <span class="text-xs text-gray-500">Click para ver</span>
-                                    </div>
-                                </a>`;
+                            // Mostrar PDF inline o link para otros documentos
+                            if (msg.media_url.endsWith('.pdf')) {
+                                contentHtml = `
+                                    <div class="mb-2">
+                                        <embed src="${mediaSrc}" type="application/pdf"
+                                            class="w-full h-64 rounded-lg border border-gray-300 dark:border-gray-600">
+                                        <a href="${mediaSrc}" target="_blank"
+                                            class="flex items-center gap-2 mt-2 text-xs text-primary hover:underline">
+                                            <span class="material-symbols-outlined text-sm">open_in_new</span>
+                                            Abrir PDF en nueva pestaña
+                                        </a>
+                                    </div>`;
+                            } else {
+                                contentHtml = `
+                                    <a href="${mediaSrc}" target="_blank"
+                                        class="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-2">
+                                        <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center">
+                                            <span class="material-symbols-outlined">description</span>
+                                        </div>
+                                        <div class="flex flex-col overflow-hidden">
+                                            <span class="font-medium truncate text-[#111812] dark:text-white">Documento</span>
+                                            <span class="text-xs text-gray-500">Click para descargar</span>
+                                        </div>
+                                    </a>`;
+                            }
                         }
 
                         // Agregar caption si existe
