@@ -10,7 +10,7 @@ from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campa
 import threading
 import time as time_module
 from event_handlers import process_event
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta, timezone
 import logging
@@ -1201,6 +1201,7 @@ def api_get_messages(phone):
 def contacts_page():
     """Página para ver listado de contactos con paginación y búsqueda."""
     tag_filter = request.args.get('tag')
+    exclude_tag = request.args.get('exclude_tag')
     search_query = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
@@ -1208,9 +1209,13 @@ def contacts_page():
     # Base query
     query = Contact.query
 
-    # Apply tag filter
+    # Apply tag filter (Include)
     if tag_filter:
         query = query.filter(Contact.tags.any(Tag.name == tag_filter))
+
+    # Apply exclude tag filter
+    if exclude_tag:
+        query = query.filter(~Contact.tags.any(Tag.name == exclude_tag))
 
     # Apply search filter
     if search_query:
@@ -1232,6 +1237,7 @@ def contacts_page():
         contacts=pagination.items,
         pagination=pagination,
         tag_filter=tag_filter,
+        exclude_tag=exclude_tag,
         search_query=search_query
     )
 
@@ -1315,20 +1321,45 @@ def api_bulk_tags():
         else:
             contacts = Contact.query.filter(Contact.phone_number.in_(phones)).all()
 
+        # Prepare IDs
+        target_contact_ids = [c.id for c in contacts]
+        if not target_contact_ids:
+             return jsonify({'success': True, 'affected': 0})
+
         if action == 'add':
             tag = Tag.query.filter_by(name=tag_name).first()
             if not tag:
                 tag = Tag(name=tag_name)
                 db.session.add(tag)
                 db.session.flush()
-            for contact in contacts:
-                if tag not in contact.tags:
-                    contact.tags.append(tag)
+            
+            # Find IDs that already have this tag
+            existing_relations = db.session.query(contact_tags.c.contact_id).filter(
+                contact_tags.c.tag_id == tag.id,
+                contact_tags.c.contact_id.in_(target_contact_ids)
+            ).all()
+            existing_ids = {r[0] for r in existing_relations}
+
+            # Insert only new relations
+            new_relations = [
+                {'contact_id': cid, 'tag_id': tag.id} 
+                for cid in target_contact_ids if cid not in existing_ids
+            ]
+            
+            if new_relations:
+                db.session.execute(contact_tags.insert(), new_relations)
+
         elif action == 'remove':
             tag = Tag.query.filter_by(name=tag_name).first()
             if tag:
-                for contact in contacts:
-                    contact.tags = [t for t in contact.tags if t.id != tag.id]
+                db.session.execute(
+                    contact_tags.delete().where(
+                        and_(
+                            contact_tags.c.tag_id == tag.id,
+                            contact_tags.c.contact_id.in_(target_contact_ids)
+                        )
+                    )
+                )
 
         db.session.commit()
         return jsonify({'success': True, 'affected': len(contacts)})
@@ -2386,20 +2417,30 @@ def api_export_campaign_stats(campaign_id):
         if not campaign:
             return jsonify({'error': 'Campaña no encontrada'}), 404
             
-        logs = CampaignLog.query.filter_by(campaign_id=campaign_id).all()
+        # Optimization: Fetch all data in a single query
+        results = db.session.query(
+            CampaignLog.contact_phone,
+            CampaignLog.status,
+            CampaignLog.error_detail,
+            CampaignLog.message_id,
+            Contact.contact_id,
+            Contact.name,
+            Contact.first_name,
+            Contact.last_name
+        ).outerjoin(Contact, CampaignLog.contact_id == Contact.id)\
+         .filter(CampaignLog.campaign_id == campaign_id).all()
         
         data = []
-        for l in logs:
-            contact = l.contact or Contact.query.get(l.contact_id)
+        for row in results:
             data.append({
-                'Telefono': l.contact_phone,
-                'ID Cliente': contact.contact_id if contact else '',
-                'Nombre Completo': contact.name if contact else '',
-                'Nombre': contact.first_name if contact else '',
-                'Apellido': contact.last_name if contact else '',
-                'Estado Mensaje': l.status,
-                'Error': l.error_detail or '',
-                'Mensaje ID': l.message_id or ''
+                'Telefono': row.contact_phone,
+                'ID Cliente': row.contact_id or '',
+                'Nombre Completo': row.name or '',
+                'Nombre': row.first_name or '',
+                'Apellido': row.last_name or '',
+                'Estado Mensaje': row.status,
+                'Error': row.error_detail or '',
+                'Mensaje ID': row.message_id or ''
             })
             
         df = pd.DataFrame(data)
