@@ -815,9 +815,9 @@ def api_create_contact():
         'message': 'Contacto creado correctamente'
     })
 
-@app.route("/api/contacts/<identifier>", methods=["GET", "POST"])
+@app.route("/api/contacts/<identifier>", methods=["GET", "POST", "DELETE"])
 def api_contact_detail(identifier):
-    """API para obtener o actualizar un contacto.
+    """API para obtener, actualizar o eliminar un contacto.
 
     El identificador puede ser:
     - Un ID numérico interno (ej: 123) - solo dígitos cortos
@@ -825,6 +825,7 @@ def api_contact_detail(identifier):
     - Un número de teléfono (ej: 5491123456789) - solo dígitos largos
 
     POST permite cambiar el phone_number y contact_id.
+    DELETE elimina el contacto permanentemente.
     """
     # Determinar tipo de identificador
     contact = None
@@ -838,6 +839,28 @@ def api_contact_detail(identifier):
     else:
         # Buscar por contact_id externo
         contact = Contact.query.filter_by(contact_id=identifier).first()
+
+    # DELETE method - Eliminar contacto
+    if request.method == "DELETE":
+        if not contact:
+            return jsonify({'error': f'Contacto no encontrado: {identifier}'}), 404
+
+        try:
+            contact_info = f"ID={contact.id}, Tel={contact.phone_number}, Nombre={contact.name or 'Sin nombre'}"
+
+            # Eliminar registros relacionados en campaign_logs
+            CampaignLog.query.filter_by(contact_id=contact.id).delete()
+
+            # Eliminar el contacto (las tags se desvinculan automáticamente)
+            db.session.delete(contact)
+            db.session.commit()
+
+            logger.info(f"🗑️ Contacto eliminado: {contact_info}")
+            return jsonify({'success': True, 'message': f'Contacto eliminado correctamente'})
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error eliminando contacto {identifier}: {str(e)}")
+            return jsonify({'error': str(e)}), 500
 
     if request.method == "POST":
         data = request.json
@@ -869,8 +892,11 @@ def api_contact_detail(identifier):
                 contact.contact_id = None
 
         # Permitir cambio de teléfono si viene en el payload
-            contact.phone_number = new_phone
-            logger.info(f"📱 Teléfono actualizado para contacto ID {contact.id}: {identifier} → {new_phone}")
+        if 'phone_number' in data:
+            new_phone = data['phone_number'].strip() if data['phone_number'] else None
+            if new_phone and new_phone != contact.phone_number:
+                contact.phone_number = new_phone
+                logger.info(f"📱 Teléfono actualizado para contacto ID {contact.id}: {identifier} → {new_phone}")
 
         # Mapeo de campos
         fields = ['name', 'first_name', 'last_name', 'notes',
@@ -1503,6 +1529,31 @@ def api_delete_tag(tag_name):
         db.session.rollback()
         logger.error(f"Error eliminando tag '{tag_name}': {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route("/api/contacts/bulk-delete", methods=["POST"])
+def api_bulk_delete_contacts():
+    """Eliminar múltiples contactos de una vez."""
+    data = request.json
+    contact_ids = data.get('contact_ids', [])
+
+    if not contact_ids:
+        return jsonify({'error': 'contact_ids requeridos'}), 400
+
+    try:
+        # Eliminar registros relacionados en campaign_logs
+        CampaignLog.query.filter(CampaignLog.contact_id.in_(contact_ids)).delete(synchronize_session=False)
+
+        # Eliminar contactos
+        deleted = Contact.query.filter(Contact.id.in_(contact_ids)).delete(synchronize_session=False)
+        db.session.commit()
+
+        logger.info(f"🗑️ {deleted} contactos eliminados en lote")
+        return jsonify({'success': True, 'deleted': deleted})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error eliminando contactos en lote: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route("/api/contacts/bulk-tags", methods=["POST"])
 def api_bulk_tags():
