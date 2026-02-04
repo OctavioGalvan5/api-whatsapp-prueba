@@ -106,11 +106,13 @@ def ensure_bucket_exists():
 
 
 def get_minio_public_url(filename):
-    """Genera la URL pública para un archivo en MinIO."""
-    endpoint = Config.MINIO_ENDPOINT
-    protocol = "https" if Config.MINIO_USE_SSL else "http"
-    bucket = Config.MINIO_BUCKET
-    return f"{protocol}://{endpoint}/{bucket}/{filename}"
+    """
+    Genera la URL para un archivo en MinIO.
+    Usa el proxy /media/<filename> para evitar problemas de SSL y mixed content.
+    """
+    # Usar el proxy interno en lugar de URL directa a MinIO
+    # Esto evita problemas de certificados SSL y mixed content
+    return f"/media/{filename}"
 
 
 class WhatsAppAPI:
