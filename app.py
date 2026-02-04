@@ -139,12 +139,17 @@ def dashboard():
     
     # Lista de contactos con últimos mensajes - OPTIMIZADO
     # Subquery: obtener el ID del mensaje más reciente por teléfono
+    CONTACTS_LIMIT = 50
+
     latest_msg_subq = db.session.query(
         Message.phone_number,
         func.max(Message.id).label('max_id')
     ).filter(
         Message.phone_number.notin_(['unknown', 'outbound', ''])
     ).group_by(Message.phone_number).subquery()
+
+    # Contar total de contactos con mensajes (para saber si hay más)
+    total_contacts = db.session.query(func.count()).select_from(latest_msg_subq).scalar() or 0
 
     # Query principal: join con subquery para obtener el contenido del último mensaje
     stats_query = db.session.query(
@@ -157,7 +162,9 @@ def dashboard():
             Message.phone_number == latest_msg_subq.c.phone_number,
             Message.id == latest_msg_subq.c.max_id
         )
-    ).order_by(Message.timestamp.desc()).limit(50).all()
+    ).order_by(Message.timestamp.desc()).limit(CONTACTS_LIMIT).all()
+
+    has_more_contacts = total_contacts > CONTACTS_LIMIT
 
     # Obtener contactos para enriquecer la data (batch fetch)
     phones_in_view = [s.phone_number for s in stats_query]
@@ -248,17 +255,19 @@ def dashboard():
         templates_result = whatsapp_api.get_templates()
         templates = [t for t in templates_result.get("templates", []) if t.get("status") == "APPROVED"]
     
-    return render_template('dashboard.html', 
-                         stats=stats, 
-                         contacts=contacts, 
+    return render_template('dashboard.html',
+                         stats=stats,
+                         contacts=contacts,
                          messages=messages,
                          selected_contact=selected_contact,
+                         contact_details=contact_details,
                          contact_stats=contact_stats,
                          chart_data=chart_data,
                          can_send_free_text=can_send_free_text,
                          last_inbound_msg=last_inbound_msg,
                          templates=templates,
-                         whatsapp_configured=whatsapp_configured)
+                         whatsapp_configured=whatsapp_configured,
+                         has_more_contacts=has_more_contacts)
 
 @app.route("/analytics")
 def analytics():
@@ -400,10 +409,10 @@ def analytics():
     }
     
     # ========== ESTADÍSTICAS DE TEMPLATES ==========
-    # Obtener mensajes salientes de los últimos 30 días (no todo el historial)
+    # Obtener mensajes salientes del período seleccionado
     outbound_messages = Message.query.filter(
         Message.direction == 'outbound',
-        Message.timestamp >= thirty_days_ago
+        Message.timestamp >= chart_since
     ).all()
     
     # Obtener templates de la API para mapeo
@@ -665,6 +674,94 @@ def register_contact_if_new(phone_number, name=None):
     except Exception as e:
         logger.error(f"Error registrando contacto auto: {e}")
         db.session.rollback()
+
+# ==========================================
+# API DASHBOARD CONTACTS (con scroll infinito)
+# ==========================================
+
+@app.route("/api/dashboard/contacts", methods=["GET"])
+def api_dashboard_contacts():
+    """API para obtener contactos del dashboard con paginación y búsqueda."""
+    search = request.args.get('search', '').strip()
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', 30, type=int)
+
+    # Limitar el máximo de resultados por request
+    limit = min(limit, 50)
+
+    # Subquery: obtener el ID del mensaje más reciente por teléfono
+    latest_msg_subq = db.session.query(
+        Message.phone_number,
+        func.max(Message.id).label('max_id')
+    ).filter(
+        Message.phone_number.notin_(['unknown', 'outbound', ''])
+    ).group_by(Message.phone_number).subquery()
+
+    # Query principal con JOIN
+    base_query = db.session.query(
+        Message.phone_number,
+        Message.content.label('last_message'),
+        Message.timestamp.label('last_timestamp')
+    ).join(
+        latest_msg_subq,
+        and_(
+            Message.phone_number == latest_msg_subq.c.phone_number,
+            Message.id == latest_msg_subq.c.max_id
+        )
+    )
+
+    # Si hay búsqueda, filtrar
+    if search:
+        # Buscar también en contactos por nombre
+        matching_phones = db.session.query(Contact.phone_number).filter(
+            or_(
+                Contact.name.ilike(f'%{search}%'),
+                Contact.phone_number.ilike(f'%{search}%')
+            )
+        ).subquery()
+
+        base_query = base_query.filter(
+            or_(
+                Message.phone_number.ilike(f'%{search}%'),
+                Message.phone_number.in_(db.session.query(matching_phones))
+            )
+        )
+
+    # Contar total antes de paginar
+    total_query = base_query.subquery()
+    total = db.session.query(func.count()).select_from(total_query).scalar()
+
+    # Ordenar y paginar
+    results = base_query.order_by(Message.timestamp.desc()).offset(offset).limit(limit).all()
+
+    # Obtener nombres de contactos
+    phones = [r.phone_number for r in results]
+    contacts_map = {}
+    if phones:
+        found_contacts = Contact.query.filter(Contact.phone_number.in_(phones)).all()
+        contacts_map = {c.phone_number: c for c in found_contacts}
+
+    # Formatear respuesta
+    contacts = []
+    for r in results:
+        contact = contacts_map.get(r.phone_number)
+        last_msg = r.last_message
+        contacts.append({
+            'phone_number': r.phone_number,
+            'last_timestamp': r.last_timestamp.isoformat() if r.last_timestamp else None,
+            'last_message': (last_msg[:50] + '...') if last_msg and len(last_msg) > 50 else last_msg,
+            'name': contact.name if contact else None,
+            'tags': [t.name for t in contact.tags] if contact else []
+        })
+
+    return jsonify({
+        'contacts': contacts,
+        'total': total,
+        'offset': offset,
+        'limit': limit,
+        'has_more': offset + len(contacts) < total
+    })
+
 
 # ==========================================
 # API CRM CONTACTOS
@@ -2765,7 +2862,16 @@ def api_list_conversation_sessions():
     if topic_id:
         query = query.filter(ConversationSession.topic_id == topic_id)
     if rating:
-        query = query.filter(ConversationSession.rating == rating)
+        # Mapeo para manejar variantes con/sin acentos
+        rating_variants = {
+            'problematica': ['problematica', 'problemática'],
+            'excelente': ['excelente'],
+            'buena': ['buena'],
+            'neutral': ['neutral'],
+            'mala': ['mala']
+        }
+        variants = rating_variants.get(rating, [rating])
+        query = query.filter(ConversationSession.rating.in_(variants))
 
     # Order by most recent first
     query = query.order_by(ConversationSession.ended_at.desc())

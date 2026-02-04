@@ -65,30 +65,28 @@
     <div class="flex-1 overflow-y-auto custom-scrollbar" id="contacts-list">
         {% for contact in contacts %}
         <div onclick="selectContact('{{ contact.phone_number }}')" data-phone="{{ contact.phone_number }}"
-            class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4  {% if selected_contact == contact.phone_number %}bg-primary/10 dark:bg-primary/20 border-primary active{% else %}bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent{% endif %}">
-
-            <div
-                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+            class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 {% if selected_contact == contact.phone_number %}bg-primary/10 dark:bg-primary/20 border-primary active{% else %}bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent{% endif %}">
+            <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
                 {{ contact.name[0] if contact.name else contact.phone_number[-2:] }}
             </div>
-
             <div class="flex flex-col justify-center flex-1 min-w-0">
                 <div class="flex justify-between items-center">
-                    <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or
-                        contact.phone_number }}</p>
-                    <p class="text-[10px] text-gray-400">{{ (contact.last_timestamp|to_argentina).strftime('%H:%M')
-                        if contact.last_timestamp else '' }}</p>
+                    <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or contact.phone_number }}</p>
+                    <p class="text-[10px] text-gray-400">{{ (contact.last_timestamp|to_argentina).strftime('%H:%M') if contact.last_timestamp else '' }}</p>
                 </div>
                 <div class="flex justify-between items-center">
-                    <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}
-                    </p>
-                    <!-- Badge placeholder if we had unread counts -->
+                    <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}</p>
                 </div>
             </div>
         </div>
         {% else %}
-        <div class="p-8 text-center text-gray-400 text-sm">No hay conversaciones</div>
+        <div id="empty-contacts" class="p-8 text-center text-gray-400 text-sm">No hay conversaciones</div>
         {% endfor %}
+    </div>
+    <!-- Loading indicator para scroll infinito -->
+    <div id="contacts-loading" class="hidden p-4 text-center">
+        <div class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+        <span class="text-xs text-gray-400 ml-2">Cargando más...</span>
     </div>
 
 </aside>
@@ -805,21 +803,156 @@
         }
     }
 
-    // Search
-    document.getElementById('search-input').addEventListener('input', function (e) {
-        const val = e.target.value.toLowerCase();
-        document.querySelectorAll('.contact-item').forEach(item => {
-            const phone = item.dataset.phone.toLowerCase();
-            const name = item.querySelector('p.font-semibold')?.textContent?.toLowerCase() || '';
-            item.style.display = (phone.includes(val) || name.includes(val)) ? 'flex' : 'none';
-        });
+    // ========== SCROLL INFINITO HÍBRIDO + BÚSQUEDA ==========
+    // Los primeros 50 contactos ya están renderizados desde el servidor
+    let contactsOffset = {{ contacts|length }};  // Offset inicial = contactos ya cargados
+    let contactsLoading = false;
+    let contactsHasMore = {{ 'true' if has_more_contacts else 'false' }};
+    let searchTimeout = null;
+    let currentSearch = '';
+    let isSearchMode = false;
+
+    async function loadMoreContacts() {
+        if (contactsLoading || !contactsHasMore) return;
+
+        contactsLoading = true;
+        document.getElementById('contacts-loading').classList.remove('hidden');
+
+        try {
+            const url = `/api/dashboard/contacts?offset=${contactsOffset}&limit=30&search=${encodeURIComponent(currentSearch)}`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            const container = document.getElementById('contacts-list');
+
+            data.contacts.forEach(contact => {
+                const div = document.createElement('div');
+                div.onclick = () => selectContact(contact.phone_number);
+                div.dataset.phone = contact.phone_number;
+                div.className = `contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent`;
+
+                const initial = contact.name ? contact.name[0].toUpperCase() : contact.phone_number.slice(-2);
+                const displayName = contact.name || contact.phone_number;
+                const time = contact.last_timestamp ? new Date(contact.last_timestamp).toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : '';
+
+                div.innerHTML = `
+                    <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">${escapeHtml(initial)}</div>
+                    <div class="flex flex-col justify-center flex-1 min-w-0">
+                        <div class="flex justify-between items-center">
+                            <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(displayName)}</p>
+                            <p class="text-[10px] text-gray-400">${time}</p>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(contact.last_message || '')}</p>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            contactsOffset += data.contacts.length;
+            contactsHasMore = data.has_more;
+
+        } catch (e) {
+            console.error('Error loading contacts:', e);
+        } finally {
+            contactsLoading = false;
+            document.getElementById('contacts-loading').classList.add('hidden');
+        }
+    }
+
+    async function searchContacts(query) {
+        contactsLoading = true;
+        document.getElementById('contacts-loading').classList.remove('hidden');
+        const container = document.getElementById('contacts-list');
+
+        try {
+            const url = `/api/dashboard/contacts?offset=0&limit=50&search=${encodeURIComponent(query)}`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            container.innerHTML = '';
+
+            if (data.contacts.length === 0) {
+                container.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">No se encontraron resultados</div>';
+            } else {
+                data.contacts.forEach(contact => {
+                    const div = document.createElement('div');
+                    div.onclick = () => selectContact(contact.phone_number);
+                    div.dataset.phone = contact.phone_number;
+                    div.className = `contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent`;
+
+                    const initial = contact.name ? contact.name[0].toUpperCase() : contact.phone_number.slice(-2);
+                    const displayName = contact.name || contact.phone_number;
+                    const time = contact.last_timestamp ? new Date(contact.last_timestamp).toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : '';
+
+                    div.innerHTML = `
+                        <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">${escapeHtml(initial)}</div>
+                        <div class="flex flex-col justify-center flex-1 min-w-0">
+                            <div class="flex justify-between items-center">
+                                <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(displayName)}</p>
+                                <p class="text-[10px] text-gray-400">${time}</p>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(contact.last_message || '')}</p>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            contactsOffset = data.contacts.length;
+            contactsHasMore = data.has_more;
+            isSearchMode = true;
+
+        } catch (e) {
+            console.error('Error searching contacts:', e);
+        } finally {
+            contactsLoading = false;
+            document.getElementById('contacts-loading').classList.add('hidden');
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // Scroll infinito - solo carga más cuando llega al final
+    document.getElementById('contacts-list').addEventListener('scroll', function() {
+        const { scrollTop, scrollHeight, clientHeight } = this;
+        if (scrollTop + clientHeight >= scrollHeight - 100) {
+            loadMoreContacts();
+        }
     });
 
-    // Auto-scroll
+    // Búsqueda con debounce - solo busca en servidor si hay texto
+    document.getElementById('search-input').addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+
+        if (query === '') {
+            // Si se borra la búsqueda, recargar la página para restaurar estado inicial
+            if (isSearchMode) {
+                window.location.href = '/dashboard' + (currentPhone ? '?phone=' + encodeURIComponent(currentPhone) : '');
+            }
+            return;
+        }
+
+        searchTimeout = setTimeout(() => {
+            currentSearch = query;
+            searchContacts(query);
+        }, 300);
+    });
+
+    // Auto-scroll del chat
     const msgs = document.getElementById('chat-messages');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
 
-    // Initial setup for Edit button (seguro contra XSS)
+    // Initial setup for Edit button
     if (currentPhone) {
         const nameEl = document.querySelector('.chat-user-name');
         currentContactName = nameEl ? nameEl.textContent.trim() : '';
@@ -830,13 +963,13 @@
         }
     }
 
-    // Polling inteligente: actualiza solo el chat cada 30s sin recargar la página
+    // Polling: actualiza chat cada 30s
     setInterval(() => {
         if (currentPhone) {
             fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
                 .then(r => r.json())
                 .then(data => { if (data.success) renderChat(data); })
-                .catch(() => { }); // Silencioso si falla
+                .catch(() => {});
         }
     }, 30000);
 
