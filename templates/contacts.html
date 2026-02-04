@@ -178,6 +178,11 @@
                                     title="Editar">
                                     <span class="material-symbols-outlined text-lg text-gray-500">edit</span>
                                 </button>
+                                <button onclick="confirmDeleteContact({{ contact.id }}, '{{ contact.name|e if contact.name else contact.phone_number }}')"
+                                    class="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Eliminar">
+                                    <span class="material-symbols-outlined text-lg text-red-500">delete</span>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -256,6 +261,12 @@
         </button>
     </div>
     <div class="h-5 w-px bg-gray-200 dark:bg-gray-700"></div>
+    <button onclick="confirmBulkDelete()"
+        class="px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+        title="Eliminar contactos seleccionados">
+        <span class="material-symbols-outlined text-base mr-1">delete</span>Eliminar
+    </button>
+    <div class="h-5 w-px bg-gray-200 dark:bg-gray-700"></div>
     <button onclick="clearSelection()" class="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
         <span class="material-symbols-outlined text-lg">close</span>
     </button>
@@ -316,6 +327,33 @@
             <button id="import-btn" onclick="importContacts()"
                 class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
                 Importar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="closeDeleteModal()"></div>
+    <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+        <div class="text-center">
+            <div class="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+                <span class="material-symbols-outlined text-2xl text-red-500">delete_forever</span>
+            </div>
+            <h3 class="text-lg font-semibold mb-2">Eliminar Contacto</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">¿Estás seguro de eliminar a:</p>
+            <p id="delete-contact-name" class="font-medium text-gray-800 dark:text-gray-200 mb-4"></p>
+            <p class="text-xs text-gray-400 dark:text-gray-500">Esta acción no se puede deshacer</p>
+        </div>
+        <input type="hidden" id="delete-contact-id" />
+        <div class="flex gap-3 mt-6">
+            <button onclick="closeDeleteModal()"
+                class="flex-1 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                Cancelar
+            </button>
+            <button id="delete-btn" onclick="deleteContact()"
+                class="flex-1 px-4 py-2 text-sm font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                Eliminar
             </button>
         </div>
     </div>
@@ -1029,6 +1067,103 @@
                 saveBtn.textContent = 'Guardar';
                 alert('Error: ' + e.message);
             });
+    }
+
+    // ===== Delete Contact =====
+    let bulkDeleteMode = false;
+
+    function confirmDeleteContact(contactId, contactName) {
+        bulkDeleteMode = false;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.getElementById('delete-contact-id').value = contactId;
+        document.getElementById('delete-contact-name').textContent = contactName;
+    }
+
+    function confirmBulkDelete() {
+        const ids = getSelectedIds();
+        if (!ids.length) return;
+
+        bulkDeleteMode = true;
+        document.getElementById('deleteModal').classList.remove('hidden');
+        document.getElementById('delete-contact-id').value = ids.join(',');
+        document.getElementById('delete-contact-name').textContent = `${ids.length} contacto${ids.length !== 1 ? 's' : ''}`;
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+        bulkDeleteMode = false;
+    }
+
+    async function deleteContact() {
+        const contactIds = document.getElementById('delete-contact-id').value;
+        const deleteBtn = document.getElementById('delete-btn');
+
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'Eliminando...';
+
+        try {
+            if (bulkDeleteMode) {
+                // Eliminar múltiples contactos
+                const ids = contactIds.split(',').map(id => parseInt(id));
+                const resp = await fetch('/api/contacts/bulk-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contact_ids: ids })
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    // Eliminar filas de la tabla
+                    ids.forEach(id => {
+                        const row = document.querySelector(`tr[data-id="${id}"]`);
+                        if (row) row.remove();
+                    });
+                    closeDeleteModal();
+                    clearSelection();
+                    loadTags();
+
+                    // Verificar si quedan filas
+                    checkEmptyTable();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudieron eliminar los contactos'));
+                }
+            } else {
+                // Eliminar un solo contacto
+                const resp = await fetch(`/api/contacts/${contactIds}`, {
+                    method: 'DELETE'
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    const row = document.querySelector(`tr[data-id="${contactIds}"]`);
+                    if (row) row.remove();
+                    closeDeleteModal();
+                    loadTags();
+                    checkEmptyTable();
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo eliminar el contacto'));
+                }
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        } finally {
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = 'Eliminar';
+        }
+    }
+
+    function checkEmptyTable() {
+        const tbody = document.querySelector('tbody');
+        if (tbody && tbody.querySelectorAll('.contact-row').length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center">
+                        <span class="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600">person_off</span>
+                        <p class="mt-2 text-gray-500 dark:text-gray-400">No hay contactos registrados</p>
+                    </td>
+                </tr>
+            `;
+        }
     }
 </script>
 {% endblock %}
