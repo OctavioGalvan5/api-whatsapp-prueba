@@ -143,6 +143,93 @@ def media_proxy(filename):
         return "File not found", 404
 
 
+@app.route("/api/media/retry/<int:message_id>", methods=["POST"])
+def api_retry_media_download(message_id):
+    """
+    Re-intenta descargar un archivo multimedia que falló.
+    Útil para corregir mensajes con media_url inválido.
+    """
+    try:
+        msg = Message.query.get(message_id)
+        if not msg:
+            return jsonify({'error': 'Mensaje no encontrado'}), 404
+
+        if not msg.media_id:
+            return jsonify({'error': 'El mensaje no tiene media_id'}), 400
+
+        # Re-descargar el archivo
+        new_url = whatsapp_api.download_media(msg.media_id)
+
+        if not new_url:
+            return jsonify({'error': 'No se pudo descargar el archivo'}), 500
+
+        # Actualizar la URL en la BD
+        msg.media_url = new_url
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message_id': message_id,
+            'new_url': new_url
+        })
+
+    except Exception as e:
+        logger.error(f"Error re-descargando media {message_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/media/fix-broken", methods=["POST"])
+def api_fix_broken_media():
+    """
+    Identifica y corrige mensajes con media_url inválido.
+    Busca mensajes donde media_url no empieza con '/' ni 'http' o es None pero tiene media_id.
+    """
+    try:
+        from sqlalchemy import or_
+
+        # Buscar mensajes con URLs problemáticas
+        broken_msgs = Message.query.filter(
+            Message.media_id.isnot(None),
+            or_(
+                Message.media_url.is_(None),
+                ~Message.media_url.like('/%'),
+                ~Message.media_url.like('http%')
+            )
+        ).all()
+
+        fixed = 0
+        failed = 0
+        results = []
+
+        for msg in broken_msgs:
+            try:
+                new_url = whatsapp_api.download_media(msg.media_id)
+                if new_url:
+                    msg.media_url = new_url
+                    fixed += 1
+                    results.append({'id': msg.id, 'status': 'fixed', 'url': new_url})
+                else:
+                    failed += 1
+                    results.append({'id': msg.id, 'status': 'failed', 'error': 'Download returned None'})
+            except Exception as e:
+                failed += 1
+                results.append({'id': msg.id, 'status': 'failed', 'error': str(e)})
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'total_broken': len(broken_msgs),
+            'fixed': fixed,
+            'failed': failed,
+            'details': results
+        })
+
+    except Exception as e:
+        logger.error(f"Error fixing broken media: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/webhook", methods=["POST"])
 def webhook_handler():
     """

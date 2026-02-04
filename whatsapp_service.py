@@ -161,11 +161,17 @@ class WhatsAppAPI:
                 logger.error("No URL found in media info")
                 return None
 
-            # 2. Determinar extensión
+            # 2. Determinar extensión (normalizar para consistencia)
             ext = mimetypes.guess_extension(mime_type)
+
+            # Normalizar extensiones de audio a .ogg (mimetypes puede retornar .oga en algunos sistemas)
+            if ext in ['.oga', '.opus']:
+                ext = '.ogg'
+
+            # Fallbacks si mimetypes no reconoce el tipo
             if not ext:
-                if 'image' in mime_type: ext = '.jpg'
-                elif 'audio' in mime_type: ext = '.ogg'
+                if 'audio' in mime_type: ext = '.ogg'
+                elif 'image' in mime_type: ext = '.jpg'
                 elif 'video' in mime_type: ext = '.mp4'
                 elif 'pdf' in mime_type: ext = '.pdf'
                 else: ext = '.bin'
