@@ -162,7 +162,7 @@
                 class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
 
                 {% if msg.media_url %}
-                {% set media_src = msg.media_url if msg.media_url.startswith('http') else '/' ~ msg.media_url %}
+                {% set media_src = msg.media_url if (msg.media_url.startswith('http') or msg.media_url.startswith('/')) else '/' ~ msg.media_url %}
                 {% if msg.message_type == 'image' %}
                 <a href="{{ media_src }}" target="_blank">
                     <img src="{{ media_src }}"
@@ -490,7 +490,7 @@
                     let contentHtml = '';
 
                     // Helper para URLs (MinIO = absoluta, local = relativa)
-                    const getMediaSrc = (url) => url.startsWith('http') ? url : '/' + url;
+                    const getMediaSrc = (url) => (url.startsWith('http') || url.startsWith('/')) ? url : '/' + url;
 
                     if (msg.media_url) {
                         const mediaSrc = getMediaSrc(msg.media_url);
