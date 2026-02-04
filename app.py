@@ -6,7 +6,7 @@ import pandas as pd
 import hmac
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for
 from config import Config
-from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog
+from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession
 import threading
 import time as time_module
 from event_handlers import process_event
@@ -137,31 +137,44 @@ def dashboard():
     # Si se necesitan, se pueden cargar via AJAX o en /analytics
     stats = {'total': 0, 'sent': 0, 'read': 0, 'failed': 0}
     
-    # Lista de contactos con últimos mensajes - REDUCIDO A 50
-    stats_query = db.session.query(
+    # Lista de contactos con últimos mensajes - OPTIMIZADO
+    # Subquery: obtener el ID del mensaje más reciente por teléfono
+    latest_msg_subq = db.session.query(
         Message.phone_number,
-        func.count(Message.id).label('message_count'),
-        func.max(Message.timestamp).label('last_timestamp'),
-        func.max(Message.content).label('last_message')
+        func.max(Message.id).label('max_id')
     ).filter(
         Message.phone_number.notin_(['unknown', 'outbound', ''])
-    ).group_by(Message.phone_number).order_by(func.max(Message.timestamp).desc()).limit(50).all()
-    
+    ).group_by(Message.phone_number).subquery()
+
+    # Query principal: join con subquery para obtener el contenido del último mensaje
+    stats_query = db.session.query(
+        Message.phone_number,
+        Message.content.label('last_message'),
+        Message.timestamp.label('last_timestamp')
+    ).join(
+        latest_msg_subq,
+        and_(
+            Message.phone_number == latest_msg_subq.c.phone_number,
+            Message.id == latest_msg_subq.c.max_id
+        )
+    ).order_by(Message.timestamp.desc()).limit(50).all()
+
     # Obtener contactos para enriquecer la data (batch fetch)
     phones_in_view = [s.phone_number for s in stats_query]
     contacts_map = {}
     if phones_in_view:
         found_contacts = Contact.query.filter(Contact.phone_number.in_(phones_in_view)).all()
         contacts_map = {c.phone_number: c for c in found_contacts}
-    
+
     contacts = []
     for s in stats_query:
         contact = contacts_map.get(s.phone_number)
+        last_msg = s.last_message
         contacts.append({
             'phone_number': s.phone_number,
-            'message_count': s.message_count,
+            'message_count': 0,  # Removido para optimizar, se puede cargar async si es necesario
             'last_timestamp': s.last_timestamp,
-            'last_message': (s.last_message[:50] + '...') if s.last_message and len(s.last_message) > 50 else s.last_message,
+            'last_message': (last_msg[:50] + '...') if last_msg and len(last_msg) > 50 else last_msg,
             'name': contact.name if contact else None,
             'tags': contact.tags if contact else []
         })
@@ -177,11 +190,11 @@ def dashboard():
 
     if selected_phone:
         selected_contact = selected_phone
-        # Solo traer los últimos mensajes
+        # Solo traer los últimos mensajes (orden DESC para LIMIT, luego invertir)
         recent_messages = Message.query.filter_by(phone_number=selected_phone)\
             .order_by(Message.timestamp.desc())\
             .limit(MESSAGE_LIMIT).all()
-        messages = sorted(recent_messages, key=lambda m: m.timestamp)
+        messages = recent_messages[::-1]  # Invertir para orden cronológico (O(n) vs O(n log n))
         
         contact_details = Contact.query.filter_by(phone_number=selected_phone).first()
         
@@ -199,7 +212,7 @@ def dashboard():
         recent_messages = Message.query.filter_by(phone_number=selected_contact)\
             .order_by(Message.timestamp.desc())\
             .limit(MESSAGE_LIMIT).all()
-        messages = sorted(recent_messages, key=lambda m: m.timestamp)
+        messages = recent_messages[::-1]  # Invertir para orden cronológico
         
         outbound_msgs = [m for m in messages if m.direction == 'outbound']
         contact_stats = {
@@ -249,28 +262,50 @@ def dashboard():
 
 @app.route("/analytics")
 def analytics():
-    """Página de analytics con estadísticas detalladas."""
+    """Página de analytics con estadísticas detalladas - OPTIMIZADO."""
     # Zona horaria de Argentina
     ARGENTINA_TZ = 'America/Argentina/Buenos_Aires'
-    
-    # Estadísticas generales
-    total_messages = Message.query.count()
-    outbound = Message.query.filter_by(direction='outbound').count()
-    inbound = Message.query.filter_by(direction='inbound').count()
-    
-    read = db.session.query(func.count(MessageStatus.id)).filter(
-        MessageStatus.status == 'read'
-    ).scalar() or 0
-    delivered = db.session.query(func.count(MessageStatus.id)).filter(
-        MessageStatus.status == 'delivered'
-    ).scalar() or 0
-    sent = db.session.query(func.count(MessageStatus.id)).filter(
-        MessageStatus.status == 'sent'
-    ).scalar() or 0
-    failed = db.session.query(func.count(MessageStatus.id)).filter(
-        MessageStatus.status == 'failed'
-    ).scalar() or 0
-    
+
+    # Período de análisis configurable (default: 30 días)
+    period = request.args.get('period', 30, type=int)
+
+    # Calcular fecha de inicio según el período (0 = todo el historial)
+    if period > 0:
+        since_date = datetime.utcnow() - timedelta(days=period)
+    else:
+        since_date = None  # Sin filtro = todo el historial
+
+    # OPTIMIZACIÓN: Una sola query para stats de mensajes con GROUP BY
+    msg_query = db.session.query(
+        Message.direction,
+        func.count(Message.id).label('count')
+    )
+    if since_date:
+        msg_query = msg_query.filter(Message.timestamp >= since_date)
+    message_stats = msg_query.group_by(Message.direction).all()
+
+    # Convertir a dict
+    direction_counts = {row.direction: row.count for row in message_stats}
+    outbound = direction_counts.get('outbound', 0)
+    inbound = direction_counts.get('inbound', 0)
+    total_messages = outbound + inbound
+
+    # OPTIMIZACIÓN: Una sola query para todos los estados con GROUP BY
+    status_query = db.session.query(
+        MessageStatus.status,
+        func.count(MessageStatus.id).label('count')
+    )
+    if since_date:
+        status_query = status_query.filter(MessageStatus.timestamp >= since_date)
+    status_stats = status_query.group_by(MessageStatus.status).all()
+
+    # Convertir a dict
+    status_counts = {row.status: row.count for row in status_stats}
+    read = status_counts.get('read', 0)
+    delivered = status_counts.get('delivered', 0)
+    sent = status_counts.get('sent', 0)
+    failed = status_counts.get('failed', 0)
+
     stats = {
         'total_messages': total_messages,
         'outbound': outbound,
@@ -280,21 +315,21 @@ def analytics():
         'sent': sent,
         'failed': failed
     }
+
+    # Fecha para gráficos (usa el mismo período seleccionado)
+    chart_since = since_date if since_date else datetime.utcnow() - timedelta(days=365 * 10)  # 10 años si es "todo"
     
-    # Datos para gráficos - últimos 30 días
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    
-    # Mensajes por día (hora Argentina) - usando SQL directo para timezone
+    # Mensajes por día (hora Argentina) - usa período seleccionado
     messages_by_day = db.session.execute(db.text(f"""
-        SELECT 
+        SELECT
             DATE(timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}') as date,
             direction,
             COUNT(*) as count
         FROM whatsapp_messages
         WHERE timestamp >= :since
         GROUP BY DATE(timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}'), direction
-    """), {'since': thirty_days_ago}).fetchall()
-    
+    """), {'since': chart_since}).fetchall()
+
     # Formatear datos por día
     day_data = {}
     for row in messages_by_day:
@@ -305,37 +340,38 @@ def analytics():
             day_data[date_str]['inbound'] = row.count
         else:
             day_data[date_str]['outbound'] = row.count
-    
-    # Mensajes enviados por hora (hora Argentina)
+
+    # Mensajes enviados por hora (hora Argentina) - usa período seleccionado
     sent_by_hour = db.session.execute(db.text(f"""
-        SELECT 
+        SELECT
             EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')::int as hour,
             COUNT(*) as count
         FROM whatsapp_messages
-        WHERE direction = 'outbound'
+        WHERE direction = 'outbound' AND timestamp >= :since
         GROUP BY EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')
         ORDER BY hour
-    """)).fetchall()
-    
-    # Mensajes leídos por hora (hora Argentina)
+    """), {'since': chart_since}).fetchall()
+
+    # Mensajes leídos por hora (hora Argentina) - usa período seleccionado
     read_by_hour = db.session.execute(db.text(f"""
-        SELECT 
+        SELECT
             EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')::int as hour,
             COUNT(*) as count
         FROM whatsapp_message_statuses
-        WHERE status = 'read'
+        WHERE status = 'read' AND timestamp >= :since
         GROUP BY EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')
         ORDER BY hour
-    """)).fetchall()
-    
-    # Mensajes por día de la semana (hora Argentina)
+    """), {'since': chart_since}).fetchall()
+
+    # Mensajes por día de la semana (hora Argentina) - usa período seleccionado
     by_day_of_week = db.session.execute(db.text(f"""
-        SELECT 
+        SELECT
             EXTRACT(DOW FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')::int as dow,
             COUNT(*) as count
         FROM whatsapp_messages
+        WHERE timestamp >= :since
         GROUP BY EXTRACT(DOW FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')
-    """)).fetchall()
+    """), {'since': chart_since}).fetchall()
     
     dow_counts = [0] * 7
     for row in by_day_of_week:
@@ -490,12 +526,77 @@ def analytics():
         'template_count': len(template_performance)
     }
     
-    return render_template('analytics.html', 
-                         stats=stats, 
-                         chart_data=chart_data, 
+    # ==========================================
+    # CONVERSATION CATEGORIZATION ANALYTICS
+    # ==========================================
+    topic_distribution = []
+    rating_distribution = []
+    
+    # Topic distribution
+    topic_stats = db.session.query(
+        ConversationTopic.name,
+        ConversationTopic.color,
+        db.func.count(ConversationSession.id).label('count')
+    ).outerjoin(ConversationSession, ConversationTopic.id == ConversationSession.topic_id)\
+     .group_by(ConversationTopic.id)\
+     .order_by(db.func.count(ConversationSession.id).desc())\
+     .all()
+    
+    for stat in topic_stats:
+        topic_distribution.append({
+            'name': stat.name,
+            'color': stat.color,
+            'count': stat.count or 0
+        })
+    
+    # Add uncategorized sessions count
+    uncategorized_count = ConversationSession.query.filter(ConversationSession.topic_id.is_(None)).count()
+    if uncategorized_count > 0:
+        topic_distribution.append({
+            'name': 'Sin categorizar',
+            'color': 'gray',
+            'count': uncategorized_count
+        })
+    
+    # Rating distribution
+    rating_stats = db.session.query(
+        ConversationSession.rating,
+        db.func.count(ConversationSession.id).label('count')
+    ).filter(ConversationSession.rating.isnot(None))\
+     .group_by(ConversationSession.rating)\
+     .all()
+    
+    rating_map = {
+        'excelente': ('Excelente', '#22c55e'),
+        'buena': ('Buena', '#3b82f6'),
+        'neutral': ('Neutral', '#f59e0b'),
+        'mala': ('Mala', '#ef4444'),
+        'problematica': ('Problemática', '#7c3aed')
+    }
+    
+    for stat in rating_stats:
+        if stat.rating in rating_map:
+            name, color = rating_map[stat.rating]
+            rating_distribution.append({
+                'name': name,
+                'color': color,
+                'count': stat.count
+            })
+    
+    session_analytics = {
+        'topic_distribution': topic_distribution,
+        'rating_distribution': rating_distribution,
+        'total_sessions': ConversationSession.query.count()
+    }
+    
+    return render_template('analytics.html',
+                         stats=stats,
+                         chart_data=chart_data,
                          insights=insights,
                          template_performance=template_performance,
-                         hourly_read_rate=hourly_read_rate)
+                         hourly_read_rate=hourly_read_rate,
+                         session_analytics=session_analytics,
+                         period=period)
 
 @app.route("/api/stats")
 def api_stats():
@@ -1126,8 +1227,8 @@ def api_get_messages(phone):
             .order_by(Message.timestamp.desc())\
             .limit(MESSAGE_LIMIT).all()
         
-        # Reordenar cronológicamente
-        messages = sorted(recent_messages, key=lambda m: m.timestamp)
+        # Invertir para orden cronológico (O(n) vs O(n log n) de sorted)
+        messages = recent_messages[::-1]
         
         # Obtener info de contacto
         contact = Contact.query.filter_by(phone_number=phone).first()
@@ -1439,7 +1540,7 @@ def api_tags_bulk_action():
 
         # Fetch por Contact ID
         if all_contact_ids:
-            results_cid = Contact.query.options(joinedload(Contact.tags)).filter(Contact.contact_id.in_(all_contact_ids)).all()
+            results_cid = Contact.query.filter(Contact.contact_id.in_(all_contact_ids)).all()
             for c in results_cid:
                 existing_contacts_by_cid[c.contact_id] = c
                 existing_contacts_by_phone[c.phone_number] = c  # Indexar también por teléfono
@@ -1447,7 +1548,7 @@ def api_tags_bulk_action():
         # Fetch por Phone (evitando duplicados)
         phones_to_fetch = all_phones - set(existing_contacts_by_phone.keys())
         if phones_to_fetch:
-             results_phone = Contact.query.options(joinedload(Contact.tags)).filter(Contact.phone_number.in_(phones_to_fetch)).all()
+             results_phone = Contact.query.filter(Contact.phone_number.in_(phones_to_fetch)).all()
              for c in results_phone:
                  existing_contacts_by_phone[c.phone_number] = c
                  if c.contact_id:
@@ -1458,7 +1559,9 @@ def api_tags_bulk_action():
         skipped = 0
         not_found = 0
 
-        # 3. Procesar en memoria
+        # 3. Recolectar IDs de contactos encontrados
+        found_contact_ids = set()
+        
         for _, row in df.iterrows():
             contact = None
 
@@ -1477,23 +1580,50 @@ def api_tags_bulk_action():
                 not_found += 1
                 continue
 
-            # Nota: Acceder a contact.tags puede disparar lazy loads si no están cargados.
-            # Sin embargo, Identity Map de SQLAlchemy ayuda.
-            # Para optimización máxima, se debería cargar con joinedload, pero batch fetch es el mayor paso.
+            found_contact_ids.add(contact.id)
+        
+        # 4. Ejecutar operación en lote según acción
+        if action == 'add':
+            # Obtener contactos que YA tienen el tag
+            existing_relations = db.session.query(contact_tags.c.contact_id).filter(
+                contact_tags.c.tag_id == tag.id,
+                contact_tags.c.contact_id.in_(found_contact_ids)
+            ).all()
+            existing_ids = {r[0] for r in existing_relations}
             
-            if action == 'add':
-                if tag not in contact.tags:
-                    contact.tags.append(tag)
-                    added += 1
-                else:
-                    skipped += 1
-            elif action == 'remove':
-                if tag in contact.tags:
-                    # Remover tag de la lista
-                    contact.tags = [t for t in contact.tags if t.id != tag.id]
-                    removed += 1
-                else:
-                    skipped += 1
+            # Insertar solo relaciones nuevas
+            new_relations = [
+                {'contact_id': cid, 'tag_id': tag.id} 
+                for cid in found_contact_ids if cid not in existing_ids
+            ]
+            
+            if new_relations:
+                db.session.execute(contact_tags.insert(), new_relations)
+            
+            added = len(new_relations)
+            skipped = len(existing_ids)
+            
+        elif action == 'remove':
+            # Obtener contactos que tienen el tag
+            existing_relations = db.session.query(contact_tags.c.contact_id).filter(
+                contact_tags.c.tag_id == tag.id,
+                contact_tags.c.contact_id.in_(found_contact_ids)
+            ).all()
+            contacts_with_tag = {r[0] for r in existing_relations}
+            
+            # Eliminar en lote con un solo DELETE
+            if contacts_with_tag:
+                db.session.execute(
+                    contact_tags.delete().where(
+                        and_(
+                            contact_tags.c.tag_id == tag.id,
+                            contact_tags.c.contact_id.in_(contacts_with_tag)
+                        )
+                    )
+                )
+            
+            removed = len(contacts_with_tag)
+            skipped = len(found_contact_ids) - len(contacts_with_tag)
 
         db.session.commit()
         
@@ -2236,7 +2366,10 @@ def send_campaign_bg(app_context, cid):
         logger.info(f"✅ Campaña {cid} completada. Total enviados: {total_sent}, fallidos: {total_failed}")
 
 def run_scheduler():
-    """Scheduler para verificar campañas programadas."""
+    """Scheduler para verificar campañas programadas y categorizar conversaciones."""
+    from conversation_categorizer import run_categorization
+    categorize_counter = 0
+    
     while True:
         try:
             with app.app_context():
@@ -2303,6 +2436,15 @@ def run_scheduler():
                     
         except Exception as e:
             logger.error(f"Error en scheduler: {e}")
+        
+        # Run conversation categorization every 5 minutes (every 5 loops)
+        categorize_counter += 1
+        if categorize_counter >= 5:
+            categorize_counter = 0
+            try:
+                run_categorization(app.app_context())
+            except Exception as e:
+                logger.error(f"Error en categorización: {e}")
             
         time_module.sleep(60) # Revisar cada minuto
 
@@ -2516,6 +2658,160 @@ def api_export_campaign_stats(campaign_id):
     except Exception as e:
         logger.error(f"Error exportando campaña: {e}")
         return jsonify({'error': str(e)}), 500
+
+# ==================== CONVERSATION TOPICS ====================
+
+@app.route("/topics")
+def topics_page():
+    """Página para gestionar temas de conversación."""
+    return render_template('topics.html')
+
+
+@app.route("/api/conversation-topics", methods=["GET"])
+def api_list_conversation_topics():
+    """Lista todos los temas de conversación."""
+    topics = ConversationTopic.query.order_by(ConversationTopic.name).all()
+    return jsonify([t.to_dict() for t in topics])
+
+
+@app.route("/api/conversation-topics", methods=["POST"])
+def api_create_conversation_topic():
+    """Crea un nuevo tema de conversación."""
+    data = request.get_json()
+    
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'El nombre es requerido'}), 400
+    
+    # Verificar si ya existe
+    existing = ConversationTopic.query.filter_by(name=name).first()
+    if existing:
+        return jsonify({'success': False, 'error': 'Ya existe un tema con ese nombre'}), 400
+    
+    topic = ConversationTopic(
+        name=name,
+        description=data.get('description', '').strip() or None,
+        keywords=data.get('keywords', []),
+        color=data.get('color', 'blue')
+    )
+    
+    db.session.add(topic)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'topic': topic.to_dict()})
+
+
+@app.route("/api/conversation-topics/<int:topic_id>", methods=["PUT"])
+def api_update_conversation_topic(topic_id):
+    """Actualiza un tema de conversación."""
+    topic = ConversationTopic.query.get_or_404(topic_id)
+    data = request.get_json()
+    
+    if 'name' in data:
+        new_name = data['name'].strip()
+        if new_name and new_name != topic.name:
+            # Verificar duplicados
+            existing = ConversationTopic.query.filter_by(name=new_name).first()
+            if existing:
+                return jsonify({'success': False, 'error': 'Ya existe un tema con ese nombre'}), 400
+            topic.name = new_name
+    
+    if 'description' in data:
+        topic.description = data['description'].strip() or None
+    
+    if 'keywords' in data:
+        topic.keywords = data['keywords']
+    
+    if 'color' in data:
+        topic.color = data['color']
+    
+    db.session.commit()
+    return jsonify({'success': True, 'topic': topic.to_dict()})
+
+
+@app.route("/api/conversation-topics/<int:topic_id>", methods=["DELETE"])
+def api_delete_conversation_topic(topic_id):
+    """Elimina un tema de conversación."""
+    topic = ConversationTopic.query.get_or_404(topic_id)
+    
+    # Desasociar sesiones pero no eliminarlas
+    ConversationSession.query.filter_by(topic_id=topic_id).update({'topic_id': None})
+    
+    db.session.delete(topic)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+# ==================== CONVERSATION SESSIONS ====================
+
+@app.route("/sessions")
+def sessions_page():
+    """Página para ver sesiones de conversación categorizadas."""
+    return render_template('sessions.html')
+
+
+@app.route("/api/conversation-sessions", methods=["GET"])
+def api_list_conversation_sessions():
+    """Lista sesiones de conversación con filtros."""
+    # Filters
+    topic_id = request.args.get('topic_id', type=int)
+    rating = request.args.get('rating')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    query = ConversationSession.query
+
+    if topic_id:
+        query = query.filter(ConversationSession.topic_id == topic_id)
+    if rating:
+        query = query.filter(ConversationSession.rating == rating)
+
+    # Order by most recent first
+    query = query.order_by(ConversationSession.ended_at.desc())
+
+    # Paginate
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    # Obtener nombres de contactos en batch
+    phones = [s.phone_number for s in paginated.items]
+    contacts_map = {}
+    if phones:
+        contacts = Contact.query.filter(Contact.phone_number.in_(phones)).all()
+        contacts_map = {c.phone_number: c.name for c in contacts}
+
+    # Agregar nombre de contacto a cada sesión
+    sessions_data = []
+    for s in paginated.items:
+        session_dict = s.to_dict()
+        session_dict['contact_name'] = contacts_map.get(s.phone_number)
+        sessions_data.append(session_dict)
+
+    return jsonify({
+        'sessions': sessions_data,
+        'total': paginated.total,
+        'pages': paginated.pages,
+        'current_page': page
+    })
+
+
+@app.route("/api/conversation-sessions/<int:session_id>", methods=["PUT"])
+def api_update_conversation_session(session_id):
+    """Recategoriza una sesión manualmente."""
+    session = ConversationSession.query.get_or_404(session_id)
+    data = request.get_json()
+    
+    if 'topic_id' in data:
+        session.topic_id = data['topic_id'] if data['topic_id'] else None
+    
+    if 'rating' in data:
+        session.rating = data['rating']
+    
+    session.auto_categorized = False  # Mark as manually edited
+    db.session.commit()
+    
+    return jsonify({'success': True, 'session': session.to_dict()})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=Config.PORT, debug=False)

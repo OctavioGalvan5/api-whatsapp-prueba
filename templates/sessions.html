@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Sesiones de Conversación - WhatsApp CRM{% endblock %}
+
+{% block content %}
+<main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Sesiones de Conversación</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Conversaciones categorizadas automáticamente</p>
+            </div>
+            <div class="flex gap-3">
+                <select id="filter-topic" onchange="loadSessions(true)"
+                    class="px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                    <option value="">Todos los temas</option>
+                </select>
+                <select id="filter-rating" onchange="loadSessions(true)"
+                    class="px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                    <option value="">Todas las calidades</option>
+                    <option value="excelente">⭐ Excelente</option>
+                    <option value="buena">👍 Buena</option>
+                    <option value="neutral">😐 Neutral</option>
+                    <option value="mala">👎 Mala</option>
+                    <option value="problematica">⚠️ Problemática</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sessions Table -->
+    <div class="flex-1 overflow-auto p-6">
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-800/50">
+                    <tr>
+                        <th
+                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Contacto</th>
+                        <th
+                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Tema</th>
+                        <th
+                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Calidad</th>
+                        <th
+                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Msjs</th>
+                        <th
+                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Resumen</th>
+                        <th
+                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Fecha</th>
+                        <th
+                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="sessions-body" class="divide-y divide-gray-100 dark:divide-gray-800">
+                    <!-- Sessions loaded via JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div id="empty-state" class="hidden text-center py-12">
+            <span class="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600">forum</span>
+            <p class="mt-4 text-gray-500 dark:text-gray-400">No hay sesiones categorizadas aún</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500">Las conversaciones se categorizan automáticamente
+                después de 15 minutos de inactividad</p>
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination" class="hidden mt-4 flex justify-center gap-2">
+            <button id="prev-btn" onclick="changePage(-1)"
+                class="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50">Anterior</button>
+            <span id="page-info" class="px-3 py-1.5 text-sm text-gray-500"></span>
+            <button id="next-btn" onclick="changePage(1)"
+                class="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50">Siguiente</button>
+        </div>
+    </div>
+</main>
+
+<!-- Edit Modal -->
+<div id="editModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="closeEditModal()"></div>
+    <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <h3 class="text-lg font-semibold mb-4">Recategorizar Sesión</h3>
+        <input type="hidden" id="edit-session-id" />
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Tema</label>
+                <select id="edit-topic"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                    <option value="">Sin categorizar</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Calidad</label>
+                <select id="edit-rating"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                    <option value="excelente">⭐ Excelente</option>
+                    <option value="buena">👍 Buena</option>
+                    <option value="neutral">😐 Neutral</option>
+                    <option value="mala">👎 Mala</option>
+                    <option value="problematica">⚠️ Problemática</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-6">
+            <button onclick="closeEditModal()"
+                class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">Cancelar</button>
+            <button onclick="saveSession()"
+                class="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let sessions = [];
+    let topics = [];
+    let currentPage = 1;
+    let totalPages = 1;
+
+    const ratingLabels = {
+        'excelente': '⭐ Excelente',
+        'buena': '👍 Buena',
+        'neutral': '😐 Neutral',
+        'mala': '👎 Mala',
+        'problematica': '⚠️ Problemática'
+    };
+
+    async function loadTopics() {
+        try {
+            const resp = await fetch('/api/conversation-topics');
+            topics = await resp.json();
+
+            // Populate filter and edit dropdowns
+            const filterSelect = document.getElementById('filter-topic');
+            const editSelect = document.getElementById('edit-topic');
+
+            topics.forEach(t => {
+                const opt1 = document.createElement('option');
+                opt1.value = t.id;
+                opt1.textContent = t.name;
+                filterSelect.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = t.id;
+                opt2.textContent = t.name;
+                editSelect.appendChild(opt2);
+            });
+        } catch (e) {
+            console.error('Error loading topics:', e);
+        }
+    }
+
+    async function loadSessions(resetPage = false) {
+        if (resetPage) {
+            currentPage = 1;
+        }
+
+        const topicId = document.getElementById('filter-topic').value;
+        const rating = document.getElementById('filter-rating').value;
+
+        let url = `/api/conversation-sessions?page=${currentPage}`;
+        if (topicId) url += `&topic_id=${topicId}`;
+        if (rating) url += `&rating=${rating}`;
+
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            sessions = data.sessions;
+            totalPages = data.pages;
+            renderSessions();
+            updatePagination(data.total);
+        } catch (e) {
+            console.error('Error loading sessions:', e);
+        }
+    }
+
+    function renderSessions() {
+        const tbody = document.getElementById('sessions-body');
+        const emptyState = document.getElementById('empty-state');
+        const table = tbody.parentElement;
+
+        if (sessions.length === 0) {
+            table.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            document.getElementById('pagination').classList.add('hidden');
+            return;
+        }
+
+        table.classList.remove('hidden');
+        emptyState.classList.add('hidden');
+
+        tbody.innerHTML = sessions.map(s => `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <td class="px-4 py-3">
+                    <a href="/dashboard?phone=${encodeURIComponent(s.phone_number)}"
+                       class="flex flex-col hover:text-primary transition-colors">
+                        <span class="text-sm font-medium">${escapeHtml(s.contact_name || 'Sin nombre')}</span>
+                        <span class="text-xs text-gray-500">${escapeHtml(s.phone_number)}</span>
+                    </a>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 text-xs rounded-full ${s.topic ? 'bg-primary/10 text-primary' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}">
+                        ${escapeHtml(s.topic_name || 'Sin categorizar')}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-sm">${ratingLabels[s.rating] || s.rating || '-'}</td>
+                <td class="px-4 py-3 text-sm text-gray-500">${s.message_count}</td>
+                <td class="px-4 py-3 text-sm text-gray-500 max-w-xs truncate" title="${escapeHtml(s.summary || '-')}">${escapeHtml(s.summary || '-')}</td>
+                <td class="px-4 py-3 text-sm text-gray-500">${formatDate(s.ended_at)}</td>
+                <td class="px-4 py-3 flex gap-1">
+                    <a href="/dashboard?phone=${encodeURIComponent(s.phone_number)}"
+                       class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg" title="Ver chat">
+                        <span class="material-symbols-outlined text-lg text-primary">chat</span>
+                    </a>
+                    <button onclick="openEditModal(${s.id})" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg" title="Editar">
+                        <span class="material-symbols-outlined text-lg text-gray-500">edit</span>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function updatePagination(total) {
+        const paginationDiv = document.getElementById('pagination');
+        if (total <= 10) {
+            paginationDiv.classList.add('hidden');
+            return;
+        }
+
+        paginationDiv.classList.remove('hidden');
+        document.getElementById('page-info').textContent = `Página ${currentPage} de ${totalPages}`;
+        document.getElementById('prev-btn').disabled = currentPage <= 1;
+        document.getElementById('next-btn').disabled = currentPage >= totalPages;
+    }
+
+    function changePage(delta) {
+        currentPage += delta;
+        loadSessions();
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function formatDate(isoStr) {
+        if (!isoStr) return '-';
+        const d = new Date(isoStr);
+        return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function openEditModal(sessionId) {
+        const session = sessions.find(s => s.id === sessionId);
+        if (!session) return;
+
+        document.getElementById('editModal').classList.remove('hidden');
+        document.getElementById('edit-session-id').value = session.id;
+        document.getElementById('edit-topic').value = session.topic?.id || '';
+        document.getElementById('edit-rating').value = session.rating || 'neutral';
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
+
+    async function saveSession() {
+        const sessionId = document.getElementById('edit-session-id').value;
+        const topicId = document.getElementById('edit-topic').value;
+        const rating = document.getElementById('edit-rating').value;
+
+        try {
+            const resp = await fetch(`/api/conversation-sessions/${sessionId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic_id: topicId ? parseInt(topicId) : null,
+                    rating
+                })
+            });
+
+            const data = await resp.json();
+            if (data.success) {
+                closeEditModal();
+                loadSessions();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown'));
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    // Init
+    loadTopics();
+    loadSessions();
+</script>
+{% endblock %}

@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import pytz
 
 db = SQLAlchemy()
 
@@ -194,3 +195,87 @@ class CampaignLog(db.Model):
     )
 
     contact = db.relationship('Contact', backref='campaign_logs', foreign_keys=[contact_id])
+
+
+# ==========================================
+# CONVERSATION CATEGORIZATION
+# ==========================================
+
+class ConversationTopic(db.Model):
+    """Temas para categorizar conversaciones del chatbot."""
+    __tablename__ = 'conversation_topics'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    keywords = db.Column(db.JSON, default=list)  # Lista de palabras clave
+    color = db.Column(db.String(20), default='blue')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    sessions = db.relationship('ConversationSession', backref='topic', lazy='select')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'keywords': self.keywords or [],
+            'color': self.color,
+            'session_count': len(self.sessions) if self.sessions else 0
+        }
+
+
+class ConversationSession(db.Model):
+    """Sesiones de conversación categorizadas automáticamente."""
+    __tablename__ = 'conversation_sessions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    phone_number = db.Column(db.String(20), nullable=False, index=True)
+    topic_id = db.Column(db.Integer, db.ForeignKey('conversation_topics.id'), nullable=True)
+    rating = db.Column(db.String(20), nullable=True)  # excelente, buena, neutral, mala, problematica
+    started_at = db.Column(db.DateTime, nullable=False)
+    ended_at = db.Column(db.DateTime, nullable=False)
+    message_count = db.Column(db.Integer, default=0)
+    summary = db.Column(db.Text, nullable=True)
+    auto_categorized = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_sessions_phone_started', 'phone_number', 'started_at'),
+    )
+    
+    def to_dict(self):
+        # Convertir fechas UTC a zona horaria de Argentina
+        tz_argentina = pytz.timezone('America/Argentina/Buenos_Aires')
+
+        started_at_ar = None
+        if self.started_at:
+            # Si la fecha no tiene tzinfo, asumimos que es UTC
+            if self.started_at.tzinfo is None:
+                started_at_utc = pytz.utc.localize(self.started_at)
+            else:
+                started_at_utc = self.started_at
+            started_at_ar = started_at_utc.astimezone(tz_argentina).isoformat()
+
+        ended_at_ar = None
+        if self.ended_at:
+            # Si la fecha no tiene tzinfo, asumimos que es UTC
+            if self.ended_at.tzinfo is None:
+                ended_at_utc = pytz.utc.localize(self.ended_at)
+            else:
+                ended_at_utc = self.ended_at
+            ended_at_ar = ended_at_utc.astimezone(tz_argentina).isoformat()
+
+        return {
+            'id': self.id,
+            'phone_number': self.phone_number,
+            'topic': self.topic.to_dict() if self.topic else None,
+            'topic_name': self.topic.name if self.topic else 'Sin categorizar',
+            'rating': self.rating,
+            'started_at': started_at_ar,
+            'ended_at': ended_at_ar,
+            'message_count': self.message_count,
+            'summary': self.summary,
+            'auto_categorized': self.auto_categorized
+        }
+
