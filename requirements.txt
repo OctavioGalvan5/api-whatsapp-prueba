@@ -8,3 +8,4 @@ pytz
 pandas
 openpyxl>=3.1.2
 boto3>=1.34.0
+openai>=1.0.0

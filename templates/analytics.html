@@ -4,491 +4,654 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 {% endblock %}
 
 {% block content %}
-        <!-- Main Content -->
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
-            <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-xl font-bold text-[#111812] dark:text-white">Analytics</h1>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Estadísticas detalladas de mensajes</p>
-                    </div>
-                </div>
-            </header>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Analytics</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Estadísticas detalladas de mensajes</p>
+            </div>
+            <!-- Selector de período -->
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-gray-500">calendar_month</span>
+                <select id="periodSelect" onchange="changePeriod(this.value)"
+                    class="bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="7" {{ 'selected' if period == 7 else '' }}>Últimos 7 días</option>
+                    <option value="30" {{ 'selected' if period == 30 else '' }}>Últimos 30 días</option>
+                    <option value="90" {{ 'selected' if period == 90 else '' }}>Últimos 90 días</option>
+                    <option value="365" {{ 'selected' if period == 365 else '' }}>Último año</option>
+                    <option value="0" {{ 'selected' if period == 0 else '' }}>Todo el historial</option>
+                </select>
+            </div>
+        </div>
+    </header>
 
-            <!-- Content -->
-            <div class="flex-1 overflow-auto p-6 custom-scrollbar">
-                <!-- Stats Cards -->
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
-                            <span class="material-symbols-outlined text-primary">mail</span>
-                        </div>
-                        <div class="text-2xl font-bold">{{ stats.total_messages }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Mensajes Totales</div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center mb-3">
-                            <span class="material-symbols-outlined text-blue-500">outgoing_mail</span>
-                        </div>
-                        <div class="text-2xl font-bold">{{ stats.outbound }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Enviados</div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center mb-3">
-                            <span class="material-symbols-outlined text-purple-500">inbox</span>
-                        </div>
-                        <div class="text-2xl font-bold">{{ stats.inbound }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Recibidos</div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
-                            <span class="material-symbols-outlined text-primary">visibility</span>
-                        </div>
-                        <div class="text-2xl font-bold">{{ stats.read }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Leídos</div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center mb-3">
-                            <span class="material-symbols-outlined text-orange-500">done_all</span>
-                        </div>
-                        <div class="text-2xl font-bold">{{ stats.delivered }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Entregados</div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center mb-3">
-                            <span class="material-symbols-outlined text-red-500">error</span>
-                        </div>
-                        <div class="text-2xl font-bold">{{ stats.failed }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Fallidos</div>
-                    </div>
-                </div>
+    <script>
+        function changePeriod(days) {
+            window.location.href = '/analytics?period=' + days;
+        }
+    </script>
 
-                <!-- Main Charts -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                    <div class="lg:col-span-2 bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">trending_up</span>
-                            Mensajes por Día (últimos 30 días)
-                        </h3>
-                        <div class="h-[300px]">
-                            <canvas id="messagesByDayChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">pie_chart</span>
-                            Distribución de Estados
-                        </h3>
-                        <div class="h-[300px]">
-                            <canvas id="statusDistChart"></canvas>
-                        </div>
-                    </div>
+    <!-- Content -->
+    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-primary">mail</span>
                 </div>
+                <div class="text-2xl font-bold">{{ stats.total_messages }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Mensajes Totales</div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-blue-500">outgoing_mail</span>
+                </div>
+                <div class="text-2xl font-bold">{{ stats.outbound }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Enviados</div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-purple-500">inbox</span>
+                </div>
+                <div class="text-2xl font-bold">{{ stats.inbound }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Recibidos</div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-primary">visibility</span>
+                </div>
+                <div class="text-2xl font-bold">{{ stats.read }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Leídos</div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-orange-500">done_all</span>
+                </div>
+                <div class="text-2xl font-bold">{{ stats.delivered }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Entregados</div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-red-500">error</span>
+                </div>
+                <div class="text-2xl font-bold">{{ stats.failed }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Fallidos</div>
+            </div>
+        </div>
 
-                <!-- Hour Charts -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">schedule</span>
-                            Mensajes Enviados por Hora
-                        </h3>
-                        <div class="h-[200px]">
-                            <canvas id="sentByHourChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-purple-500">visibility</span>
-                            Mensajes Leídos por Hora
-                        </h3>
-                        <div class="h-[200px]">
-                            <canvas id="readByHourChart"></canvas>
-                        </div>
-                    </div>
+        <!-- Main Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div
+                class="lg:col-span-2 bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">trending_up</span>
+                    Mensajes por Día (últimos 30 días)
+                </h3>
+                <div class="h-[300px]">
+                    <canvas id="messagesByDayChart"></canvas>
                 </div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">pie_chart</span>
+                    Distribución de Estados
+                </h3>
+                <div class="h-[300px]">
+                    <canvas id="statusDistChart"></canvas>
+                </div>
+            </div>
+        </div>
 
-                <!-- More Charts -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-blue-500">calendar_month</span>
-                            Por Día de la Semana
-                        </h3>
-                        <div class="h-[200px]">
-                            <canvas id="byDayOfWeekChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">swap_horiz</span>
-                            Entrantes vs Salientes
-                        </h3>
-                        <div class="h-[200px]">
-                            <canvas id="directionChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-orange-500">contacts</span>
-                            Top Contactos
-                        </h3>
-                        <div class="h-[200px]">
-                            <canvas id="topContactsChart"></canvas>
-                        </div>
-                    </div>
+        <!-- Hour Charts -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">schedule</span>
+                    Mensajes Enviados por Hora
+                </h3>
+                <div class="h-[200px]">
+                    <canvas id="sentByHourChart"></canvas>
                 </div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-purple-500">visibility</span>
+                    Mensajes Leídos por Hora
+                </h3>
+                <div class="h-[200px]">
+                    <canvas id="readByHourChart"></canvas>
+                </div>
+            </div>
+        </div>
 
-                <!-- Template Performance -->
-                {% if template_performance %}
-                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4 mb-6">
-                    <h3 class="font-semibold mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">description</span>
-                        Rendimiento de Templates
-                    </h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead>
-                                <tr class="border-b border-gray-200 dark:border-gray-700">
-                                    <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Template</th>
-                                    <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Enviados</th>
-                                    <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Leídos</th>
-                                    <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Tasa de Lectura</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                                {% for t in template_performance %}
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                    <td class="px-4 py-3 text-sm font-medium max-w-[300px] truncate">{{ t.name }}</td>
-                                    <td class="px-4 py-3 text-sm text-center font-semibold">{{ t.sent }}</td>
-                                    <td class="px-4 py-3 text-sm text-center font-semibold">{{ t.read }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <div class="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                                <div class="h-full rounded-full {% if t.read_rate >= 70 %}bg-primary{% elif t.read_rate >= 40 %}bg-orange-500{% else %}bg-red-500{% endif %}" style="width: {{ t.read_rate }}%"></div>
-                                            </div>
-                                            <span class="text-sm font-bold {% if t.read_rate >= 70 %}text-primary{% elif t.read_rate >= 40 %}text-orange-500{% else %}text-red-500{% endif %}">{{ t.read_rate }}%</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+        <!-- More Charts -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-blue-500">calendar_month</span>
+                    Por Día de la Semana
+                </h3>
+                <div class="h-[200px]">
+                    <canvas id="byDayOfWeekChart"></canvas>
                 </div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">swap_horiz</span>
+                    Entrantes vs Salientes
+                </h3>
+                <div class="h-[200px]">
+                    <canvas id="directionChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-orange-500">contacts</span>
+                    Top Contactos
+                </h3>
+                <div class="h-[200px]">
+                    <canvas id="topContactsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conversation Analytics -->
+        {% if session_analytics and session_analytics.total_sessions > 0 %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">category</span>
+                    Distribución por Tema
+                    <span class="text-xs text-gray-400 ml-auto">{{ session_analytics.total_sessions }} sesiones</span>
+                </h3>
+                <div class="h-[220px]">
+                    <canvas id="topicDistChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-purple-500">star</span>
+                    Calidad de Conversaciones
+                </h3>
+                <div class="h-[220px]">
+                    <canvas id="ratingDistChart"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Template Performance -->
+        {% if template_performance %}
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4 mb-6">
+            <h3 class="font-semibold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">description</span>
+                Rendimiento de Templates
+            </h3>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                            <th
+                                class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                Template</th>
+                            <th
+                                class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                Enviados</th>
+                            <th
+                                class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                Leídos</th>
+                            <th
+                                class="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                Tasa de Lectura</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        {% for t in template_performance %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td class="px-4 py-3 text-sm font-medium max-w-[300px] truncate">{{ t.name }}</td>
+                            <td class="px-4 py-3 text-sm text-center font-semibold">{{ t.sent }}</td>
+                            <td class="px-4 py-3 text-sm text-center font-semibold">{{ t.read }}</td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center justify-center gap-2">
+                                    <div class="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full {% if t.read_rate >= 70 %}bg-primary{% elif t.read_rate >= 40 %}bg-orange-500{% else %}bg-red-500{% endif %}"
+                                            style="width: {{ t.read_rate }}%"></div>
+                                    </div>
+                                    <span
+                                        class="text-sm font-bold {% if t.read_rate >= 70 %}text-primary{% elif t.read_rate >= 40 %}text-orange-500{% else %}text-red-500{% endif %}">{{
+                                        t.read_rate }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Best Hours & Read Rate -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">target</span>
+                    Mejores Horarios para Enviar
+                </h3>
+                {% if insights.best_hours %}
+                <div class="grid grid-cols-3 gap-3">
+                    {% for hour in insights.best_hours %}
+                    <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 text-center">
+                        <div class="text-2xl font-bold text-primary">{{ hour.hour }}:00</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ hour.rate }}% tasa</div>
+                        <div class="text-xs text-gray-400 dark:text-gray-500">{{ hour.sent }} env / {{ hour.read }}
+                            leídos</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 dark:text-gray-400 text-center py-4">Se necesitan más datos</p>
                 {% endif %}
+            </div>
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-purple-500">show_chart</span>
+                    Tasa de Lectura por Hora
+                </h3>
+                <div class="h-[200px]">
+                    <canvas id="readRateByHourChart"></canvas>
+                </div>
+            </div>
+        </div>
 
-                <!-- Best Hours & Read Rate -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">target</span>
-                            Mejores Horarios para Enviar
-                        </h3>
-                        {% if insights.best_hours %}
-                        <div class="grid grid-cols-3 gap-3">
-                            {% for hour in insights.best_hours %}
-                            <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 text-center">
-                                <div class="text-2xl font-bold text-primary">{{ hour.hour }}:00</div>
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ hour.rate }}% tasa</div>
-                                <div class="text-xs text-gray-400 dark:text-gray-500">{{ hour.sent }} env / {{ hour.read }} leídos</div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <p class="text-gray-500 dark:text-gray-400 text-center py-4">Se necesitan más datos</p>
-                        {% endif %}
+        <!-- Insights -->
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+            <h3 class="font-semibold mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">lightbulb</span>
+                Insights
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-primary">schedule</span>
                     </div>
-                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                        <h3 class="font-semibold mb-4 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-purple-500">show_chart</span>
-                            Tasa de Lectura por Hora
-                        </h3>
-                        <div class="h-[200px]">
-                            <canvas id="readRateByHourChart"></canvas>
-                        </div>
+                    <div>
+                        <h4 class="text-sm font-semibold">Hora Pico</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Mayor actividad a las <strong>{{
+                                insights.peak_hour }}:00</strong> con {{ insights.peak_hour_count }} mensajes</p>
                     </div>
                 </div>
-
-                <!-- Insights -->
-                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-                    <h3 class="font-semibold mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">lightbulb</span>
-                        Insights
-                    </h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-primary">schedule</span>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold">Hora Pico</h4>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Mayor actividad a las <strong>{{ insights.peak_hour }}:00</strong> con {{ insights.peak_hour_count }} mensajes</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-purple-500">visibility</span>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold">Tasa de Lectura</h4>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">El <strong>{{ insights.read_rate }}%</strong> de mensajes son leídos</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-blue-500">calendar_month</span>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold">Día Más Activo</h4>
-                                <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.busiest_day }}</strong> es el día con más mensajes</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-orange-500">analytics</span>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold">Promedio Diario</h4>
-                                <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.avg_daily }}</strong> mensajes por día</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-primary">target</span>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold">Mejor Hora Lecturas</h4>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Más lecturas a las <strong>{{ insights.peak_read_hour }}:00</strong></p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-purple-500">description</span>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold">Templates Usados</h4>
-                                <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.template_count }}</strong> templates diferentes</p>
-                            </div>
-                        </div>
+                <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-purple-500">visibility</span>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold">Tasa de Lectura</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">El <strong>{{ insights.read_rate
+                                }}%</strong> de mensajes son leídos</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-blue-500">calendar_month</span>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold">Día Más Activo</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.busiest_day }}</strong>
+                            es el día con más mensajes</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-orange-500">analytics</span>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold">Promedio Diario</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.avg_daily }}</strong>
+                            mensajes por día</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-primary">target</span>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold">Mejor Hora Lecturas</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Más lecturas a las <strong>{{
+                                insights.peak_read_hour }}:00</strong></p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-purple-500">description</span>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold">Templates Usados</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400"><strong>{{ insights.template_count
+                                }}</strong> templates diferentes</p>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
+    </div>
+</main>
 
-    <script>
-        const chartData = {{ chart_data | tojson | safe }};
+<script>
+    const chartData = {{ chart_data | tojson | safe }};
 
-        // Color palette
-        const colors = {
-            green: '#13ec25',
-            blue: '#0ea5e9',
-            purple: '#8b5cf6',
-            red: '#ef4444',
-            orange: '#f97316',
-            yellow: '#eab308'
-        };
+    // Color palette
+    const colors = {
+        green: '#13ec25',
+        blue: '#0ea5e9',
+        purple: '#8b5cf6',
+        red: '#ef4444',
+        orange: '#f97316',
+        yellow: '#eab308'
+    };
 
-        // Chart defaults
-        Chart.defaults.font.family = 'Inter';
-        Chart.defaults.color = '#64748b';
+    // Chart defaults
+    Chart.defaults.font.family = 'Inter';
+    Chart.defaults.color = '#64748b';
 
-        // Messages by Day
-        if (chartData.messages_by_day) {
-            new Chart(document.getElementById('messagesByDayChart'), {
-                type: 'line',
-                data: {
-                    labels: chartData.messages_by_day.map(d => d.date),
-                    datasets: [
-                        {
-                            label: 'Enviados',
-                            data: chartData.messages_by_day.map(d => d.outbound || 0),
-                            borderColor: colors.green,
-                            backgroundColor: 'rgba(19, 236, 37, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Recibidos',
-                            data: chartData.messages_by_day.map(d => d.inbound || 0),
-                            borderColor: colors.blue,
-                            backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top' } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-        }
+    // Desactivar datalabels por defecto (solo activar en gráficos específicos)
+    Chart.register(ChartDataLabels);
+    Chart.defaults.plugins.datalabels.display = false;
 
-        // Status Distribution
-        if (chartData.status_dist) {
-            new Chart(document.getElementById('statusDistChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Leídos', 'Entregados', 'Enviados', 'Fallidos'],
-                    datasets: [{
-                        data: [
-                            chartData.status_dist.read || 0,
-                            chartData.status_dist.delivered || 0,
-                            chartData.status_dist.sent || 0,
-                            chartData.status_dist.failed || 0
-                        ],
-                        backgroundColor: [colors.purple, colors.green, colors.blue, colors.red]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'right' } }
-                }
-            });
-        }
-
-        // Sent by Hour
-        if (chartData.sent_by_hour) {
-            new Chart(document.getElementById('sentByHourChart'), {
-                type: 'bar',
-                data: {
-                    labels: chartData.sent_by_hour.map(d => `${d.hour}h`),
-                    datasets: [{
+    // Messages by Day
+    if (chartData.messages_by_day) {
+        new Chart(document.getElementById('messagesByDayChart'), {
+            type: 'line',
+            data: {
+                labels: chartData.messages_by_day.map(d => d.date),
+                datasets: [
+                    {
                         label: 'Enviados',
-                        data: chartData.sent_by_hour.map(d => d.count),
-                        backgroundColor: colors.green,
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-        }
-
-        // Read by Hour
-        if (chartData.read_by_hour) {
-            new Chart(document.getElementById('readByHourChart'), {
-                type: 'bar',
-                data: {
-                    labels: chartData.read_by_hour.map(d => `${d.hour}h`),
-                    datasets: [{
-                        label: 'Leídos',
-                        data: chartData.read_by_hour.map(d => d.count),
-                        backgroundColor: colors.purple,
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-        }
-
-        // By Day of Week
-        if (chartData.by_day_of_week) {
-            new Chart(document.getElementById('byDayOfWeekChart'), {
-                type: 'bar',
-                data: {
-                    labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-                    datasets: [{
-                        data: chartData.by_day_of_week,
-                        backgroundColor: colors.blue,
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-        }
-
-        // Direction Chart
-        if (chartData.direction) {
-            new Chart(document.getElementById('directionChart'), {
-                type: 'pie',
-                data: {
-                    labels: ['Entrantes', 'Salientes'],
-                    datasets: [{
-                        data: [chartData.direction.inbound, chartData.direction.outbound],
-                        backgroundColor: [colors.blue, colors.green]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
-        }
-
-        // Top Contacts
-        if (chartData.top_contacts) {
-            new Chart(document.getElementById('topContactsChart'), {
-                type: 'bar',
-                data: {
-                    labels: chartData.top_contacts.map(c => c.phone.slice(-4)),
-                    datasets: [{
-                        data: chartData.top_contacts.map(c => c.count),
-                        backgroundColor: colors.orange,
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { x: { beginAtZero: true } }
-                }
-            });
-        }
-
-        // Read Rate by Hour Chart
-        const hourlyReadRate = {{ hourly_read_rate | tojson | safe }};
-        if (hourlyReadRate && hourlyReadRate.length > 0) {
-            new Chart(document.getElementById('readRateByHourChart'), {
-                type: 'line',
-                data: {
-                    labels: hourlyReadRate.map(h => `${h.hour}h`),
-                    datasets: [{
-                        label: 'Tasa de Lectura %',
-                        data: hourlyReadRate.map(h => h.rate),
-                        borderColor: colors.purple,
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        data: chartData.messages_by_day.map(d => d.outbound || 0),
+                        borderColor: colors.green,
+                        backgroundColor: 'rgba(19, 236, 37, 0.1)',
                         fill: true,
                         tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: { callback: v => v + '%' }
+                    },
+                    {
+                        label: 'Recibidos',
+                        data: chartData.messages_by_day.map(d => d.inbound || 0),
+                        borderColor: colors.blue,
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // Status Distribution
+    if (chartData.status_dist) {
+        new Chart(document.getElementById('statusDistChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Leídos', 'Entregados', 'Enviados', 'Fallidos'],
+                datasets: [{
+                    data: [
+                        chartData.status_dist.read || 0,
+                        chartData.status_dist.delivered || 0,
+                        chartData.status_dist.sent || 0,
+                        chartData.status_dist.failed || 0
+                    ],
+                    backgroundColor: [colors.purple, colors.green, colors.blue, colors.red]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' },
+                    datalabels: {
+                        display: true,
+                        color: '#fff',
+                        font: { weight: 'bold', size: 14 },
+                        formatter: (value, ctx) => {
+                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return percentage > 5 ? percentage + '%' : ''; // Solo mostrar si es mayor al 5%
                         }
                     }
                 }
-            });
-        }
-    </script>
+            }
+        });
+    }
+
+    // Sent by Hour
+    if (chartData.sent_by_hour) {
+        new Chart(document.getElementById('sentByHourChart'), {
+            type: 'bar',
+            data: {
+                labels: chartData.sent_by_hour.map(d => `${d.hour}h`),
+                datasets: [{
+                    label: 'Enviados',
+                    data: chartData.sent_by_hour.map(d => d.count),
+                    backgroundColor: colors.green,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // Read by Hour
+    if (chartData.read_by_hour) {
+        new Chart(document.getElementById('readByHourChart'), {
+            type: 'bar',
+            data: {
+                labels: chartData.read_by_hour.map(d => `${d.hour}h`),
+                datasets: [{
+                    label: 'Leídos',
+                    data: chartData.read_by_hour.map(d => d.count),
+                    backgroundColor: colors.purple,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // By Day of Week
+    if (chartData.by_day_of_week) {
+        new Chart(document.getElementById('byDayOfWeekChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                datasets: [{
+                    data: chartData.by_day_of_week,
+                    backgroundColor: colors.blue,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // Direction Chart
+    if (chartData.direction) {
+        new Chart(document.getElementById('directionChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Entrantes', 'Salientes'],
+                datasets: [{
+                    data: [chartData.direction.inbound, chartData.direction.outbound],
+                    backgroundColor: [colors.blue, colors.green]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    datalabels: {
+                        display: true,
+                        color: '#fff',
+                        font: { weight: 'bold', size: 14 },
+                        formatter: (value, ctx) => {
+                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return percentage + '%';
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Top Contacts
+    if (chartData.top_contacts) {
+        new Chart(document.getElementById('topContactsChart'), {
+            type: 'bar',
+            data: {
+                labels: chartData.top_contacts.map(c => c.phone.slice(-4)),
+                datasets: [{
+                    data: chartData.top_contacts.map(c => c.count),
+                    backgroundColor: colors.orange,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // Read Rate by Hour Chart
+    const hourlyReadRate = {{ hourly_read_rate | tojson | safe }};
+    if (hourlyReadRate && hourlyReadRate.length > 0) {
+        new Chart(document.getElementById('readRateByHourChart'), {
+            type: 'line',
+            data: {
+                labels: hourlyReadRate.map(h => `${h.hour}h`),
+                datasets: [{
+                    label: 'Tasa de Lectura %',
+                    data: hourlyReadRate.map(h => h.rate),
+                    borderColor: colors.purple,
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: v => v + '%' }
+                    }
+                }
+            }
+        });
+    }
+
+    // ==========================================
+    // CONVERSATION ANALYTICS CHARTS
+    // ==========================================
+    const sessionAnalytics = {{ session_analytics | tojson | safe if session_analytics else '{}' }};
+
+    // Topic Distribution Chart
+    if (sessionAnalytics.topic_distribution && sessionAnalytics.topic_distribution.length > 0) {
+        const topicColors = {
+            'blue': '#3b82f6', 'green': '#22c55e', 'red': '#ef4444', 'yellow': '#eab308',
+            'purple': '#8b5cf6', 'pink': '#ec4899', 'orange': '#f97316', 'cyan': '#06b6d4', 'gray': '#6b7280'
+        };
+
+        new Chart(document.getElementById('topicDistChart'), {
+            type: 'doughnut',
+            data: {
+                labels: sessionAnalytics.topic_distribution.map(t => t.name),
+                datasets: [{
+                    data: sessionAnalytics.topic_distribution.map(t => t.count),
+                    backgroundColor: sessionAnalytics.topic_distribution.map(t => topicColors[t.color] || '#6b7280')
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12, padding: 8 } },
+                    datalabels: {
+                        display: true,
+                        color: '#fff',
+                        font: { weight: 'bold', size: 12 },
+                        formatter: (value, ctx) => {
+                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return percentage > 5 ? percentage + '%' : ''; // Solo mostrar si es mayor al 5%
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Rating Distribution Chart
+    if (sessionAnalytics.rating_distribution && sessionAnalytics.rating_distribution.length > 0) {
+        new Chart(document.getElementById('ratingDistChart'), {
+            type: 'doughnut',
+            data: {
+                labels: sessionAnalytics.rating_distribution.map(r => r.name),
+                datasets: [{
+                    data: sessionAnalytics.rating_distribution.map(r => r.count),
+                    backgroundColor: sessionAnalytics.rating_distribution.map(r => r.color)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12, padding: 8 } },
+                    datalabels: {
+                        display: true,
+                        color: '#fff',
+                        font: { weight: 'bold', size: 12 },
+                        formatter: (value, ctx) => {
+                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return percentage > 5 ? percentage + '%' : ''; // Solo mostrar si es mayor al 5%
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
 {% endblock %}
