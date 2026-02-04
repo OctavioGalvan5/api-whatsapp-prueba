@@ -109,6 +109,40 @@ def verify_webhook():
     
     return "Hello world", 200
 
+@app.route("/media/<filename>")
+def media_proxy(filename):
+    """
+    Proxy para servir archivos de MinIO a través de HTTPS.
+    Esto evita problemas de certificados SSL y mixed content.
+    """
+    from whatsapp_service import get_s3_client, ensure_bucket_exists
+
+    try:
+        s3 = get_s3_client()
+        bucket = Config.MINIO_BUCKET
+
+        if not bucket:
+            return "Storage not configured", 404
+
+        ensure_bucket_exists()
+
+        # Obtener el archivo de MinIO
+        response = s3.get_object(Bucket=bucket, Key=filename)
+
+        # Determinar el content-type
+        content_type = response.get('ContentType', 'application/octet-stream')
+
+        # Servir el archivo
+        return send_file(
+            io.BytesIO(response['Body'].read()),
+            mimetype=content_type,
+            download_name=filename
+        )
+    except Exception as e:
+        logger.error(f"Error serving media {filename}: {str(e)}")
+        return "File not found", 404
+
+
 @app.route("/webhook", methods=["POST"])
 def webhook_handler():
     """
