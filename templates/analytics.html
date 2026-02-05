@@ -363,6 +363,23 @@
     Chart.register(ChartDataLabels);
     Chart.defaults.plugins.datalabels.display = false;
 
+    // Helper: Calcula porcentaje dinámico (solo elementos visibles)
+    function dynamicPercentage(value, ctx, minPercent = 5) {
+        const meta = ctx.chart.getDatasetMeta(0);
+        // Si este elemento está oculto, no mostrar nada
+        if (meta.data[ctx.dataIndex].hidden) return '';
+
+        // Calcular total solo de elementos visibles
+        let total = 0;
+        ctx.chart.data.datasets[0].data.forEach((val, i) => {
+            if (!meta.data[i].hidden) {
+                total += val;
+            }
+        });
+        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+        return percentage > minPercent ? percentage + '%' : '';
+    }
+
     // Messages by Day
     if (chartData.messages_by_day) {
         new Chart(document.getElementById('messagesByDayChart'), {
@@ -422,11 +439,7 @@
                         display: true,
                         color: '#fff',
                         font: { weight: 'bold', size: 14 },
-                        formatter: (value, ctx) => {
-                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return percentage > 5 ? percentage + '%' : ''; // Solo mostrar si es mayor al 5%
-                        }
+                        formatter: (value, ctx) => dynamicPercentage(value, ctx, 5)
                     }
                 }
             }
@@ -518,11 +531,7 @@
                         display: true,
                         color: '#fff',
                         font: { weight: 'bold', size: 14 },
-                        formatter: (value, ctx) => {
-                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return percentage + '%';
-                        }
+                        formatter: (value, ctx) => dynamicPercentage(value, ctx, 0)
                     }
                 }
             }
@@ -612,11 +621,7 @@
                         display: true,
                         color: '#fff',
                         font: { weight: 'bold', size: 12 },
-                        formatter: (value, ctx) => {
-                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return percentage > 5 ? percentage + '%' : ''; // Solo mostrar si es mayor al 5%
-                        }
+                        formatter: (value, ctx) => dynamicPercentage(value, ctx, 5)
                     }
                 }
             }
@@ -643,11 +648,7 @@
                         display: true,
                         color: '#fff',
                         font: { weight: 'bold', size: 12 },
-                        formatter: (value, ctx) => {
-                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return percentage > 5 ? percentage + '%' : ''; // Solo mostrar si es mayor al 5%
-                        }
+                        formatter: (value, ctx) => dynamicPercentage(value, ctx, 5)
                     }
                 }
             }

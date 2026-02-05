@@ -178,8 +178,48 @@ def process_event(data):
                         media_url = whatsapp_api.download_media(media_id)
                         
                     elif msg_type == "location":
-                        content = "[Ubicación]"
-                    
+                        loc = message.get("location", {})
+                        lat = loc.get("latitude", "")
+                        lon = loc.get("longitude", "")
+                        content = f"[Ubicación: {lat}, {lon}]"
+
+                    elif msg_type == "contacts":
+                        contacts = message.get("contacts", [])
+                        if contacts:
+                            names = [c.get("name", {}).get("formatted_name", "Contacto") for c in contacts]
+                            content = f"[Contacto: {', '.join(names)}]"
+                        else:
+                            content = "[Contacto compartido]"
+
+                    elif msg_type == "reaction":
+                        reaction = message.get("reaction", {})
+                        emoji = reaction.get("emoji", "")
+                        content = f"[Reacción: {emoji}]" if emoji else "[Reacción eliminada]"
+
+                    elif msg_type == "interactive":
+                        interactive = message.get("interactive", {})
+                        int_type = interactive.get("type", "")
+                        if int_type == "button_reply":
+                            reply = interactive.get("button_reply", {})
+                            content = reply.get("title", "[Respuesta a botón]")
+                        elif int_type == "list_reply":
+                            reply = interactive.get("list_reply", {})
+                            content = reply.get("title", "[Respuesta a lista]")
+                        else:
+                            content = "[Respuesta interactiva]"
+
+                    elif msg_type == "button":
+                        button = message.get("button", {})
+                        content = button.get("text", "[Respuesta a botón]")
+
+                    elif msg_type == "unsupported":
+                        content = "[Mensaje no soportado por WhatsApp API]"
+
+                    else:
+                        # Tipo desconocido - logear para debug
+                        logger.warning(f"⚠️ Tipo de mensaje no manejado: {msg_type}")
+                        content = f"[{msg_type or 'Desconocido'}]"
+
                     logger.info(f"NUEVO MENSAJE de {sender} tipo {msg_type}: {message}")
                     
                     # Guardar mensaje en base de datos
