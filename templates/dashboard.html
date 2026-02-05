@@ -179,6 +179,10 @@
                     <source src="{{ media_src }}">
                     Tu navegador no soporta video.
                 </video>
+                {% elif msg.message_type == 'sticker' %}
+                <img src="{{ media_src }}"
+                    class="mb-2 max-w-32 max-h-32 object-contain"
+                    alt="Sticker">
                 {% elif msg.message_type == 'document' %}
                 {% if msg.media_url.endswith('.pdf') %}
                 <div class="mb-2">
@@ -514,6 +518,11 @@
                                     <source src="${mediaSrc}">
                                     Tu navegador no soporta video.
                                 </video>`;
+                        } else if (msg.message_type === 'sticker') {
+                            contentHtml = `
+                                <img src="${mediaSrc}"
+                                    class="mb-2 max-w-32 max-h-32 object-contain"
+                                    alt="Sticker">`;
                         } else if (msg.message_type === 'document') {
                             // Mostrar PDF inline o link para otros documentos
                             if (msg.media_url.endsWith('.pdf')) {

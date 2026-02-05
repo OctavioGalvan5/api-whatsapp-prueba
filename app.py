@@ -55,7 +55,7 @@ with app.app_context():
 from whatsapp_service import whatsapp_api
 
 # Rutas públicas que no requieren autenticación
-PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook'}
+PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api/minio/diagnose'}
 
 @app.before_request
 def check_auth():
@@ -112,35 +112,34 @@ def verify_webhook():
 @app.route("/media/<filename>")
 def media_proxy(filename):
     """
-    Proxy para servir archivos de MinIO a través de HTTPS.
-    Esto evita problemas de certificados SSL y mixed content.
+    Proxy para servir archivos de MinIO o almacenamiento local.
+    Primero intenta MinIO, si falla busca en static/media/.
     """
     from whatsapp_service import get_s3_client, ensure_bucket_exists
 
+    # Intentar MinIO primero
     try:
         s3 = get_s3_client()
         bucket = Config.MINIO_BUCKET
 
-        if not bucket:
-            return "Storage not configured", 404
-
-        ensure_bucket_exists()
-
-        # Obtener el archivo de MinIO
-        response = s3.get_object(Bucket=bucket, Key=filename)
-
-        # Determinar el content-type
-        content_type = response.get('ContentType', 'application/octet-stream')
-
-        # Servir el archivo
-        return send_file(
-            io.BytesIO(response['Body'].read()),
-            mimetype=content_type,
-            download_name=filename
-        )
+        if bucket:
+            response = s3.get_object(Bucket=bucket, Key=filename)
+            content_type = response.get('ContentType', 'application/octet-stream')
+            return send_file(
+                io.BytesIO(response['Body'].read()),
+                mimetype=content_type,
+                download_name=filename
+            )
     except Exception as e:
-        logger.error(f"Error serving media {filename}: {str(e)}")
-        return "File not found", 404
+        logger.warning(f"MinIO failed for {filename}, trying local: {str(e)}")
+
+    # Fallback: buscar en static/media/
+    local_path = os.path.join(os.path.dirname(__file__), 'static', 'media', filename)
+    if os.path.exists(local_path):
+        return send_file(local_path, download_name=filename)
+
+    logger.error(f"File not found: {filename}")
+    return "File not found", 404
 
 
 @app.route("/api/media/retry/<int:message_id>", methods=["POST"])
@@ -178,22 +177,109 @@ def api_retry_media_download(message_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route("/api/media/fix-extensions", methods=["POST"])
+def api_fix_media_extensions():
+    """
+    Corrige extensiones de audio de .oga a .ogg en la BD.
+    NO re-descarga archivos, solo actualiza las URLs.
+    """
+    try:
+        # Buscar mensajes con extensión .oga
+        oga_msgs = Message.query.filter(
+            Message.media_url.like('%.oga')
+        ).all()
+
+        fixed = 0
+        results = []
+
+        for msg in oga_msgs:
+            old_url = msg.media_url
+            # Cambiar .oga a .ogg
+            new_url = old_url.replace('.oga', '.ogg')
+            msg.media_url = new_url
+            fixed += 1
+            results.append({
+                'id': msg.id,
+                'old_url': old_url,
+                'new_url': new_url
+            })
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'total_fixed': fixed,
+            'details': results
+        })
+
+    except Exception as e:
+        logger.error(f"Error fixing extensions: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/media/fix-paths", methods=["POST"])
+def api_fix_media_paths():
+    """
+    Corrige URLs de static/media/ a /media/ y re-descarga archivos a MinIO.
+    """
+    try:
+        # Buscar mensajes con URLs que empiezan con static/media/
+        broken_msgs = Message.query.filter(
+            Message.media_id.isnot(None),
+            Message.media_url.like('static/media/%')
+        ).all()
+
+        fixed = 0
+        failed = 0
+        results = []
+
+        for msg in broken_msgs:
+            try:
+                # Re-descargar el archivo a MinIO
+                new_url = whatsapp_api.download_media(msg.media_id)
+                if new_url:
+                    msg.media_url = new_url
+                    fixed += 1
+                    results.append({'id': msg.id, 'status': 'fixed', 'url': new_url})
+                else:
+                    failed += 1
+                    results.append({'id': msg.id, 'status': 'failed', 'error': 'Download returned None'})
+            except Exception as e:
+                failed += 1
+                results.append({'id': msg.id, 'status': 'failed', 'error': str(e)})
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'total_found': len(broken_msgs),
+            'fixed': fixed,
+            'failed': failed,
+            'details': results
+        })
+
+    except Exception as e:
+        logger.error(f"Error fixing paths: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/api/media/fix-broken", methods=["POST"])
 def api_fix_broken_media():
     """
     Identifica y corrige mensajes con media_url inválido.
-    Busca mensajes donde media_url no empieza con '/' ni 'http' o es None pero tiene media_id.
+    Re-descarga archivos desde WhatsApp.
     """
     try:
         from sqlalchemy import or_
 
-        # Buscar mensajes con URLs problemáticas
+        # Buscar mensajes con URLs problemáticas (NULL, sin ruta, o con extensión .oga)
         broken_msgs = Message.query.filter(
             Message.media_id.isnot(None),
             or_(
                 Message.media_url.is_(None),
                 ~Message.media_url.like('/%'),
-                ~Message.media_url.like('http%')
+                ~Message.media_url.like('http%'),
+                Message.media_url.like('%.oga')  # También incluir .oga para re-descargar
             )
         ).all()
 
@@ -228,6 +314,71 @@ def api_fix_broken_media():
     except Exception as e:
         logger.error(f"Error fixing broken media: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/minio/diagnose", methods=["GET"])
+def api_minio_diagnose():
+    """Diagnostica la conexión a MinIO."""
+    from whatsapp_service import get_s3_client
+    import requests
+
+    results = {
+        'config': {
+            'endpoint': Config.MINIO_ENDPOINT,
+            'bucket': Config.MINIO_BUCKET,
+            'use_ssl': Config.MINIO_USE_SSL,
+            'access_key_set': bool(Config.MINIO_ACCESS_KEY),
+            'secret_key_set': bool(Config.MINIO_SECRET_KEY),
+        },
+        'tests': {}
+    }
+
+    protocol = "https" if Config.MINIO_USE_SSL else "http"
+    endpoint_url = f"{protocol}://{Config.MINIO_ENDPOINT}"
+
+    # Test 1: HTTP connectivity
+    try:
+        resp = requests.get(f"{endpoint_url}/minio/health/live", timeout=5, verify=False)
+        results['tests']['health_check'] = {
+            'status': 'ok' if resp.status_code == 200 else 'error',
+            'http_code': resp.status_code,
+            'response': resp.text[:200] if resp.text else None
+        }
+    except Exception as e:
+        results['tests']['health_check'] = {'status': 'error', 'error': str(e)}
+
+    # Test 2: List buckets
+    try:
+        s3 = get_s3_client()
+        buckets = s3.list_buckets()
+        results['tests']['list_buckets'] = {
+            'status': 'ok',
+            'buckets': [b['Name'] for b in buckets.get('Buckets', [])]
+        }
+    except Exception as e:
+        results['tests']['list_buckets'] = {'status': 'error', 'error': str(e)}
+
+    # Test 3: Head bucket
+    try:
+        s3 = get_s3_client()
+        s3.head_bucket(Bucket=Config.MINIO_BUCKET)
+        results['tests']['head_bucket'] = {'status': 'ok', 'bucket_exists': True}
+    except Exception as e:
+        results['tests']['head_bucket'] = {'status': 'error', 'error': str(e)}
+
+    # Test 4: Try to create bucket
+    try:
+        s3 = get_s3_client()
+        s3.create_bucket(Bucket=Config.MINIO_BUCKET)
+        results['tests']['create_bucket'] = {'status': 'ok', 'created': True}
+    except Exception as e:
+        error_str = str(e)
+        if 'BucketAlreadyOwnedByYou' in error_str or 'BucketAlreadyExists' in error_str:
+            results['tests']['create_bucket'] = {'status': 'ok', 'already_exists': True}
+        else:
+            results['tests']['create_bucket'] = {'status': 'error', 'error': error_str}
+
+    return jsonify(results)
 
 
 @app.route("/webhook", methods=["POST"])
