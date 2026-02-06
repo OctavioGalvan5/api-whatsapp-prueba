@@ -1,0 +1,113 @@
+table_name,column_name,data_type,is_nullable
+chatbot_config,value,text,YES
+chatbot_config,id,integer,NO
+chatbot_config,key,character varying,NO
+chatbot_config,updated_at,timestamp without time zone,YES
+conversation_sessions,ended_at,timestamp without time zone,NO
+conversation_sessions,started_at,timestamp without time zone,NO
+conversation_sessions,topic_id,integer,YES
+conversation_sessions,created_at,timestamp without time zone,YES
+conversation_sessions,summary,text,YES
+conversation_sessions,phone_number,character varying,NO
+conversation_sessions,id,integer,NO
+conversation_sessions,rating,character varying,YES
+conversation_sessions,auto_categorized,boolean,YES
+conversation_sessions,message_count,integer,YES
+conversation_topics,name,character varying,NO
+conversation_topics,description,text,YES
+conversation_topics,id,integer,NO
+conversation_topics,color,character varying,YES
+conversation_topics,keywords,json,YES
+conversation_topics,created_at,timestamp without time zone,YES
+document_metadata,url,text,YES
+document_metadata,title,text,YES
+document_metadata,id,text,NO
+document_metadata,created_at,timestamp without time zone,YES
+document_rows,dataset_id,text,YES
+document_rows,created_at,timestamp without time zone,YES
+document_rows,row_data,jsonb,YES
+document_rows,id,bigint,NO
+documents_pg,text,text,YES
+documents_pg,metadata,jsonb,YES
+documents_pg,id,bigint,NO
+documents_pg,embedding,USER-DEFINED,YES
+langchain_pg_collection,uuid,uuid,NO
+langchain_pg_collection,name,character varying,YES
+langchain_pg_collection,cmetadata,jsonb,YES
+langchain_pg_embedding,cmetadata,jsonb,YES
+langchain_pg_embedding,id,bigint,NO
+langchain_pg_embedding,collection_id,uuid,YES
+langchain_pg_embedding,embedding,USER-DEFINED,YES
+langchain_pg_embedding,document,text,YES
+n8n_chat_histories,id,integer,NO
+n8n_chat_histories,session_id,character varying,NO
+n8n_chat_histories,message,jsonb,NO
+rag_documents,original_filename,character varying,NO
+rag_documents,file_size,integer,NO
+rag_documents,created_at,timestamp without time zone,YES
+rag_documents,updated_at,timestamp without time zone,YES
+rag_documents,id,integer,NO
+rag_documents,status,character varying,YES
+rag_documents,minio_path,character varying,NO
+rag_documents,file_hash,character varying,NO
+rag_documents,error_message,text,YES
+rag_documents,file_type,character varying,NO
+rag_documents,filename,character varying,NO
+whatsapp_campaign_logs,id,integer,NO
+whatsapp_campaign_logs,contact_phone,character varying,NO
+whatsapp_campaign_logs,message_id,character varying,YES
+whatsapp_campaign_logs,status,character varying,YES
+whatsapp_campaign_logs,error_detail,text,YES
+whatsapp_campaign_logs,contact_id,integer,YES
+whatsapp_campaign_logs,created_at,timestamp without time zone,YES
+whatsapp_campaign_logs,campaign_id,integer,NO
+whatsapp_campaigns,variables,json,YES
+whatsapp_campaigns,id,integer,NO
+whatsapp_campaigns,tag_id,integer,NO
+whatsapp_campaigns,created_at,timestamp without time zone,YES
+whatsapp_campaigns,started_at,timestamp without time zone,YES
+whatsapp_campaigns,completed_at,timestamp without time zone,YES
+whatsapp_campaigns,scheduled_at,timestamp without time zone,YES
+whatsapp_campaigns,name,character varying,NO
+whatsapp_campaigns,template_name,character varying,NO
+whatsapp_campaigns,template_language,character varying,YES
+whatsapp_campaigns,status,character varying,YES
+whatsapp_contact_tags,contact_id,integer,NO
+whatsapp_contact_tags,tag_id,integer,NO
+whatsapp_contacts,notes,text,YES
+whatsapp_contacts,first_name,character varying,YES
+whatsapp_contacts,last_name,character varying,YES
+whatsapp_contacts,custom_field_1,character varying,YES
+whatsapp_contacts,custom_field_2,character varying,YES
+whatsapp_contacts,custom_field_3,character varying,YES
+whatsapp_contacts,custom_field_4,character varying,YES
+whatsapp_contacts,custom_field_5,character varying,YES
+whatsapp_contacts,custom_field_6,character varying,YES
+whatsapp_contacts,custom_field_7,character varying,YES
+whatsapp_contacts,contact_id,character varying,YES
+whatsapp_contacts,phone_number,character varying,NO
+whatsapp_contacts,created_at,timestamp without time zone,YES
+whatsapp_contacts,id,integer,NO
+whatsapp_contacts,tags,json,YES
+whatsapp_contacts,name,character varying,YES
+whatsapp_message_statuses,error_title,character varying,YES
+whatsapp_message_statuses,status,character varying,NO
+whatsapp_message_statuses,wa_message_id,character varying,NO
+whatsapp_message_statuses,timestamp,timestamp without time zone,YES
+whatsapp_message_statuses,id,integer,NO
+whatsapp_message_statuses,error_details,text,YES
+whatsapp_message_statuses,error_code,character varying,YES
+whatsapp_messages,caption,text,YES
+whatsapp_messages,message_type,character varying,NO
+whatsapp_messages,direction,character varying,NO
+whatsapp_messages,phone_number,character varying,NO
+whatsapp_messages,wa_message_id,character varying,YES
+whatsapp_messages,id,integer,NO
+whatsapp_messages,timestamp,timestamp without time zone,YES
+whatsapp_messages,content,text,YES
+whatsapp_messages,media_id,character varying,YES
+whatsapp_messages,media_url,character varying,YES
+whatsapp_tags,id,integer,NO
+whatsapp_tags,name,character varying,NO
+whatsapp_tags,created_at,timestamp without time zone,YES
+whatsapp_tags,color,character varying,YES
