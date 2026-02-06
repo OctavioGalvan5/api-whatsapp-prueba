@@ -8,13 +8,13 @@
         "width": 600,
         "color": 5
       },
-      "id": "sticky-header",
+      "id": "5c9df7fb-7f24-4acf-94f5-e638150c1ba7",
       "name": "Info",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        0,
-        200
+        -2560,
+        -496
       ]
     },
     {
@@ -24,13 +24,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-vectorize",
+      "id": "503d4332-37eb-4be4-91f4-95fd0d561e8f",
       "name": "Webhook Vectorize",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        100,
-        500
+        -2464,
+        -192
       ],
       "webhookId": "rag-vectorize-webhook"
     },
@@ -41,13 +41,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "webhook-delete",
+      "id": "e01187bf-8782-46d5-8a00-f688b77f216e",
       "name": "Webhook Delete",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        100,
-        800
+        -2464,
+        112
       ],
       "webhookId": "rag-delete-webhook"
     },
@@ -89,13 +89,13 @@
         },
         "options": {}
       },
-      "id": "set-file-info",
+      "id": "ecfa2af4-3bc4-441c-bf48-420b5ccd73b8",
       "name": "Set File Info",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        320,
-        500
+        -2240,
+        -192
       ]
     },
     {
@@ -109,13 +109,13 @@
           }
         }
       },
-      "id": "download-from-minio",
+      "id": "81c438e0-6830-464c-b2fd-680213219354",
       "name": "Download from MinIO",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        540,
-        500
+        -2016,
+        -192
       ]
     },
     {
@@ -124,18 +124,18 @@
         "query": "DELETE FROM documents_pg WHERE metadata->>'file_id' = '{{ $('Set File Info').item.json.file_id }}'",
         "options": {}
       },
-      "id": "delete-old-vectors",
+      "id": "12a5d090-46e2-483b-9f7f-10c449d7241f",
       "name": "Delete Old Vectors",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        760,
-        500
+        -1792,
+        -192
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -145,18 +145,18 @@
         "query": "DELETE FROM document_rows WHERE dataset_id = '{{ $('Set File Info').item.json.file_id }}'",
         "options": {}
       },
-      "id": "delete-old-rows",
+      "id": "1caf9a70-02c7-46e9-8ddf-62f308578ed5",
       "name": "Delete Old Doc Rows",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        980,
-        500
+        -1584,
+        -192
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -216,18 +216,18 @@
         },
         "options": {}
       },
-      "id": "insert-metadata",
+      "id": "be8ebb02-2521-4775-9856-e8a133ba5c43",
       "name": "Insert Document Metadata",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1200,
-        500
+        -1360,
+        -192
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -329,13 +329,13 @@
           "fallbackOutput": "extra"
         }
       },
-      "id": "switch-file-type",
+      "id": "e749955a-ee71-47ea-ac07-cc5a2aadc8c1",
       "name": "Switch File Type",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
       "position": [
-        1420,
-        500
+        -1136,
+        -192
       ]
     },
     {
@@ -343,26 +343,26 @@
         "operation": "xlsx",
         "options": {}
       },
-      "id": "extract-excel",
+      "id": "c90cc5b6-b015-4d42-9e4c-d36ffd9467fd",
       "name": "Extract from Excel",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        1700,
-        300
+        -864,
+        -400
       ]
     },
     {
       "parameters": {
         "options": {}
       },
-      "id": "extract-csv",
+      "id": "ec06e124-13fb-40b1-b3a0-8649d2457f93",
       "name": "Extract from CSV",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        1700,
-        460
+        -864,
+        -240
       ]
     },
     {
@@ -370,13 +370,13 @@
         "operation": "pdf",
         "options": {}
       },
-      "id": "extract-pdf",
+      "id": "aacfd62d-79f4-47f3-8db2-b3017de2f5e0",
       "name": "Extract PDF Text",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        1700,
-        620
+        -864,
+        -80
       ]
     },
     {
@@ -384,13 +384,13 @@
         "operation": "text",
         "options": {}
       },
-      "id": "extract-text",
+      "id": "4dcb42d1-22a6-4f53-8a9a-97100406f350",
       "name": "Extract Plain Text",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        1700,
-        900
+        -864,
+        208
       ],
       "alwaysOutputData": true
     },
@@ -411,13 +411,13 @@
         },
         "options": {}
       },
-      "id": "extract-docx",
+      "id": "05a19b99-7b38-4c88-b1f5-66dfd6985072",
       "name": "Extract DOCX Text",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1700,
-        780
+        -864,
+        80
       ]
     },
     {
@@ -425,13 +425,13 @@
         "aggregate": "aggregateAllItemData",
         "options": {}
       },
-      "id": "aggregate-excel",
+      "id": "b12ad916-ff93-44d4-bb30-63277c2408ea",
       "name": "Aggregate Excel",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        1920,
-        300
+        -640,
+        -400
       ]
     },
     {
@@ -439,13 +439,13 @@
         "aggregate": "aggregateAllItemData",
         "options": {}
       },
-      "id": "aggregate-csv",
+      "id": "a0d3011a-b99c-4f3e-b7af-b6a135c88f41",
       "name": "Aggregate CSV",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        1920,
-        460
+        -640,
+        -240
       ]
     },
     {
@@ -460,13 +460,13 @@
         },
         "options": {}
       },
-      "id": "summarize-tabular",
+      "id": "918938ad-fafe-4dcf-9b7b-5f51afe21782",
       "name": "Summarize Tabular",
       "type": "n8n-nodes-base.summarize",
       "typeVersion": 1,
       "position": [
-        2140,
-        380
+        -416,
+        -320
       ]
     },
     {
@@ -514,18 +514,18 @@
         },
         "options": {}
       },
-      "id": "insert-rows-excel",
+      "id": "75d83865-8ab9-4b99-80bb-f6013b62454c",
       "name": "Insert Table Rows (Excel)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1920,
-        180
+        -640,
+        -512
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -574,18 +574,18 @@
         },
         "options": {}
       },
-      "id": "insert-rows-csv",
+      "id": "ed12bc52-26a8-4594-9b08-c3a7a59faa31",
       "name": "Insert Table Rows (CSV)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1920,
-        560
+        -640,
+        -128
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -617,13 +617,13 @@
           ]
         }
       },
-      "id": "langchain-splitter",
+      "id": "a37ed585-e845-468c-8847-1336f3207c05",
       "name": "LangChain Text Splitter",
       "type": "@n8n/n8n-nodes-langchain.code",
       "typeVersion": 1,
       "position": [
-        2360,
-        620
+        -192,
+        -80
       ]
     },
     {
@@ -636,13 +636,13 @@
         },
         "options": {}
       },
-      "id": "openai-model",
+      "id": "f0451cd3-0cc8-471c-b7f2-d6f301681cac",
       "name": "OpenAI Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
-        2440,
-        820
+        -112,
+        128
       ],
       "credentials": {
         "openAiApi": {
@@ -656,13 +656,13 @@
         "model": "text-embedding-3-small",
         "options": {}
       },
-      "id": "embeddings-openai",
+      "id": "9486a2b3-8fa9-467c-9fb6-1cd175c05a64",
       "name": "Embeddings OpenAI",
       "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
       "typeVersion": 1,
       "position": [
-        2640,
-        620
+        96,
+        -80
       ],
       "credentials": {
         "openAiApi": {
@@ -690,26 +690,26 @@
           }
         }
       },
-      "id": "data-loader",
+      "id": "4ea22e38-c9e1-4902-b647-d00332b1cb57",
       "name": "Default Data Loader",
       "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
       "typeVersion": 1,
       "position": [
-        2840,
-        760
+        288,
+        80
       ]
     },
     {
       "parameters": {
         "options": {}
       },
-      "id": "text-splitter",
+      "id": "657a12a0-0d8b-45f2-9730-7736acb70401",
       "name": "Recursive Character Text Splitter",
       "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
       "typeVersion": 1,
       "position": [
-        2920,
-        900
+        368,
+        208
       ]
     },
     {
@@ -718,18 +718,18 @@
         "tableName": "documents_pg",
         "options": {}
       },
-      "id": "pgvector-store",
+      "id": "fde611c2-05b1-40f2-9583-8a2d61ae3dec",
       "name": "PGVector Store",
       "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
       "typeVersion": 1.3,
       "position": [
-        2720,
-        400
+        176,
+        -288
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -739,18 +739,18 @@
         "query": "UPDATE rag_documents SET status = 'ready', updated_at = NOW() WHERE id = {{ $('Set File Info').first().json.file_id }}",
         "options": {}
       },
-      "id": "update-status-ready",
+      "id": "f573ae07-f2d6-40e8-9b57-35825eafdcdb",
       "name": "Update Status Ready",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2980,
-        400
+        432,
+        -288
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -760,13 +760,13 @@
         "responseBody": "={{ JSON.stringify({ success: true, message: 'Document vectorized successfully', file_id: $('Set File Info').first().json.file_id }) }}",
         "options": {}
       },
-      "id": "respond-success",
+      "id": "5f987bd0-4408-4915-ae3f-f7b296407957",
       "name": "Respond Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        3200,
-        400
+        656,
+        -288
       ]
     },
     {
@@ -783,13 +783,13 @@
         },
         "options": {}
       },
-      "id": "set-delete-info",
+      "id": "4f9b2942-5548-42a2-bbbe-dc4e403656e2",
       "name": "Set Delete Info",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        320,
-        800
+        -2240,
+        112
       ]
     },
     {
@@ -798,18 +798,18 @@
         "query": "DELETE FROM documents_pg WHERE metadata->>'file_id' = '{{ $json.file_id }}'",
         "options": {}
       },
-      "id": "delete-pgvector",
+      "id": "780ad194-115a-4c2e-8e8c-beeaea39e3b0",
       "name": "Delete from PGVector",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        540,
-        800
+        -2016,
+        112
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -819,18 +819,18 @@
         "query": "DELETE FROM document_rows WHERE dataset_id = '{{ $('Set Delete Info').item.json.file_id }}'",
         "options": {}
       },
-      "id": "delete-rows",
+      "id": "31d1d15a-9839-4328-b7e0-4536fb9c7fb7",
       "name": "Delete Rows",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        760,
-        800
+        -1792,
+        112
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -840,18 +840,18 @@
         "query": "DELETE FROM document_metadata WHERE id = '{{ $('Set Delete Info').item.json.file_id }}'",
         "options": {}
       },
-      "id": "delete-metadata",
+      "id": "4829a063-bd1a-4ba8-9254-70fa130f4eaa",
       "name": "Delete Metadata",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        980,
-        800
+        -1584,
+        112
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -861,13 +861,13 @@
         "responseBody": "={{ JSON.stringify({ success: true, message: 'Document deleted successfully', file_id: $('Set Delete Info').first().json.file_id }) }}",
         "options": {}
       },
-      "id": "respond-delete-success",
+      "id": "53002d20-2e4f-4bd1-ac6e-56c12f82fbe6",
       "name": "Respond Delete Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1200,
-        800
+        -1360,
+        112
       ]
     }
   ],
@@ -1209,14 +1209,15 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "minio-v2",
+  "versionId": "1e1f740f-2546-477b-9eba-09f387842571",
   "meta": {
+    "templateCredsSetupCompleted": true,
     "instanceId": "a76ee565d5030c7cf86590b8e4b0193690bbdbeb1bc473ece830424f5478fc5b"
   },
-  "id": "rag-vectorizer-minio",
+  "id": "1y1deeC9TmgsGVSU",
   "tags": []
 }

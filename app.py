@@ -68,6 +68,9 @@ def check_auth():
     # Permitir callback de n8n para actualizar estado de documentos RAG
     if request.path.startswith('/api/rag/documents/') and request.path.endswith('/status'):
         return None
+    # Permitir extracción de DOCX desde n8n
+    if request.path == '/api/extract-docx':
+        return None
     if not session.get('logged_in'):
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
