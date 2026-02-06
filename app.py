@@ -3516,6 +3516,101 @@ def api_toggle_chatbot():
 
 
 # ==========================================
+# N8N WORKFLOW CONTROL API
+# ==========================================
+
+def n8n_api_request(method, endpoint, data=None):
+    """Helper para hacer requests a la API de n8n."""
+    if not Config.N8N_API_URL or not Config.N8N_API_KEY:
+        return {'error': 'n8n API no configurada'}, 500
+    
+    url = f"{Config.N8N_API_URL}{endpoint}"
+    headers = {
+        "X-N8N-API-KEY": Config.N8N_API_KEY,
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        if method == 'GET':
+            response = requests.get(url, headers=headers, timeout=10)
+        elif method == 'POST':
+            response = requests.post(url, headers=headers, json=data or {}, timeout=10)
+        elif method == 'PATCH':
+            response = requests.patch(url, headers=headers, json=data or {}, timeout=10)
+        else:
+            return {'error': f'Método {method} no soportado'}, 400
+        
+        if response.status_code >= 400:
+            return {'error': response.text}, response.status_code
+        
+        return response.json(), 200
+    except requests.exceptions.Timeout:
+        return {'error': 'Timeout conectando a n8n'}, 504
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+
+@app.route("/api/n8n/workflows", methods=["GET"])
+def api_list_n8n_workflows():
+    """Lista todos los workflows de n8n."""
+    result, status = n8n_api_request('GET', '/workflows')
+    return jsonify(result), status
+
+
+@app.route("/api/n8n/workflows/<workflow_id>", methods=["GET"])
+def api_get_n8n_workflow(workflow_id):
+    """Obtiene detalles de un workflow específico."""
+    result, status = n8n_api_request('GET', f'/workflows/{workflow_id}')
+    return jsonify(result), status
+
+
+@app.route("/api/n8n/workflows/<workflow_id>/activate", methods=["POST"])
+def api_activate_n8n_workflow(workflow_id):
+    """Activa un workflow de n8n."""
+    result, status = n8n_api_request('POST', f'/workflows/{workflow_id}/activate')
+    if status == 200:
+        return jsonify({'success': True, 'message': 'Workflow activado', 'workflow': result})
+    return jsonify(result), status
+
+
+@app.route("/api/n8n/workflows/<workflow_id>/deactivate", methods=["POST"])
+def api_deactivate_n8n_workflow(workflow_id):
+    """Desactiva un workflow de n8n."""
+    result, status = n8n_api_request('POST', f'/workflows/{workflow_id}/deactivate')
+    if status == 200:
+        return jsonify({'success': True, 'message': 'Workflow desactivado', 'workflow': result})
+    return jsonify(result), status
+
+
+@app.route("/api/n8n/workflows/<workflow_id>/toggle", methods=["POST"])
+def api_toggle_n8n_workflow(workflow_id):
+    """Alterna el estado de un workflow (activo/inactivo)."""
+    # Primero obtener estado actual
+    workflow, status = n8n_api_request('GET', f'/workflows/{workflow_id}')
+    if status != 200:
+        return jsonify(workflow), status
+    
+    is_active = workflow.get('active', False)
+    
+    # Alternar
+    if is_active:
+        result, status = n8n_api_request('POST', f'/workflows/{workflow_id}/deactivate')
+        action = 'desactivado'
+    else:
+        result, status = n8n_api_request('POST', f'/workflows/{workflow_id}/activate')
+        action = 'activado'
+    
+    if status == 200:
+        return jsonify({
+            'success': True, 
+            'message': f'Workflow {action}',
+            'active': not is_active,
+            'workflow': result
+        })
+    return jsonify(result), status
+
+
+# ==========================================
 # DOCX TEXT EXTRACTION API (para n8n)
 # ==========================================
 

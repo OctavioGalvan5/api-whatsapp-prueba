@@ -30,3 +30,7 @@ class Config:
     N8N_WEBHOOK_VECTORIZE = os.getenv("N8N_WEBHOOK_VECTORIZE")
     N8N_WEBHOOK_DELETE = os.getenv("N8N_WEBHOOK_DELETE")
     FLASK_BASE_URL = os.getenv("FLASK_BASE_URL", "http://localhost:3000")
+    
+    # n8n API (para controlar workflows)
+    N8N_API_URL = os.getenv("N8N_API_URL")
+    N8N_API_KEY = os.getenv("N8N_API_KEY")
