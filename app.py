@@ -6,7 +6,7 @@ import pandas as pd
 import hmac
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for
 from config import Config
-from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession
+from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig
 import threading
 import time as time_module
 from event_handlers import process_event
@@ -52,7 +52,11 @@ with app.app_context():
     db.create_all()
 
 # Importar servicio de WhatsApp (después de crear app)
-from whatsapp_service import whatsapp_api
+from whatsapp_service import whatsapp_api, init_all_buckets
+
+# Inicializar buckets de MinIO al arrancar
+with app.app_context():
+    init_all_buckets()
 
 # Rutas públicas que no requieren autenticación
 PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api/minio/diagnose'}
@@ -3240,6 +3244,269 @@ def api_update_conversation_session(session_id):
     db.session.commit()
     
     return jsonify({'success': True, 'session': session.to_dict()})
+
+
+# ==========================================
+# RAG DOCUMENTS API
+# ==========================================
+
+@app.route("/chatbot")
+def chatbot_page():
+    """Página de gestión del chatbot."""
+    documents = RagDocument.query.order_by(RagDocument.created_at.desc()).all()
+    chatbot_enabled = ChatbotConfig.get('enabled', 'true') == 'true'
+    return render_template('chatbot.html', documents=documents, chatbot_enabled=chatbot_enabled)
+
+
+@app.route("/api/rag/documents", methods=["GET"])
+def api_list_rag_documents():
+    """Lista todos los documentos RAG."""
+    documents = RagDocument.query.order_by(RagDocument.created_at.desc()).all()
+    return jsonify({'documents': [d.to_dict() for d in documents]})
+
+
+@app.route("/api/rag/documents", methods=["POST"])
+def api_upload_rag_document():
+    """Sube un documento para RAG."""
+    import hashlib
+    from whatsapp_service import get_s3_client, ensure_rag_bucket_exists
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se envió ningún archivo'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'Nombre de archivo vacío'}), 400
+
+    # Validar tipo de archivo
+    allowed_extensions = {'pdf', 'xlsx', 'xls', 'csv', 'docx', 'doc', 'txt'}
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in allowed_extensions:
+        return jsonify({'error': f'Tipo de archivo no permitido. Permitidos: {", ".join(allowed_extensions)}'}), 400
+
+    try:
+        # Leer contenido del archivo
+        file_content = file.read()
+        file_size = len(file_content)
+
+        # Calcular hash SHA256
+        file_hash = hashlib.sha256(file_content).hexdigest()
+
+        # Verificar si ya existe un documento con el mismo nombre
+        existing = RagDocument.query.filter_by(original_filename=file.filename).first()
+
+        if existing:
+            # Verificar si el contenido cambió
+            if existing.file_hash == file_hash:
+                return jsonify({
+                    'error': 'El archivo ya existe y no ha sido modificado',
+                    'document': existing.to_dict()
+                }), 409
+
+            # Archivo modificado - actualizar
+            action = 'updated'
+            doc = existing
+            doc.file_hash = file_hash
+            doc.file_size = file_size
+            doc.status = 'pending'
+            doc.error_message = None
+        else:
+            # Nuevo archivo
+            action = 'created'
+            filename = f"{file_hash[:8]}_{file.filename}"
+            doc = RagDocument(
+                filename=filename,
+                original_filename=file.filename,
+                file_type=ext,
+                file_size=file_size,
+                file_hash=file_hash,
+                minio_path=f"rag-documents/{filename}",
+                status='pending'
+            )
+            db.session.add(doc)
+
+        # Subir a MinIO
+        ensure_rag_bucket_exists()
+        s3 = get_s3_client()
+        bucket = Config.MINIO_BUCKET_RAG
+
+        # Determinar content type
+        content_types = {
+            'pdf': 'application/pdf',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'xls': 'application/vnd.ms-excel',
+            'csv': 'text/csv',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'doc': 'application/msword',
+            'txt': 'text/plain'
+        }
+
+        s3.put_object(
+            Bucket=bucket,
+            Key=doc.filename,
+            Body=file_content,
+            ContentType=content_types.get(ext, 'application/octet-stream')
+        )
+
+        db.session.commit()
+
+        # Llamar webhook de n8n para vectorizar
+        webhook_url = Config.N8N_WEBHOOK_VECTORIZE
+        if webhook_url:
+            try:
+                # Construir URL pública de MinIO
+                protocol = "https" if Config.MINIO_USE_SSL else "http"
+                minio_url = f"{protocol}://{Config.MINIO_ENDPOINT}/{bucket}/{doc.filename}"
+
+                # URL de callback para que n8n actualice el estado
+                callback_url = f"{Config.FLASK_BASE_URL}/api/rag/documents/{doc.id}/status"
+
+                requests.post(webhook_url, json={
+                    'action': action,
+                    'document_id': doc.id,
+                    'filename': doc.filename,
+                    'original_filename': doc.original_filename,
+                    'file_type': doc.file_type,
+                    'minio_bucket': bucket,
+                    'minio_path': doc.minio_path,
+                    'minio_url': minio_url,
+                    'callback_url': callback_url
+                }, timeout=5)
+                doc.status = 'processing'
+                db.session.commit()
+            except Exception as e:
+                logger.warning(f"No se pudo notificar a n8n: {e}")
+
+        return jsonify({
+            'success': True,
+            'action': action,
+            'document': doc.to_dict()
+        })
+
+    except Exception as e:
+        logger.error(f"Error subiendo documento RAG: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/rag/documents/<int:doc_id>", methods=["DELETE"])
+def api_delete_rag_document(doc_id):
+    """Elimina un documento RAG."""
+    from whatsapp_service import get_s3_client
+
+    doc = RagDocument.query.get_or_404(doc_id)
+
+    try:
+        # Eliminar de MinIO
+        s3 = get_s3_client()
+        bucket = Config.MINIO_BUCKET_RAG
+
+        try:
+            s3.delete_object(Bucket=bucket, Key=doc.filename)
+        except Exception as e:
+            logger.warning(f"No se pudo eliminar de MinIO: {e}")
+
+        # Llamar webhook de n8n para limpiar vectores
+        webhook_url = Config.N8N_WEBHOOK_DELETE
+        if webhook_url:
+            try:
+                requests.post(webhook_url, json={
+                    'action': 'deleted',
+                    'document_id': doc.id,
+                    'filename': doc.filename,
+                    'original_filename': doc.original_filename
+                }, timeout=5)
+            except Exception as e:
+                logger.warning(f"No se pudo notificar a n8n: {e}")
+
+        # Eliminar de la BD
+        db.session.delete(doc)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Documento eliminado'})
+
+    except Exception as e:
+        logger.error(f"Error eliminando documento RAG: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/rag/documents/<int:doc_id>/download")
+def api_download_rag_document(doc_id):
+    """Descarga un documento RAG."""
+    from whatsapp_service import get_s3_client
+
+    doc = RagDocument.query.get_or_404(doc_id)
+
+    try:
+        s3 = get_s3_client()
+        bucket = Config.MINIO_BUCKET_RAG
+
+        response = s3.get_object(Bucket=bucket, Key=doc.filename)
+        content_type = response.get('ContentType', 'application/octet-stream')
+
+        return send_file(
+            io.BytesIO(response['Body'].read()),
+            mimetype=content_type,
+            download_name=doc.original_filename,
+            as_attachment=True
+        )
+
+    except Exception as e:
+        logger.error(f"Error descargando documento RAG: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/rag/documents/<int:doc_id>/status", methods=["PUT"])
+def api_update_rag_document_status(doc_id):
+    """Actualiza el estado de un documento (llamado por n8n)."""
+    doc = RagDocument.query.get_or_404(doc_id)
+    data = request.get_json()
+
+    if 'status' in data:
+        doc.status = data['status']
+    if 'error_message' in data:
+        doc.error_message = data['error_message']
+
+    db.session.commit()
+    return jsonify({'success': True, 'document': doc.to_dict()})
+
+
+# ==========================================
+# CHATBOT CONFIG API
+# ==========================================
+
+@app.route("/api/chatbot/config", methods=["GET"])
+def api_get_chatbot_config():
+    """Obtiene la configuración del chatbot."""
+    enabled = ChatbotConfig.get('enabled', 'true')
+    return jsonify({
+        'enabled': enabled == 'true',
+        'webhook_vectorize': Config.N8N_WEBHOOK_VECTORIZE or '',
+        'webhook_delete': Config.N8N_WEBHOOK_DELETE or ''
+    })
+
+
+@app.route("/api/chatbot/config", methods=["PUT"])
+def api_update_chatbot_config():
+    """Actualiza la configuración del chatbot."""
+    data = request.get_json()
+
+    if 'enabled' in data:
+        ChatbotConfig.set('enabled', 'true' if data['enabled'] else 'false')
+
+    return jsonify({'success': True})
+
+
+@app.route("/api/chatbot/toggle", methods=["POST"])
+def api_toggle_chatbot():
+    """Enciende/apaga el chatbot."""
+    current = ChatbotConfig.get('enabled', 'true')
+    new_value = 'false' if current == 'true' else 'true'
+    ChatbotConfig.set('enabled', new_value)
+
+    return jsonify({
+        'success': True,
+        'enabled': new_value == 'true'
+    })
 
 
 if __name__ == "__main__":

@@ -25,7 +25,6 @@ CACHE_TTL = 300
 
 # Cliente MinIO/S3
 _s3_client = None
-_bucket_verified = False
 
 def get_s3_client():
     """Obtiene o crea el cliente S3 para MinIO."""
@@ -69,40 +68,69 @@ def set_bucket_public_policy(s3, bucket):
         logger.warning(f"⚠️ No se pudo configurar política pública: {str(e)}")
 
 
-def ensure_bucket_exists():
-    """Verifica que el bucket existe, lo crea si no, y configura acceso público."""
-    global _bucket_verified
-    if _bucket_verified:
-        return True
-
+def ensure_bucket_exists_generic(bucket_name):
+    """Verifica que un bucket existe, lo crea si no, y configura acceso público."""
     try:
         s3 = get_s3_client()
-        bucket = Config.MINIO_BUCKET
-        created = False
 
         # Intentar verificar si el bucket existe
         try:
-            s3.head_bucket(Bucket=bucket)
-            logger.info(f"✅ Bucket '{bucket}' verificado")
+            s3.head_bucket(Bucket=bucket_name)
+            logger.info(f"✅ Bucket '{bucket_name}' verificado")
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', '')
             if error_code in ['404', 'NoSuchBucket']:
                 # Bucket no existe, crearlo
-                logger.info(f"📦 Creando bucket '{bucket}'...")
-                s3.create_bucket(Bucket=bucket)
-                logger.info(f"✅ Bucket '{bucket}' creado exitosamente")
-                created = True
+                logger.info(f"📦 Creando bucket '{bucket_name}'...")
+                s3.create_bucket(Bucket=bucket_name)
+                logger.info(f"✅ Bucket '{bucket_name}' creado exitosamente")
             else:
                 raise
 
-        # Configurar política pública (siempre intentar, por si no está configurada)
-        set_bucket_public_policy(s3, bucket)
-
-        _bucket_verified = True
+        # Configurar política pública
+        set_bucket_public_policy(s3, bucket_name)
         return True
     except Exception as e:
-        logger.error(f"Error verificando/creando bucket: {str(e)}")
+        logger.error(f"Error verificando/creando bucket '{bucket_name}': {str(e)}")
         return False
+
+
+# Cache para evitar verificar buckets múltiples veces
+_buckets_verified = set()
+
+
+def ensure_bucket_exists():
+    """Verifica que el bucket de media existe."""
+    global _buckets_verified
+    bucket = Config.MINIO_BUCKET
+    if bucket in _buckets_verified:
+        return True
+
+    if ensure_bucket_exists_generic(bucket):
+        _buckets_verified.add(bucket)
+        return True
+    return False
+
+
+def ensure_rag_bucket_exists():
+    """Verifica que el bucket de RAG documents existe."""
+    global _buckets_verified
+    bucket = Config.MINIO_BUCKET_RAG
+    if bucket in _buckets_verified:
+        return True
+
+    if ensure_bucket_exists_generic(bucket):
+        _buckets_verified.add(bucket)
+        return True
+    return False
+
+
+def init_all_buckets():
+    """Inicializa todos los buckets necesarios al arrancar la app."""
+    logger.info("🗂️ Inicializando buckets de MinIO...")
+    ensure_bucket_exists()
+    ensure_rag_bucket_exists()
+    logger.info("✅ Buckets inicializados")
 
 
 def get_minio_public_url(filename):

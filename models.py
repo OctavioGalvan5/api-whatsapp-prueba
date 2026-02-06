@@ -279,3 +279,77 @@ class ConversationSession(db.Model):
             'auto_categorized': self.auto_categorized
         }
 
+
+# ==========================================
+# RAG DOCUMENTS
+# ==========================================
+
+class RagDocument(db.Model):
+    """Documentos subidos para el RAG del chatbot."""
+    __tablename__ = 'rag_documents'
+
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+    file_type = db.Column(db.String(50), nullable=False)  # pdf, xlsx, csv, docx, txt
+    file_size = db.Column(db.Integer, nullable=False)  # bytes
+    file_hash = db.Column(db.String(64), nullable=False, index=True)  # SHA256
+    minio_path = db.Column(db.String(500), nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, processing, ready, error
+    error_message = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'filename': self.filename,
+            'original_filename': self.original_filename,
+            'file_type': self.file_type,
+            'file_size': self.file_size,
+            'file_hash': self.file_hash,
+            'status': self.status,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+# ==========================================
+# CHATBOT CONFIG
+# ==========================================
+
+class ChatbotConfig(db.Model):
+    """Configuración global del chatbot."""
+    __tablename__ = 'chatbot_config'
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(50), unique=True, nullable=False)
+    value = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @staticmethod
+    def get(key, default=None):
+        """Obtiene un valor de configuración."""
+        config = ChatbotConfig.query.filter_by(key=key).first()
+        return config.value if config else default
+
+    @staticmethod
+    def set(key, value):
+        """Establece un valor de configuración."""
+        config = ChatbotConfig.query.filter_by(key=key).first()
+        if config:
+            config.value = value
+        else:
+            config = ChatbotConfig(key=key, value=value)
+            db.session.add(config)
+        db.session.commit()
+        return config
+
+    def to_dict(self):
+        return {
+            'key': self.key,
+            'value': self.value,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+

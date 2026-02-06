@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Chatbot - WhatsApp CRM{% endblock %}
+
+{% block content %}
+<main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Gestión del Chatbot</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Administra documentos RAG y configuración del chatbot</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- Toggle Chatbot -->
+                <div class="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Chatbot</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="chatbot-toggle" class="sr-only peer" {% if chatbot_enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                    </label>
+                    <span id="chatbot-status" class="text-sm font-medium {% if chatbot_enabled %}text-primary{% else %}text-gray-400{% endif %}">
+                        {% if chatbot_enabled %}Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 overflow-auto p-6">
+        <!-- Upload Section -->
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Subir Documentos</h2>
+            <div id="drop-zone" class="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-5xl text-gray-400 mb-3">cloud_upload</span>
+                <p class="text-gray-600 dark:text-gray-400 mb-2">Arrastra archivos aquí o haz clic para seleccionar</p>
+                <p class="text-xs text-gray-400">Formatos soportados: PDF, DOCX, XLSX, CSV, TXT (máx. 50MB)</p>
+                <input type="file" id="file-input" class="hidden" multiple accept=".pdf,.docx,.xlsx,.csv,.txt" />
+            </div>
+
+            <!-- Upload Progress -->
+            <div id="upload-progress" class="hidden mt-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span id="upload-filename" class="text-sm text-gray-600 dark:text-gray-400"></span>
+                    <span id="upload-percent" class="text-sm font-medium text-primary">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div id="upload-bar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documents List -->
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                <h2 class="text-lg font-semibold">Documentos RAG</h2>
+                <span id="doc-count" class="text-sm text-gray-500">{{ documents|length }} documentos</span>
+            </div>
+
+            <div id="documents-container" class="divide-y divide-gray-100 dark:divide-gray-800">
+                {% if documents %}
+                    {% for doc in documents %}
+                    <div class="document-row p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 flex items-center justify-between" data-id="{{ doc.id }}">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                {% if doc.file_type == 'pdf' %}
+                                <span class="material-symbols-outlined text-red-500">picture_as_pdf</span>
+                                {% elif doc.file_type == 'xlsx' %}
+                                <span class="material-symbols-outlined text-green-500">table_chart</span>
+                                {% elif doc.file_type == 'docx' %}
+                                <span class="material-symbols-outlined text-blue-500">description</span>
+                                {% elif doc.file_type == 'csv' %}
+                                <span class="material-symbols-outlined text-orange-500">grid_on</span>
+                                {% else %}
+                                <span class="material-symbols-outlined text-gray-500">text_snippet</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <p class="font-medium text-sm">{{ doc.original_filename }}</p>
+                                <p class="text-xs text-gray-500">{{ (doc.file_size / 1024 / 1024)|round(2) }} MB · {{ doc.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <!-- Status Badge -->
+                            {% if doc.status == 'ready' %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                Vectorizado
+                            </span>
+                            {% elif doc.status == 'processing' %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 animate-pulse">
+                                Procesando...
+                            </span>
+                            {% elif doc.status == 'error' %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" title="{{ doc.error_message }}">
+                                Error
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                Pendiente
+                            </span>
+                            {% endif %}
+
+                            <!-- Actions -->
+                            <button onclick="deleteDocument({{ doc.id }})" class="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
+                                <span class="material-symbols-outlined text-red-500">delete</span>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="{% if documents %}hidden{% endif %} p-12 text-center">
+                <span class="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600">folder_open</span>
+                <p class="mt-4 text-gray-500 dark:text-gray-400">No hay documentos subidos</p>
+                <p class="text-sm text-gray-400 dark:text-gray-500">Sube documentos para que el chatbot pueda responder preguntas</p>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uploadProgress = document.getElementById('upload-progress');
+    const uploadFilename = document.getElementById('upload-filename');
+    const uploadPercent = document.getElementById('upload-percent');
+    const uploadBar = document.getElementById('upload-bar');
+
+    // Drag and drop handlers
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-primary', 'bg-primary/5');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-primary', 'bg-primary/5');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-primary', 'bg-primary/5');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            uploadFiles(files);
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            uploadFiles(fileInput.files);
+        }
+    });
+
+    async function uploadFiles(files) {
+        for (const file of files) {
+            await uploadFile(file);
+        }
+        fileInput.value = '';
+    }
+
+    async function uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        uploadProgress.classList.remove('hidden');
+        uploadFilename.textContent = file.name;
+        uploadPercent.textContent = '0%';
+        uploadBar.style.width = '0%';
+
+        try {
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    uploadPercent.textContent = percent + '%';
+                    uploadBar.style.width = percent + '%';
+                }
+            });
+
+            xhr.onload = function() {
+                if (xhr.status === 200 || xhr.status === 201) {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        showToast('Documento subido correctamente', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else if (data.action === 'updated') {
+                        showToast('Documento actualizado y re-vectorizado', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showToast(data.error || 'Error al subir', 'error');
+                    }
+                } else {
+                    showToast('Error al subir el archivo', 'error');
+                }
+                uploadProgress.classList.add('hidden');
+            };
+
+            xhr.onerror = function() {
+                showToast('Error de conexión', 'error');
+                uploadProgress.classList.add('hidden');
+            };
+
+            xhr.open('POST', '/api/rag/documents');
+            xhr.send(formData);
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+            uploadProgress.classList.add('hidden');
+        }
+    }
+
+    async function deleteDocument(docId) {
+        if (!confirm('¿Eliminar este documento? Se eliminará también del índice vectorial.')) return;
+
+        try {
+            const resp = await fetch(`/api/rag/documents/${docId}`, { method: 'DELETE' });
+            const data = await resp.json();
+
+            if (data.success) {
+                showToast('Documento eliminado', 'success');
+                const row = document.querySelector(`.document-row[data-id="${docId}"]`);
+                if (row) row.remove();
+                updateDocCount();
+            } else {
+                showToast(data.error || 'Error al eliminar', 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    function updateDocCount() {
+        const rows = document.querySelectorAll('.document-row');
+        document.getElementById('doc-count').textContent = rows.length + ' documentos';
+
+        if (rows.length === 0) {
+            document.getElementById('empty-state').classList.remove('hidden');
+        }
+    }
+
+    // Chatbot toggle
+    document.getElementById('chatbot-toggle').addEventListener('change', async function() {
+        const enabled = this.checked;
+        const statusEl = document.getElementById('chatbot-status');
+
+        try {
+            const resp = await fetch('/api/chatbot/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                statusEl.textContent = enabled ? 'Activo' : 'Inactivo';
+                statusEl.className = 'text-sm font-medium ' + (enabled ? 'text-primary' : 'text-gray-400');
+                showToast('Chatbot ' + (enabled ? 'activado' : 'desactivado'), 'success');
+            } else {
+                this.checked = !enabled;
+                showToast(data.error || 'Error al cambiar estado', 'error');
+            }
+        } catch (e) {
+            this.checked = !enabled;
+            showToast('Error: ' + e.message, 'error');
+        }
+    });
+
+    // Toast notification
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium z-50 transition-all transform translate-y-0 opacity-100 ${
+            type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+        }`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-2');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Poll for status updates on processing documents
+    function pollProcessingDocs() {
+        const processingDocs = document.querySelectorAll('.document-row');
+        let hasProcessing = false;
+
+        processingDocs.forEach(row => {
+            const badge = row.querySelector('span[class*="animate-pulse"]');
+            if (badge) hasProcessing = true;
+        });
+
+        if (hasProcessing) {
+            setTimeout(() => location.reload(), 10000);
+        }
+    }
+
+    pollProcessingDocs();
+</script>
+{% endblock %}
