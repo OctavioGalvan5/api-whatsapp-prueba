@@ -65,6 +65,9 @@ PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api
 def check_auth():
     if request.path in PUBLIC_PATHS or request.path.startswith('/static/'):
         return None
+    # Permitir callback de n8n para actualizar estado de documentos RAG
+    if request.path.startswith('/api/rag/documents/') and request.path.endswith('/status'):
+        return None
     if not session.get('logged_in'):
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
@@ -3507,6 +3510,53 @@ def api_toggle_chatbot():
         'success': True,
         'enabled': new_value == 'true'
     })
+
+
+# ==========================================
+# DOCX TEXT EXTRACTION API (para n8n)
+# ==========================================
+
+@app.route("/api/extract-docx", methods=["POST"])
+def api_extract_docx():
+    """Extrae texto de un archivo DOCX. Usado por n8n para RAG."""
+    from docx import Document
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se envió ningún archivo'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'Nombre de archivo vacío'}), 400
+    
+    try:
+        doc = Document(io.BytesIO(file.read()))
+        
+        # Extraer todos los párrafos
+        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        
+        # También extraer texto de tablas
+        table_text = []
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = ' | '.join([cell.text.strip() for cell in row.cells if cell.text.strip()])
+                if row_text:
+                    table_text.append(row_text)
+        
+        # Combinar todo el texto
+        full_text = '\n'.join(paragraphs)
+        if table_text:
+            full_text += '\n\n--- Tablas ---\n' + '\n'.join(table_text)
+        
+        return jsonify({
+            'success': True,
+            'data': full_text,
+            'paragraphs': len(paragraphs),
+            'tables': len(doc.tables)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error extrayendo texto de DOCX: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == "__main__":
