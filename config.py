@@ -34,3 +34,4 @@ class Config:
     # n8n API (para controlar workflows)
     N8N_API_URL = os.getenv("N8N_API_URL")
     N8N_API_KEY = os.getenv("N8N_API_KEY")
+    N8N_CHATBOT_WORKFLOW_ID = os.getenv("N8N_CHATBOT_WORKFLOW_ID")  # ID del workflow del chatbot

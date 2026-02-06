@@ -3504,14 +3504,37 @@ def api_update_chatbot_config():
 
 @app.route("/api/chatbot/toggle", methods=["POST"])
 def api_toggle_chatbot():
-    """Enciende/apaga el chatbot."""
+    """Enciende/apaga el chatbot y el workflow de n8n."""
     current = ChatbotConfig.get('enabled', 'true')
     new_value = 'false' if current == 'true' else 'true'
     ChatbotConfig.set('enabled', new_value)
+    
+    n8n_result = None
+    
+    # También activar/desactivar el workflow de n8n
+    if Config.N8N_CHATBOT_WORKFLOW_ID and Config.N8N_API_URL and Config.N8N_API_KEY:
+        try:
+            action = 'activate' if new_value == 'true' else 'deactivate'
+            url = f"{Config.N8N_API_URL}/workflows/{Config.N8N_CHATBOT_WORKFLOW_ID}/{action}"
+            headers = {
+                "X-N8N-API-KEY": Config.N8N_API_KEY,
+                "Content-Type": "application/json"
+            }
+            response = requests.post(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                n8n_result = 'ok'
+                logger.info(f"✅ Workflow n8n {action}d: {Config.N8N_CHATBOT_WORKFLOW_ID}")
+            else:
+                n8n_result = f'error: {response.status_code}'
+                logger.warning(f"⚠️ Error al {action} workflow n8n: {response.text}")
+        except Exception as e:
+            n8n_result = f'error: {str(e)}'
+            logger.error(f"❌ Error conectando a n8n: {e}")
 
     return jsonify({
         'success': True,
-        'enabled': new_value == 'true'
+        'enabled': new_value == 'true',
+        'n8n_workflow': n8n_result
     })
 
 
