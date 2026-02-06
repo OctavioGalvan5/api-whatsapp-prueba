@@ -23,4 +23,10 @@ class Config:
     MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
     MINIO_SECRET_KEY = os.getenv("SECRET_KEY_MINIO")
     MINIO_BUCKET = os.getenv("MINIO_BUCKET")
+    MINIO_BUCKET_RAG = os.getenv("MINIO_BUCKET_RAG", "rag-documents")
     MINIO_USE_SSL = str(os.getenv("MINIO_USE_SSL", "false")).lower() == "true"
+
+    # n8n Webhooks
+    N8N_WEBHOOK_VECTORIZE = os.getenv("N8N_WEBHOOK_VECTORIZE")
+    N8N_WEBHOOK_DELETE = os.getenv("N8N_WEBHOOK_DELETE")
+    FLASK_BASE_URL = os.getenv("FLASK_BASE_URL", "http://localhost:3000")

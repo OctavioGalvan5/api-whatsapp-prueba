@@ -365,14 +365,15 @@
 
     // Helper: Calcula porcentaje dinámico (solo elementos visibles)
     function dynamicPercentage(value, ctx, minPercent = 5) {
-        const meta = ctx.chart.getDatasetMeta(0);
+        const chart = ctx.chart;
+
         // Si este elemento está oculto, no mostrar nada
-        if (meta.data[ctx.dataIndex].hidden) return '';
+        if (!chart.getDataVisibility(ctx.dataIndex)) return '';
 
         // Calcular total solo de elementos visibles
         let total = 0;
-        ctx.chart.data.datasets[0].data.forEach((val, i) => {
-            if (!meta.data[i].hidden) {
+        chart.data.datasets[0].data.forEach((val, i) => {
+            if (chart.getDataVisibility(i)) {
                 total += val;
             }
         });
