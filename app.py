@@ -1473,39 +1473,67 @@ def api_import_contacts():
 
 @app.route("/api/contacts/export", methods=["GET"])
 def api_export_contacts():
-    """Exportar contactos a Excel.
+    """Exportar contactos a Excel (optimizado para grandes volúmenes).
 
     Incluye columna ID y Contact ID para permitir reimportar y actualizar.
+    Usa eager loading y procesamiento por lotes para mejor rendimiento.
     """
+    from sqlalchemy.orm import joinedload
+    from openpyxl import Workbook
+    from openpyxl.utils import get_column_letter
+    
     try:
-        contacts = Contact.query.all()
-        data = []
-        for c in contacts:
-            data.append({
-                'ID': c.id,  # ID interno (no editable)
-                'Contact ID': c.contact_id,  # ID externo editable
-                'Telefono': c.phone_number,
-                'Nombre completo': c.name,
-                'Nombre': c.first_name,
-                'Apellido': c.last_name,
-                'Campo 1': c.custom_field_1,
-                'Campo 2': c.custom_field_2,
-                'Campo 3': c.custom_field_3,
-                'Campo 4': c.custom_field_4,
-                'Campo 5': c.custom_field_5,
-                'Campo 6': c.custom_field_6,
-                'Campo 7': c.custom_field_7,
-                'Notas': c.notes,
-                'Etiquetas': ', '.join(t.name for t in c.tags) if c.tags else '',
-                'Fecha Creacion': c.created_at
-            })
-            
-        df = pd.DataFrame(data)
+        # Crear workbook en modo write_only para memoria optimizada
+        wb = Workbook(write_only=True)
+        ws = wb.create_sheet('Contactos')
         
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Contactos')
+        # Headers
+        headers = ['ID', 'Contact ID', 'Telefono', 'Nombre completo', 'Nombre', 
+                   'Apellido', 'Campo 1', 'Campo 2', 'Campo 3', 'Campo 4', 
+                   'Campo 5', 'Campo 6', 'Campo 7', 'Notas', 'Etiquetas', 'Fecha Creacion']
+        ws.append(headers)
+        
+        # Procesar por lotes con eager loading de tags
+        BATCH_SIZE = 5000
+        offset = 0
+        
+        while True:
+            # Cargar lote con tags pre-cargados (evita N+1 queries)
+            contacts = Contact.query.options(
+                joinedload(Contact.tags)
+            ).order_by(Contact.id).offset(offset).limit(BATCH_SIZE).all()
             
+            if not contacts:
+                break
+            
+            for c in contacts:
+                ws.append([
+                    c.id,
+                    c.contact_id,
+                    c.phone_number,
+                    c.name,
+                    c.first_name,
+                    c.last_name,
+                    c.custom_field_1,
+                    c.custom_field_2,
+                    c.custom_field_3,
+                    c.custom_field_4,
+                    c.custom_field_5,
+                    c.custom_field_6,
+                    c.custom_field_7,
+                    c.notes,
+                    ', '.join(t.name for t in c.tags) if c.tags else '',
+                    c.created_at.strftime('%Y-%m-%d %H:%M:%S') if c.created_at else ''
+                ])
+            
+            offset += BATCH_SIZE
+            
+            # Liberar memoria
+            db.session.expire_all()
+        
+        # Guardar a BytesIO
+        output = io.BytesIO()
+        wb.save(output)
         output.seek(0)
         
         return send_file(
