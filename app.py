@@ -533,9 +533,8 @@ def dashboard():
             can_send_free_text = True
             last_inbound_msg = max(m.timestamp for m in inbound_recent)
         
-        # Obtener templates aprobados
-        templates_result = whatsapp_api.get_templates()
-        templates = [t for t in templates_result.get("templates", []) if t.get("status") == "APPROVED"]
+        # Templates se cargan async via AJAX para no bloquear el render
+        # (ver /api/whatsapp/templates)
     
     return render_template('dashboard.html',
                          stats=stats,
@@ -2532,6 +2531,16 @@ def api_send_template():
     
     return jsonify(result)
 
+@app.route("/api/whatsapp/templates", methods=["GET"])
+def api_list_templates():
+    """API para obtener templates aprobados (usado para carga async en dashboard)."""
+    if not whatsapp_api.is_configured():
+        return jsonify({"templates": [], "error": "WhatsApp API no configurada"})
+    
+    templates_result = whatsapp_api.get_templates()
+    approved = [t for t in templates_result.get("templates", []) if t.get("status") == "APPROVED"]
+    return jsonify({"templates": approved})
+
 @app.route("/api/whatsapp/send-text", methods=["POST"])
 def api_send_text():
     """API para enviar mensaje de texto."""
@@ -2579,14 +2588,25 @@ def api_send_text():
 
 @app.route("/campaigns")
 def campaigns_page():
-    """Página de campañas."""
-    campaigns = Campaign.query.order_by(Campaign.created_at.desc()).all()
+    """Página de campañas — OPTIMIZADO: stats calculados en SQL."""
+    from sqlalchemy import case
+
+    # Query optimizada: stats calculados en SQL en lugar de iterar logs en Python
+    campaigns_with_stats = db.session.query(
+        Campaign,
+        func.count(CampaignLog.id).label('total'),
+        func.count(case(
+            (CampaignLog.status.in_(['sent', 'delivered', 'read']), 1)
+        )).label('sent'),
+        func.count(case(
+            (CampaignLog.status == 'failed', 1)
+        )).label('failed')
+    ).outerjoin(
+        CampaignLog, Campaign.id == CampaignLog.campaign_id
+    ).group_by(Campaign.id).order_by(Campaign.created_at.desc()).all()
 
     campaigns_data = []
-    for c in campaigns:
-        total = len(c.logs)
-        sent = sum(1 for l in c.logs if l.status in ('sent', 'delivered', 'read'))
-        failed = sum(1 for l in c.logs if l.status == 'failed')
+    for c, total, sent, failed in campaigns_with_stats:
         campaigns_data.append({
             'campaign': c,
             'stats': {'total': total, 'sent': sent, 'failed': failed}
