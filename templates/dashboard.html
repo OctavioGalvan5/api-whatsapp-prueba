@@ -868,11 +868,8 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                 const initial = contact.name ? contact.name[0].toUpperCase() : contact.phone_number.slice(-2);
                 const displayName = contact.name || contact.phone_number;
                 const time = contact.last_timestamp ? (() => {
-                    const d = new Date(contact.last_timestamp); return
-                    d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', {
-                        hour:
-                            '2-digit', minute: '2-digit'
-                    });
+                    const d = new Date(contact.last_timestamp);
+                    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
                 })() : '';
 
                 div.innerHTML = `
@@ -928,11 +925,8 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                     const initial = contact.name ? contact.name[0].toUpperCase() : contact.phone_number.slice(-2);
                     const displayName = contact.name || contact.phone_number;
                     const time = contact.last_timestamp ? (() => {
-                        const d = new Date(contact.last_timestamp); return
-                        d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', {
-                            hour:
-                                '2-digit', minute: '2-digit'
-                        });
+                        const d = new Date(contact.last_timestamp);
+                        return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
                     })() : '';
 
                     div.innerHTML = `
