@@ -419,34 +419,33 @@ def dashboard():
     # Si se necesitan, se pueden cargar via AJAX o en /analytics
     stats = {'total': 0, 'sent': 0, 'read': 0, 'failed': 0}
     
-    # Lista de contactos con últimos mensajes - OPTIMIZADO
-    # Subquery: obtener el ID del mensaje más reciente por teléfono
-    CONTACTS_LIMIT = 50
+    # Lista de contactos con últimos mensajes - OPTIMIZADO con DISTINCT ON
+    # En vez de GROUP BY (escanea TODA la tabla), usamos una estrategia más eficiente:
+    # 1. Tomamos los mensajes más recientes de la tabla (ya indexado por timestamp)
+    # 2. Extraemos teléfonos únicos de esos mensajes recientes
+    CONTACTS_LIMIT = 25
 
-    latest_msg_subq = db.session.query(
-        Message.phone_number,
-        func.max(Message.id).label('max_id')
-    ).filter(
-        Message.phone_number.notin_(['unknown', 'outbound', ''])
-    ).group_by(Message.phone_number).subquery()
-
-    # Contar total de contactos con mensajes (para saber si hay más)
-    total_contacts = db.session.query(func.count()).select_from(latest_msg_subq).scalar() or 0
-
-    # Query principal: join con subquery para obtener el contenido del último mensaje
-    stats_query = db.session.query(
-        Message.phone_number,
-        Message.content.label('last_message'),
-        Message.timestamp.label('last_timestamp')
-    ).join(
-        latest_msg_subq,
-        and_(
-            Message.phone_number == latest_msg_subq.c.phone_number,
-            Message.id == latest_msg_subq.c.max_id
-        )
-    ).order_by(Message.timestamp.desc()).limit(CONTACTS_LIMIT).all()
-
-    has_more_contacts = total_contacts > CONTACTS_LIMIT
+    # Estrategia: buscar mensajes recientes y obtener el último por teléfono
+    # Usamos raw SQL con DISTINCT ON para máxima eficiencia en PostgreSQL
+    from sqlalchemy import text
+    
+    distinct_query = text("""
+        SELECT phone_number, content AS last_message, timestamp AS last_timestamp
+        FROM (
+            SELECT DISTINCT ON (phone_number) phone_number, content, timestamp
+            FROM whatsapp_messages
+            WHERE phone_number NOT IN ('unknown', 'outbound', '')
+            ORDER BY phone_number, timestamp DESC
+        ) sub
+        ORDER BY last_timestamp DESC
+        LIMIT :lim
+    """)
+    
+    stats_query = db.session.execute(distinct_query, {'lim': CONTACTS_LIMIT + 1}).fetchall()
+    
+    # Si obtuvimos más de LIMIT, hay más contactos
+    has_more_contacts = len(stats_query) > CONTACTS_LIMIT
+    stats_query = stats_query[:CONTACTS_LIMIT]
 
     # Obtener contactos para enriquecer la data (batch fetch)
     phones_in_view = [s.phone_number for s in stats_query]
@@ -970,50 +969,50 @@ def api_dashboard_contacts():
     # Limitar el máximo de resultados por request
     limit = min(limit, 50)
 
-    # Subquery: obtener el ID del mensaje más reciente por teléfono
-    latest_msg_subq = db.session.query(
-        Message.phone_number,
-        func.max(Message.id).label('max_id')
-    ).filter(
-        Message.phone_number.notin_(['unknown', 'outbound', ''])
-    ).group_by(Message.phone_number).subquery()
+    from sqlalchemy import text
 
-    # Query principal con JOIN
-    base_query = db.session.query(
-        Message.phone_number,
-        Message.content.label('last_message'),
-        Message.timestamp.label('last_timestamp')
-    ).join(
-        latest_msg_subq,
-        and_(
-            Message.phone_number == latest_msg_subq.c.phone_number,
-            Message.id == latest_msg_subq.c.max_id
-        )
-    )
-
-    # Si hay búsqueda, filtrar
     if search:
-        # Buscar también en contactos por nombre
-        matching_phones = db.session.query(Contact.phone_number).filter(
-            or_(
-                Contact.name.ilike(f'%{search}%'),
-                Contact.phone_number.ilike(f'%{search}%')
-            )
-        ).subquery()
+        # Búsqueda: filtrar por nombre o teléfono (necesita JOIN con contactos)
+        search_query = text("""
+            SELECT sub.phone_number, sub.last_message, sub.last_timestamp
+            FROM (
+                SELECT DISTINCT ON (m.phone_number) m.phone_number, m.content AS last_message, m.timestamp AS last_timestamp
+                FROM whatsapp_messages m
+                WHERE m.phone_number NOT IN ('unknown', 'outbound', '')
+                  AND (
+                    m.phone_number ILIKE :pattern
+                    OR m.phone_number IN (
+                        SELECT c.phone_number FROM whatsapp_contacts c
+                        WHERE c.name ILIKE :pattern OR c.phone_number ILIKE :pattern
+                    )
+                  )
+                ORDER BY m.phone_number, m.timestamp DESC
+            ) sub
+            ORDER BY sub.last_timestamp DESC
+            OFFSET :off LIMIT :lim
+        """)
+        results = db.session.execute(search_query, {
+            'pattern': f'%{search}%', 'off': offset, 'lim': limit + 1
+        }).fetchall()
+    else:
+        # Sin búsqueda: DISTINCT ON puro, muy rápido
+        distinct_query = text("""
+            SELECT phone_number, content AS last_message, timestamp AS last_timestamp
+            FROM (
+                SELECT DISTINCT ON (phone_number) phone_number, content, timestamp
+                FROM whatsapp_messages
+                WHERE phone_number NOT IN ('unknown', 'outbound', '')
+                ORDER BY phone_number, timestamp DESC
+            ) sub
+            ORDER BY last_timestamp DESC
+            OFFSET :off LIMIT :lim
+        """)
+        results = db.session.execute(distinct_query, {
+            'off': offset, 'lim': limit + 1
+        }).fetchall()
 
-        base_query = base_query.filter(
-            or_(
-                Message.phone_number.ilike(f'%{search}%'),
-                Message.phone_number.in_(db.session.query(matching_phones))
-            )
-        )
-
-    # Contar total antes de paginar
-    total_query = base_query.subquery()
-    total = db.session.query(func.count()).select_from(total_query).scalar()
-
-    # Ordenar y paginar
-    results = base_query.order_by(Message.timestamp.desc()).offset(offset).limit(limit).all()
+    has_more = len(results) > limit
+    results = results[:limit]
 
     # Obtener nombres de contactos
     phones = [r.phone_number for r in results]
@@ -1037,10 +1036,10 @@ def api_dashboard_contacts():
 
     return jsonify({
         'contacts': contacts,
-        'total': total,
+        'total': offset + len(contacts) + (1 if has_more else 0),
         'offset': offset,
         'limit': limit,
-        'has_more': offset + len(contacts) < total
+        'has_more': has_more
     })
 
 
