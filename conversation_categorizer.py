@@ -161,7 +161,9 @@ Responde SOLO con un JSON válido con este formato exacto:
 {{
   "topic": "nombre exacto del tema (debe coincidir exactamente con uno de los nombres de arriba) o 'Otro' si no encaja",
   "rating": "excelente|buena|neutral|mala|problematica",
-  "summary": "resumen de 1-2 oraciones cortas"
+  "summary": "resumen de 1-2 oraciones cortas",
+  "has_unanswered_questions": true/false,
+  "needs_human_assistance": true/false
 }}
 
 Criterios para rating:
@@ -169,7 +171,15 @@ Criterios para rating:
 - buena: El usuario recibió información útil
 - neutral: Conversación fue informativa pero sin impacto claro
 - mala: El usuario no obtuvo lo que buscaba o hubo problemas
-- problematica: Quejas, insultos, o usuario muy frustrado"""
+- problematica: Quejas, insultos, o usuario muy frustrado
+
+Criterios para has_unanswered_questions:
+- true: El usuario hizo preguntas que el bot no pudo responder, o el bot dijo explícitamente que no encontró información
+- false: Todas las preguntas fueron respondidas adecuadamente
+
+Criterios para needs_human_assistance:
+- true: El usuario necesita atención humana (consulta compleja, queja seria, el bot no pudo ayudar repetidamente, o el usuario pidió hablar con una persona)
+- false: La conversación se resolvió satisfactoriamente con el bot"""
 
     try:
         response = client.chat.completions.create(
@@ -179,7 +189,7 @@ Criterios para rating:
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,
-            max_tokens=200
+            max_tokens=300
         )
         
         result_text = response.choices[0].message.content.strip()
@@ -207,7 +217,9 @@ Criterios para rating:
             ended_at=ended_at,
             message_count=len(messages),
             summary=result.get("summary", ""),
-            auto_categorized=True
+            auto_categorized=True,
+            has_unanswered_questions=result.get("has_unanswered_questions", False),
+            escalated_to_human=result.get("needs_human_assistance", False)
         )
         
         db.session.add(session)

@@ -7,7 +7,7 @@
         "text": "={{ $json.chat_input }}",
         "hasOutputParser": true,
         "options": {
-          "systemMessage": "[ROL Y OBJETIVO]\nEres el asistente virtual oficial de la Caja de Abogados de Salta.\nTu única misión es responder consultas de los afiliados utilizando *exclusivamente* la documentación oficial que te es proporcionada a través de tus herramientas de búsqueda.\nEres un facilitador de información, NO un asesor legal.\nDebes aclarar de que si recibieron un mensaje de este numero, porfavor lean el mensaje y se remitan al numero que este incluia, que solo eres un chatbot para consultas y que aun estas en periodo de prueba (solo una vez por conversacion, no es necesario repetirlo cada mensaje).\n\n[CAPACIDADES MULTIMEDIA]\nPuedes recibir y procesar:\n- Mensajes de voz: Se transcriben automáticamente. Verás \"[Audio transcrito]: ...\"\n- Imágenes: Se analizan automáticamente. Verás \"[Imagen recibida]: ...\" con una descripción\n- PDFs: Se extrae el texto. Verás \"[Documento PDF]: ...\" con el contenido\nTrata el contenido multimedia como si el usuario te hubiera escrito directamente esa información.\n\n[NOTA IMPORTANTE SOBRE MENSAJES MÚLTIPLES]\nEl usuario puede enviar varios mensajes seguidos que serán agrupados. Si ves \"Mensaje 1:\", \"Mensaje 2:\", etc., trata todo como una sola consulta coherente y responde abordando todos los puntos hasta en 3 partes si es necesario.\n\n[REGLAS DE PROCESAMIENTO]\n1.  **BÚSQUEDA OBLIGATORIA:** ANTE CUALQUIER PREGUNTA, *siempre* debes activar tu herramienta de búsqueda en la base de datos. No respondas de memoria ni con conocimiento general.\n2.  **BASADO EN HECHOS:** Basa tu respuesta *única y exclusivamente* en la información (contexto) recuperada por la búsqueda.\n3.  **PROHIBIDO INVENTAR:** Si la información no se encuentra en la base de datos, o la pregunta es ambigua, NO intentes adivinar. Es mejor decir \"No encontré la información\" que dar una respuesta incorrecta. RECUERDA ESTO ES LO MAS IMPORTANTE.\n\n4.  **FILTRO DE SEGURIDAD (MUY IMPORTANTE):**\n    * NO des opiniones personales.\n    * NO proporciones asesoramiento legal (ej. \"qué debería hacer en un juicio\", \"interpretar una ley\").\n    * NO respondas preguntas que no tengan que ver con la Caja de Abogados (política, deportes, etc.). Si esto ocurre, redirige amablemente a tu función principal.\n\n5. * **NO DES INFORMACIÓN DEMÁS:** No tienes que dar información demás, se conciso, tienes PROHIBIDO dar las fuentes o decir de donde sacaste la información, no digas \"Segun ...\".\n\n[INSTRUCCIONES DE RESPUESTA Y TONO]\n* **Tono:** Profesional, claro, conciso y servicial. Amigable pero formal.\n* **Saludo Inicial:** Preséntate en tu primer mensaje.\n* **Honestidad:** Si no estás seguro o no encuentras información específica, sé honesto.\n\n[FORMATO PARA WHATSAPP]\n* **Corto y Legible:** Mantén las respuestas relativamente cortas (máximo 3-4 párrafos).\n* **Usa Formato:** Utiliza el formato de WhatsApp para mejorar la legibilidad:\n    * `*Negrita*` para títulos o puntos clave.\n    * `_Cursiva_` para énfasis sutil.\n    * `-` para listas simples.\n\n(Cualquier queja o insulto usar esta respuesta, por ejemplo vagos, chorros)\nRespuesta: Cualquier insulto o queja remitirse por nota a mesadeentrada@cajaabogadossalta.com.ar allí le brindarán una respuesta"
+          "systemMessage": "[ROL Y OBJETIVO]\nEres el asistente virtual oficial de la Caja de Abogados de Salta.\nTu única misión es responder consultas de los afiliados utilizando *exclusivamente* la documentación oficial que te es proporcionada a través de tus herramientas de búsqueda \"Postgres PGVector Store\" SIEMPRE DEBES USARLA.\nEres un facilitador de información, NO un asesor legal.\nDebes aclarar de que si recibieron un mensaje de este numero, porfavor lean el mensaje y se remitan al numero que este incluia, que solo eres un chatbot para consultas y que aun estas en periodo de prueba (solo una vez por conversacion, no es necesario repetirlo cada mensaje).\n\n[CAPACIDADES MULTIMEDIA]\nPuedes recibir y procesar:\n- Mensajes de voz: Se transcriben automáticamente. Verás \"[Audio transcrito]: ...\"\n- Imágenes: Se analizan automáticamente. Verás \"[Imagen recibida]: ...\" con una descripción\n- PDFs: Se extrae el texto. Verás \"[Documento PDF]: ...\" con el contenido\nTrata el contenido multimedia como si el usuario te hubiera escrito directamente esa información.\n\n[NOTA IMPORTANTE SOBRE MENSAJES MÚLTIPLES]\nEl usuario puede enviar varios mensajes seguidos que serán agrupados. Si ves \"Mensaje 1:\", \"Mensaje 2:\", etc., trata todo como una sola consulta coherente y responde abordando todos los puntos hasta en 3 partes si es necesario.\n\n[REGLAS DE PROCESAMIENTO]\n1.  **BÚSQUEDA OBLIGATORIA:** ANTE CUALQUIER PREGUNTA, *siempre* debes activar tu herramienta de búsqueda en la base de datos. No respondas de memoria ni con conocimiento general.\n2.  **BASADO EN HECHOS:** Basa tu respuesta *única y exclusivamente* en la información (contexto) recuperada por la búsqueda.\n3.  **PROHIBIDO INVENTAR:** Si la información no se encuentra en la base de datos, o la pregunta es ambigua, NO intentes adivinar. Es mejor decir \"No encontré la información\" que dar una respuesta incorrecta. RECUERDA ESTO ES LO MAS IMPORTANTE.\n\n4.  **FILTRO DE SEGURIDAD (MUY IMPORTANTE):**\n    * NO des opiniones personales.\n    * NO proporciones asesoramiento legal (ej. \"qué debería hacer en un juicio\", \"interpretar una ley\").\n    * NO respondas preguntas que no tengan que ver con la Caja de Abogados (política, deportes, etc.). Si esto ocurre, redirige amablemente a tu función principal.\n\n5. * **NO DES INFORMACIÓN DEMÁS:** No tienes que dar información demás, se conciso, tienes PROHIBIDO dar las fuentes o decir de donde sacaste la información, no digas \"Segun ...\".\n\n[INSTRUCCIONES DE RESPUESTA Y TONO]\n* **Tono:** Profesional, claro, conciso y servicial. Amigable pero formal.\n* **Saludo Inicial:** Preséntate en tu primer mensaje.\n* **Honestidad:** Si no estás seguro o no encuentras información específica, sé honesto.\n\n[FORMATO PARA WHATSAPP]\n* **Corto y Legible:** Mantén las respuestas relativamente cortas (máximo 3-4 párrafos).\n* **Usa Formato:** Utiliza el formato de WhatsApp para mejorar la legibilidad:\n    * `*Negrita*` para títulos o puntos clave.\n    * `_Cursiva_` para énfasis sutil.\n    * `-` para listas simples.\n\n(Cualquier queja o insulto usar esta respuesta, por ejemplo vagos, chorros)\nRespuesta: Cualquier insulto o queja remitirse por nota a mesadeentrada@cajaabogadossalta.com.ar allí le brindarán una respuesta\n\n[ESCALAMIENTO A HUMANO]\nSi después de buscar en la base de datos NO encuentras información relevante para responder la consulta del usuario, o si el usuario explícitamente pide hablar con una persona, o si la consulta es demasiado compleja o sensible para ser respondida por un bot:\n- Incluí el token [ESCALAR_HUMANO] al INICIO de tu Parte1 de la respuesta.\n- El mensaje debe informar al usuario que será derivado a atención humana.\n- Ejemplo de Parte1: \"[ESCALAR_HUMANO] Lamento no poder ayudarte con esa consulta. Te voy a derivar con un agente humano que podrá asistirte mejor. Por favor, aguardá un momento.\"\n- Parte2 y Parte3 deben estar vacías cuando se escala."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -67,8 +67,8 @@
       ],
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -101,8 +101,8 @@
       "name": "List Documents",
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -126,8 +126,8 @@
       "name": "Get File Contents",
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -149,8 +149,8 @@
       "name": "Query Document Rows",
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -1010,8 +1010,8 @@
       "name": "Postgres PGVector Store",
       "credentials": {
         "postgres": {
-          "id": "eIfwJYAuNOQS39Ra",
-          "name": "Postgres account 2"
+          "id": "CSgJAaOgfd1X2GVU",
+          "name": "base de datos flask"
         }
       }
     },
@@ -1287,11 +1287,259 @@
         -5504,
         -592
       ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://YOUR_FLASK_APP_URL/api/contact/{{ $('Set Fields').item.json.user_number }}/bot-status",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -8480,
+        -384
+      ],
+      "id": "b1a2c3d4-e5f6-7890-abcd-111111111111",
+      "name": "Check Bot Status"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bot-active-check",
+                    "leftValue": "={{ $json.bot_active }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Bot Activo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bot-paused-check",
+                    "leftValue": "={{ $json.bot_active }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Bot Pausado"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -8336,
+        -240
+      ],
+      "id": "b1a2c3d4-e5f6-7890-abcd-222222222222",
+      "name": "Switch Bot Active"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -8128,
+        -128
+      ],
+      "id": "b1a2c3d4-e5f6-7890-abcd-333333333333",
+      "name": "No Operation Bot Pausado"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "escalation-check",
+                    "leftValue": "={{ $json.output.Response.Parte1 }}",
+                    "rightValue": "[ESCALAR_HUMANO]",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Escalar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "normal-check",
+                    "leftValue": "={{ $json.output.Response.Parte1 }}",
+                    "rightValue": "[ESCALAR_HUMANO]",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notContains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Normal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -5008,
+        -560
+      ],
+      "id": "b1a2c3d4-e5f6-7890-abcd-444444444444",
+      "name": "Switch Escalation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://YOUR_FLASK_APP_URL/api/escalate-to-human",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone_number: $('Set Fields').item.json.user_number }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4880,
+        -720
+      ],
+      "id": "b1a2c3d4-e5f6-7890-abcd-555555555555",
+      "name": "Call Escalate API"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "clean-parte1",
+              "name": "output",
+              "value": "={{ { Response: { Parte1: $('AI Agent').item.json.output.Response.Parte1.replace('[ESCALAR_HUMANO] ', '').replace('[ESCALAR_HUMANO]', ''), Parte2: '', Parte3: '' } } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4720,
+        -720
+      ],
+      "id": "b1a2c3d4-e5f6-7890-abcd-666666666666",
+      "name": "Clean Escalation Message"
     }
   ],
   "pinData": {},
   "connections": {
     "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Escalation": {
+      "main": [
+        [
+          {
+            "node": "Call Escalate API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Escalate API": {
+      "main": [
+        [
+          {
+            "node": "Clean Escalation Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Escalation Message": {
       "main": [
         [
           {
@@ -1372,7 +1620,36 @@
       "main": [
         [
           {
+            "node": "Check Bot Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Bot Status": {
+      "main": [
+        [
+          {
+            "node": "Switch Bot Active",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Bot Active": {
+      "main": [
+        [
+          {
             "node": "Redis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation Bot Pausado",
             "type": "main",
             "index": 0
           }
@@ -1789,7 +2066,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "0cac43bd-7ba5-466d-9ff6-12144a475ad3",
+  "versionId": "6deb31e0-5266-4c7f-b6e7-3f9421d13e48",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "a76ee565d5030c7cf86590b8e4b0193690bbdbeb1bc473ece830424f5478fc5b"
