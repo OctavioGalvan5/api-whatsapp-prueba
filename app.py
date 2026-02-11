@@ -58,6 +58,24 @@ from whatsapp_service import whatsapp_api, init_all_buckets
 with app.app_context():
     init_all_buckets()
 
+# Crear tag del sistema "Asistencia Humana" al arrancar
+# Envuelto en try/except: si is_system no existe aún (pre-migración), no falla
+with app.app_context():
+    try:
+        system_tag = Tag.query.filter_by(name='Asistencia Humana').first()
+        if not system_tag:
+            system_tag = Tag(name='Asistencia Humana', color='red', is_system=True, is_active=True)
+            db.session.add(system_tag)
+            db.session.commit()
+            logger.info("System tag 'Asistencia Humana' created")
+        elif not system_tag.is_system:
+            system_tag.is_system = True
+            db.session.commit()
+            logger.info("System tag 'Asistencia Humana' marked as system")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"Could not ensure system tag (run migrate_human_assistance.py first): {e}")
+
 # Rutas públicas que no requieren autenticación
 PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api/minio/diagnose'}
 
@@ -70,6 +88,11 @@ def check_auth():
         return None
     # Permitir extracción de DOCX desde n8n
     if request.path == '/api/extract-docx':
+        return None
+    # Permitir n8n verificar bot-status y escalar a humano
+    if request.path.startswith('/api/contact/') and request.path.endswith('/bot-status'):
+        return None
+    if request.path == '/api/escalate-to-human':
         return None
     if not session.get('logged_in'):
         if request.path.startswith('/api/'):
@@ -535,6 +558,11 @@ def dashboard():
         # Templates se cargan async via AJAX para no bloquear el render
         # (ver /api/whatsapp/templates)
     
+    # Verificar si el bot está pausado para el contacto seleccionado
+    bot_paused = False
+    if contact_details:
+        bot_paused = any(t.name == 'Asistencia Humana' for t in contact_details.tags)
+
     return render_template('dashboard.html',
                          stats=stats,
                          contacts=contacts,
@@ -547,7 +575,8 @@ def dashboard():
                          last_inbound_msg=last_inbound_msg,
                          templates=templates,
                          whatsapp_configured=whatsapp_configured,
-                         has_more_contacts=has_more_contacts)
+                         has_more_contacts=has_more_contacts,
+                         bot_paused=bot_paused)
 
 @app.route("/analytics")
 def analytics():
@@ -1729,13 +1758,19 @@ def api_get_messages(phone):
                 'caption': m.caption
             })
 
+        # Verificar si el bot está pausado para este contacto
+        bot_paused = False
+        if contact:
+            bot_paused = any(t.name == 'Asistencia Humana' for t in contact.tags)
+
         return jsonify({
             'success': True,
             'contact': contact_dict,
             'messages': messages_data,
             'stats': stats,
             'can_send_free_text': can_send_free_text,
-            'whatsapp_configured': whatsapp_configured
+            'whatsapp_configured': whatsapp_configured,
+            'bot_paused': bot_paused
         })
         
     except Exception as e:
@@ -1796,8 +1831,8 @@ def tags_page():
         contact_tags, Tag.id == contact_tags.c.tag_id
     ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_id).desc()).all()
 
-    active_tags = [(tag.name, cnt) for tag, cnt in tags_with_count if tag.is_active]
-    disabled_tags = [(tag.name, cnt) for tag, cnt in tags_with_count if not tag.is_active]
+    active_tags = [(tag.name, cnt, tag.is_system) for tag, cnt in tags_with_count if tag.is_active]
+    disabled_tags = [(tag.name, cnt, tag.is_system) for tag, cnt in tags_with_count if not tag.is_active]
     total_contacts = Contact.query.count()
     return render_template('tags.html', tags=active_tags, disabled_tags=disabled_tags, total_contacts=total_contacts)
 
@@ -1818,7 +1853,7 @@ def api_list_tags():
     
     tags_with_count = query.group_by(Tag.id).order_by(func.count(contact_tags.c.contact_id).desc()).all()
 
-    return jsonify([{'name': tag.name, 'count': cnt, 'is_active': tag.is_active} for tag, cnt in tags_with_count])
+    return jsonify([{'name': tag.name, 'count': cnt, 'is_active': tag.is_active, 'is_system': tag.is_system} for tag, cnt in tags_with_count])
 
 @app.route("/api/tags", methods=["POST"])
 def api_create_tag():
@@ -1843,7 +1878,11 @@ def api_delete_tag(tag_name):
         tag = Tag.query.filter_by(name=tag_name).first()
         if not tag:
             return jsonify({'error': 'Tag no encontrado'}), 404
-        
+
+        # Proteger tags del sistema
+        if tag.is_system:
+            return jsonify({'error': 'No se puede eliminar una etiqueta del sistema'}), 403
+
         # Verificar si hay campañas asociadas a este tag
         campaigns_count = Campaign.query.filter_by(tag_id=tag.id).count()
         
@@ -1880,7 +1919,11 @@ def api_toggle_tag(tag_name):
         tag = Tag.query.filter_by(name=tag_name).first()
         if not tag:
             return jsonify({'error': 'Tag no encontrado'}), 404
-        
+
+        # Proteger tags del sistema
+        if tag.is_system:
+            return jsonify({'error': 'No se puede deshabilitar una etiqueta del sistema'}), 403
+
         if tag.is_active:
             # Deshabilitar: quitar de todos los contactos
             removed = db.session.execute(
@@ -1908,6 +1951,91 @@ def api_toggle_tag(tag_name):
         db.session.rollback()
         logger.error(f"Error toggling tag '{tag_name}': {e}")
         return jsonify({'error': str(e)}), 500
+
+
+# ==========================================
+# ASISTENCIA HUMANA — Escalación y Bot Status
+# ==========================================
+
+@app.route("/api/escalate-to-human", methods=["POST"])
+def api_escalate_to_human():
+    """Asigna etiqueta 'Asistencia Humana' a un contacto. Llamado por n8n."""
+    try:
+        data = request.get_json() or {}
+        phone = (data.get('phone_number') or '').strip()
+        if not phone:
+            return jsonify({'error': 'phone_number is required'}), 400
+
+        # Buscar o crear contacto
+        contact = Contact.query.filter_by(phone_number=phone).first()
+        if not contact:
+            contact = Contact(phone_number=phone)
+            db.session.add(contact)
+            db.session.flush()
+
+        # Buscar tag del sistema
+        tag = Tag.query.filter_by(name='Asistencia Humana').first()
+        if not tag:
+            return jsonify({'error': 'System tag not found'}), 500
+
+        # Agregar tag si no la tiene
+        if tag not in contact.tags:
+            contact.tags.append(tag)
+            db.session.commit()
+            logger.info(f"Escalated to human: {phone}")
+
+        return jsonify({'success': True, 'phone': phone})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error escalating to human: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/contact/<phone>/bot-status", methods=["GET"])
+def api_bot_status(phone):
+    """Retorna si el bot está activo para este contacto. Llamado por n8n."""
+    try:
+        contact = Contact.query.filter_by(phone_number=phone).first()
+        if not contact:
+            # Sin registro de contacto = bot activo (usuario nuevo)
+            return jsonify({'bot_active': True, 'phone': phone})
+
+        # Verificar si tiene la etiqueta "Asistencia Humana"
+        has_human_tag = any(t.name == 'Asistencia Humana' for t in contact.tags)
+
+        return jsonify({
+            'bot_active': not has_human_tag,
+            'phone': phone,
+            'has_human_assistance_tag': has_human_tag
+        })
+    except Exception as e:
+        logger.error(f"Error checking bot status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/contact/<phone>/resume-bot", methods=["POST"])
+def api_resume_bot(phone):
+    """Quita etiqueta 'Asistencia Humana' del contacto. Llamado desde dashboard."""
+    try:
+        contact = Contact.query.filter_by(phone_number=phone).first()
+        if not contact:
+            return jsonify({'error': 'Contacto no encontrado'}), 404
+
+        tag = Tag.query.filter_by(name='Asistencia Humana').first()
+        if not tag:
+            return jsonify({'error': 'System tag not found'}), 500
+
+        if tag in contact.tags:
+            contact.tags.remove(tag)
+            db.session.commit()
+            logger.info(f"Bot resumed for: {phone}")
+
+        return jsonify({'success': True, 'phone': phone})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error resuming bot: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route("/api/contacts/bulk-delete", methods=["POST"])
 def api_bulk_delete_contacts():
@@ -3323,6 +3451,13 @@ def api_list_conversation_sessions():
         }
         variants = rating_variants.get(rating, [rating])
         query = query.filter(ConversationSession.rating.in_(variants))
+
+    # Filtro por estado de asistencia humana
+    status_filter = request.args.get('status')
+    if status_filter == 'unanswered':
+        query = query.filter(ConversationSession.has_unanswered_questions == True)
+    elif status_filter == 'escalated':
+        query = query.filter(ConversationSession.escalated_to_human == True)
 
     # Order by most recent first
     query = query.order_by(ConversationSession.ended_at.desc())

@@ -88,6 +88,7 @@ class Tag(db.Model):
     color = db.Column(db.String(20), default='green')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_system = db.Column(db.Boolean, default=False, nullable=False)
 
     def __str__(self):
         return self.name
@@ -97,7 +98,8 @@ class Tag(db.Model):
             'id': self.id,
             'name': self.name,
             'color': self.color,
-            'is_active': self.is_active
+            'is_active': self.is_active,
+            'is_system': self.is_system
         }
 
 class Contact(db.Model):
@@ -240,6 +242,8 @@ class ConversationSession(db.Model):
     message_count = db.Column(db.Integer, default=0)
     summary = db.Column(db.Text, nullable=True)
     auto_categorized = db.Column(db.Boolean, default=True)
+    has_unanswered_questions = db.Column(db.Boolean, default=False, nullable=False)
+    escalated_to_human = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     __table_args__ = (
@@ -278,7 +282,9 @@ class ConversationSession(db.Model):
             'ended_at': ended_at_ar,
             'message_count': self.message_count,
             'summary': self.summary,
-            'auto_categorized': self.auto_categorized
+            'auto_categorized': self.auto_categorized,
+            'has_unanswered_questions': self.has_unanswered_questions,
+            'escalated_to_human': self.escalated_to_human
         }
 
 

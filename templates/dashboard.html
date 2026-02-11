@@ -137,6 +137,18 @@
                         class="w-2 h-2 rounded-full bg-purple-500"></span> {{ contact_stats.read if contact_stats
                     else 0 }} read</div>
             </div>
+            <!-- Bot pausado: banner + botón reactivar -->
+            <div id="bot-paused-banner" class="{% if not bot_paused %}hidden{% endif %} flex items-center gap-2">
+                <span class="flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-medium px-3 py-1.5 rounded-full">
+                    <span class="material-symbols-outlined text-sm">support_agent</span>
+                    Bot pausado
+                </span>
+                <button onclick="resumeBot('{{ selected_contact }}')"
+                    class="flex items-center gap-1.5 bg-primary text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors">
+                    <span class="material-symbols-outlined text-sm">smart_toy</span>
+                    Reactivar Bot
+                </button>
+            </div>
             <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
                 <span class="material-symbols-outlined text-gray-500">more_vert</span>
             </button>
@@ -379,6 +391,39 @@
         return div.innerHTML;
     }
 
+    async function resumeBot(phone) {
+        if (!confirm('Reactivar el bot para este contacto? Se quitará la etiqueta "Asistencia Humana".')) return;
+
+        try {
+            const response = await fetch(`/api/contact/${encodeURIComponent(phone)}/resume-bot`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Ocultar banner
+                const banner = document.getElementById('bot-paused-banner');
+                if (banner) banner.classList.add('hidden');
+
+                // Quitar tag "Asistencia Humana" del header
+                const tagsContainer = document.querySelector('.chat-user-name')?.closest('.flex.items-center.gap-2')?.querySelector('.flex.gap-1');
+                if (tagsContainer) {
+                    tagsContainer.querySelectorAll('span').forEach(span => {
+                        if (span.textContent.trim() === 'ASISTENCIA HUMANA') {
+                            span.remove();
+                        }
+                    });
+                }
+
+                alert('Bot reactivado exitosamente');
+            } else {
+                alert('Error: ' + (data.error || 'Desconocido'));
+            }
+        } catch (e) {
+            alert('Error de conexión: ' + e.message);
+        }
+    }
+
     function saveTemplateVars(phone) {
         const inputs = document.querySelectorAll('#template-variables-container input');
         if (inputs.length === 0) return;
@@ -483,6 +528,32 @@
 
         // Guardar nombre para uso seguro (evita XSS en onclick)
         currentContactName = contact.name || '';
+
+        // Actualizar tags en header
+        const tagsContainer = document.querySelector('.chat-user-name')?.closest('.flex.items-center.gap-2')?.querySelector('.flex.gap-1');
+        if (contact.tags && contact.tags.length > 0) {
+            let tagsHtml = '';
+            contact.tags.forEach(tag => {
+                tagsHtml += `<span class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">${escapeHtml(tag)}</span>`;
+            });
+            if (tagsContainer) {
+                tagsContainer.innerHTML = tagsHtml;
+            }
+        } else if (tagsContainer) {
+            tagsContainer.innerHTML = '';
+        }
+
+        // Actualizar banner de bot pausado
+        const banner = document.getElementById('bot-paused-banner');
+        if (banner) {
+            if (data.bot_paused) {
+                banner.classList.remove('hidden');
+                const resumeBtn = banner.querySelector('button');
+                if (resumeBtn) resumeBtn.onclick = () => resumeBot(currentPhone);
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
 
         // Update Edit Button — sin embeber el nombre en el string
         const headerActions = document.querySelector('header .flex.items-center.gap-2');
