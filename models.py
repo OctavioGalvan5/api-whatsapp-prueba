@@ -87,6 +87,7 @@ class Tag(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     color = db.Column(db.String(20), default='green')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
 
     def __str__(self):
         return self.name
@@ -95,7 +96,8 @@ class Tag(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'color': self.color
+            'color': self.color,
+            'is_active': self.is_active
         }
 
 class Contact(db.Model):

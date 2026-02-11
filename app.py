@@ -1792,21 +1792,29 @@ def tags_page():
         contact_tags, Tag.id == contact_tags.c.tag_id
     ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_id).desc()).all()
 
-    tags_list = [(tag.name, cnt) for tag, cnt in tags_with_count]
+    active_tags = [(tag.name, cnt) for tag, cnt in tags_with_count if tag.is_active]
+    disabled_tags = [(tag.name, cnt) for tag, cnt in tags_with_count if not tag.is_active]
     total_contacts = Contact.query.count()
-    return render_template('tags.html', tags=tags_list, total_contacts=total_contacts)
+    return render_template('tags.html', tags=active_tags, disabled_tags=disabled_tags, total_contacts=total_contacts)
 
 @app.route("/api/tags", methods=["GET"])
 def api_list_tags():
-    """Lista todas las etiquetas con conteo de contactos."""
-    tags_with_count = db.session.query(
+    """Lista etiquetas activas con conteo de contactos. Usar ?include_inactive=true para incluir deshabilitadas."""
+    include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
+    
+    query = db.session.query(
         Tag,
         func.count(contact_tags.c.contact_id).label('cnt')
     ).outerjoin(
         contact_tags, Tag.id == contact_tags.c.tag_id
-    ).group_by(Tag.id).order_by(func.count(contact_tags.c.contact_id).desc()).all()
+    )
+    
+    if not include_inactive:
+        query = query.filter(Tag.is_active == True)
+    
+    tags_with_count = query.group_by(Tag.id).order_by(func.count(contact_tags.c.contact_id).desc()).all()
 
-    return jsonify([{'name': tag.name, 'count': cnt} for tag, cnt in tags_with_count])
+    return jsonify([{'name': tag.name, 'count': cnt, 'is_active': tag.is_active} for tag, cnt in tags_with_count])
 
 @app.route("/api/tags", methods=["POST"])
 def api_create_tag():
@@ -1826,18 +1834,75 @@ def api_create_tag():
 
 @app.route("/api/tags/<tag_name>", methods=["DELETE"])
 def api_delete_tag(tag_name):
-    """Elimina una etiqueta y todas sus referencias."""
+    """Elimina o deshabilita una etiqueta. Si tiene campañas, la deshabilita en lugar de eliminarla."""
     try:
         tag = Tag.query.filter_by(name=tag_name).first()
         if not tag:
             return jsonify({'error': 'Tag no encontrado'}), 404
-        db.session.execute(contact_tags.delete().where(contact_tags.c.tag_id == tag.id))
-        db.session.delete(tag)
-        db.session.commit()
-        return jsonify({'success': True})
+        
+        # Verificar si hay campañas asociadas a este tag
+        campaigns_count = Campaign.query.filter_by(tag_id=tag.id).count()
+        
+        # Quitar tag de todos los contactos
+        removed_count = db.session.execute(
+            contact_tags.delete().where(contact_tags.c.tag_id == tag.id)
+        ).rowcount
+        
+        if campaigns_count > 0:
+            # Deshabilitar en lugar de eliminar
+            tag.is_active = False
+            db.session.commit()
+            logger.info(f"🏷️ Tag '{tag_name}' deshabilitado (tiene {campaigns_count} campañas). {removed_count} contactos desvinculados.")
+            return jsonify({
+                'success': True,
+                'action': 'disabled',
+                'message': f'Etiqueta deshabilitada ({campaigns_count} campañas asociadas). Se quitó de {removed_count} contacto(s).'
+            })
+        else:
+            # Eliminar permanentemente
+            db.session.delete(tag)
+            db.session.commit()
+            logger.info(f"🗑️ Tag '{tag_name}' eliminado permanentemente. {removed_count} contactos desvinculados.")
+            return jsonify({'success': True, 'action': 'deleted'})
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error eliminando tag '{tag_name}': {e}")
+        logger.error(f"Error eliminando/deshabilitando tag '{tag_name}': {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/tags/<tag_name>/toggle", methods=["POST"])
+def api_toggle_tag(tag_name):
+    """Rehabilita o deshabilita una etiqueta."""
+    try:
+        tag = Tag.query.filter_by(name=tag_name).first()
+        if not tag:
+            return jsonify({'error': 'Tag no encontrado'}), 404
+        
+        if tag.is_active:
+            # Deshabilitar: quitar de todos los contactos
+            removed = db.session.execute(
+                contact_tags.delete().where(contact_tags.c.tag_id == tag.id)
+            ).rowcount
+            tag.is_active = False
+            db.session.commit()
+            logger.info(f"🏷️ Tag '{tag_name}' deshabilitado. {removed} contactos desvinculados.")
+            return jsonify({
+                'success': True,
+                'is_active': False,
+                'message': f'Etiqueta deshabilitada. Se quitó de {removed} contacto(s).'
+            })
+        else:
+            # Rehabilitar
+            tag.is_active = True
+            db.session.commit()
+            logger.info(f"✅ Tag '{tag_name}' rehabilitado.")
+            return jsonify({
+                'success': True,
+                'is_active': True,
+                'message': 'Etiqueta rehabilitada exitosamente.'
+            })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error toggling tag '{tag_name}': {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route("/api/contacts/bulk-delete", methods=["POST"])
@@ -2527,7 +2592,7 @@ def campaigns_page():
             'stats': {'total': total, 'sent': sent, 'failed': failed}
         })
 
-    tags = Tag.query.all()
+    tags = Tag.query.filter_by(is_active=True).all()
 
     templates = []
     if whatsapp_api.is_configured():
