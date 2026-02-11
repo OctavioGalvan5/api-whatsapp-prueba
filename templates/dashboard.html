@@ -66,13 +66,16 @@
         {% for contact in contacts %}
         <div onclick="selectContact('{{ contact.phone_number }}')" data-phone="{{ contact.phone_number }}"
             class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 {% if selected_contact == contact.phone_number %}bg-primary/10 dark:bg-primary/20 border-primary active{% else %}bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent{% endif %}">
-            <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+            <div
+                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
                 {{ contact.name[0] if contact.name else contact.phone_number[-2:] }}
             </div>
             <div class="flex flex-col justify-center flex-1 min-w-0">
                 <div class="flex justify-between items-center">
-                    <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or contact.phone_number }}</p>
-                    <p class="text-[10px] text-gray-400">{{ (contact.last_timestamp|to_argentina).strftime('%H:%M') if contact.last_timestamp else '' }}</p>
+                    <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or
+                        contact.phone_number }}</p>
+                    <p class="text-[10px] text-gray-400">{{ (contact.last_timestamp|to_argentina).strftime('%d/%m
+                        %H:%M') if contact.last_timestamp else '' }}</p>
                 </div>
                 <div class="flex justify-between items-center">
                     <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}</p>
@@ -162,7 +165,8 @@
                 class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
 
                 {% if msg.media_url %}
-                {% set media_src = msg.media_url if (msg.media_url.startswith('http') or msg.media_url.startswith('/')) else '/' ~ msg.media_url %}
+                {% set media_src = msg.media_url if (msg.media_url.startswith('http') or msg.media_url.startswith('/'))
+                else '/' ~ msg.media_url %}
                 {% if msg.message_type == 'image' %}
                 <a href="{{ media_src }}" target="_blank">
                     <img src="{{ media_src }}"
@@ -180,9 +184,7 @@
                     Tu navegador no soporta video.
                 </video>
                 {% elif msg.message_type == 'sticker' %}
-                <img src="{{ media_src }}"
-                    class="mb-2 max-w-32 max-h-32 object-contain"
-                    alt="Sticker">
+                <img src="{{ media_src }}" class="mb-2 max-w-32 max-h-32 object-contain" alt="Sticker">
                 {% elif msg.message_type == 'document' %}
                 {% if msg.media_url.endswith('.pdf') %}
                 <div class="mb-2">
@@ -305,11 +307,7 @@
                     <div class="flex items-center gap-3">
                         <select id="template-select"
                             class="flex-1 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-3 px-4 focus:border-primary focus:ring-0">
-                            <option value="">-- Seleccionar Template --</option>
-                            {% for t in templates %}
-                            <option value="{{ t.name }}" data-lang="{{ t.language }}">{{ t.name }} ({{ t.language
-                                }})</option>
-                            {% endfor %}
+                            <option value="">Cargando templates...</option>
                         </select>
                         <button type="submit"
                             class="bg-primary text-white size-11 rounded-xl flex items-center justify-center hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all shrink-0">
@@ -344,8 +342,31 @@
 </main>
 
 <script>
-    // Serialize templates to JS
-    const allTemplates = {{ templates | tojson | safe }};
+    // Templates se cargan async para no bloquear el render de la página
+    let allTemplates = [];
+
+    // Cargar templates en background
+    (async function loadTemplatesAsync() {
+        try {
+            const resp = await fetch('/api/whatsapp/templates');
+            const data = await resp.json();
+            allTemplates = data.templates || [];
+            // Actualizar el select de templates si existe
+            const select = document.getElementById('template-select');
+            if (select && allTemplates.length > 0) {
+                select.innerHTML = '<option value="">-- Seleccionar Template --</option>';
+                allTemplates.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.name;
+                    opt.dataset.lang = t.language;
+                    opt.textContent = `${t.name} (${t.language})`;
+                    select.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.warn('Error cargando templates:', e);
+        }
+    })();
 
     let currentPhone = "{{ selected_contact or '' }}";
     let currentContactName = ''; // Para evitar XSS en onclick
@@ -386,13 +407,13 @@
         const div = document.createElement('div');
         div.className = 'flex flex-col items-end max-w-[80%] self-end';
         div.innerHTML = `
-                <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
-                    <p>${escapeHtml(text)}</p>
-                    <div class="flex items-center justify-end gap-1 mt-1">
-                        <span class="text-[10px] text-white/80">${timeStr}</span>
-                        <span class="material-symbols-outlined text-[14px] text-white">check</span>
-                    </div>
-                </div>`;
+<div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
+    <p>${escapeHtml(text)}</p>
+    <div class="flex items-center justify-end gap-1 mt-1">
+        <span class="text-[10px] text-white/80">${timeStr}</span>
+        <span class="material-symbols-outlined text-[14px] text-white">check</span>
+    </div>
+</div>`;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
@@ -413,9 +434,11 @@
         // Visual update sidebar
         document.querySelectorAll('.contact-item').forEach(item => {
             item.classList.remove('bg-primary/10', 'dark:bg-primary/20', 'border-primary', 'active');
-            item.classList.add('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50', 'border-transparent');
+            item.classList.add('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50',
+                'border-transparent');
             if (item.dataset.phone === phone) {
-                item.classList.remove('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50', 'border-transparent');
+                item.classList.remove('bg-white', 'dark:bg-[#152a17]', 'hover:bg-gray-50', 'dark:hover:bg-gray-800/50',
+                    'border-transparent');
                 item.classList.add('bg-primary/10', 'dark:bg-primary/20', 'border-primary', 'active');
             }
         });
@@ -423,10 +446,10 @@
         // Mostrar loading spinner
         const chatMessages = document.getElementById('chat-messages');
         chatMessages.innerHTML = `
-                <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
-                    <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                    <p class="mt-3 text-sm">Cargando mensajes...</p>
-                </div>`;
+<div class="flex-1 flex flex-col items-center justify-center text-gray-400">
+    <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+    <p class="mt-3 text-sm">Cargando mensajes...</p>
+</div>`;
 
         try {
             const newUrl = `/dashboard?phone=${encodeURIComponent(phone)}`;
@@ -473,10 +496,10 @@
         if (container) {
             if (!data.messages || data.messages.length === 0) {
                 container.innerHTML = `
-                        <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
-                            <span class="material-symbols-outlined text-6xl opacity-20">chat_bubble_outline</span>
-                            <p class="mt-2 text-sm">No hay mensajes</p>
-                        </div>`;
+<div class="flex-1 flex flex-col items-center justify-center text-gray-400">
+    <span class="material-symbols-outlined text-6xl opacity-20">chat_bubble_outline</span>
+    <p class="mt-2 text-sm">No hay mensajes</p>
+</div>`;
             } else {
                 let html = '';
                 let lastDate = '';
@@ -484,9 +507,10 @@
                 data.messages.forEach(msg => {
                     if (msg.date !== lastDate) {
                         html += `
-                            <div class="flex justify-center my-4 date-separator">
-                                <span class="bg-white/90 dark:bg-gray-800/90 text-[11px] font-semibold text-gray-500 dark:text-gray-400 py-1 px-4 rounded-full shadow-sm">${escapeHtml(msg.date)}</span>
-                            </div>`;
+<div class="flex justify-center my-4 date-separator">
+    <span
+        class="bg-white/90 dark:bg-gray-800/90 text-[11px] font-semibold text-gray-500 dark:text-gray-400 py-1 px-4 rounded-full shadow-sm">${escapeHtml(msg.date)}</span>
+</div>`;
                         lastDate = msg.date;
                     }
 
@@ -501,53 +525,50 @@
 
                         if (msg.message_type === 'image') {
                             contentHtml = `
-                                <a href="${mediaSrc}" target="_blank">
-                                    <img src="${mediaSrc}"
-                                        class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity"
-                                        alt="Imagen">
-                                </a>`;
+<a href="${mediaSrc}" target="_blank">
+    <img src="${mediaSrc}"
+        class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+        alt="Imagen">
+</a>`;
                         } else if (msg.message_type === 'audio') {
                             contentHtml = `
-                                <audio controls class="mb-2 max-w-full">
-                                    <source src="${mediaSrc}" type="audio/ogg">
-                                    Tu navegador no soporta el audio.
-                                </audio>`;
+<audio controls class="mb-2 max-w-full">
+    <source src="${mediaSrc}" type="audio/ogg">
+    Tu navegador no soporta el audio.
+</audio>`;
                         } else if (msg.message_type === 'video') {
                             contentHtml = `
-                                <video controls class="rounded-lg mb-2 max-w-full max-h-64">
-                                    <source src="${mediaSrc}">
-                                    Tu navegador no soporta video.
-                                </video>`;
+<video controls class="rounded-lg mb-2 max-w-full max-h-64">
+    <source src="${mediaSrc}">
+    Tu navegador no soporta video.
+</video>`;
                         } else if (msg.message_type === 'sticker') {
                             contentHtml = `
-                                <img src="${mediaSrc}"
-                                    class="mb-2 max-w-32 max-h-32 object-contain"
-                                    alt="Sticker">`;
+<img src="${mediaSrc}" class="mb-2 max-w-32 max-h-32 object-contain" alt="Sticker">`;
                         } else if (msg.message_type === 'document') {
                             // Mostrar PDF inline o link para otros documentos
                             if (msg.media_url.endsWith('.pdf')) {
                                 contentHtml = `
-                                    <div class="mb-2">
-                                        <embed src="${mediaSrc}" type="application/pdf"
-                                            class="w-full h-64 rounded-lg border border-gray-300 dark:border-gray-600">
-                                        <a href="${mediaSrc}" target="_blank"
-                                            class="flex items-center gap-2 mt-2 text-xs text-primary hover:underline">
-                                            <span class="material-symbols-outlined text-sm">open_in_new</span>
-                                            Abrir PDF en nueva pestaña
-                                        </a>
-                                    </div>`;
+<div class="mb-2">
+    <embed src="${mediaSrc}" type="application/pdf"
+        class="w-full h-64 rounded-lg border border-gray-300 dark:border-gray-600">
+    <a href="${mediaSrc}" target="_blank" class="flex items-center gap-2 mt-2 text-xs text-primary hover:underline">
+        <span class="material-symbols-outlined text-sm">open_in_new</span>
+        Abrir PDF en nueva pestaña
+    </a>
+</div>`;
                             } else {
                                 contentHtml = `
-                                    <a href="${mediaSrc}" target="_blank"
-                                        class="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-2">
-                                        <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center">
-                                            <span class="material-symbols-outlined">description</span>
-                                        </div>
-                                        <div class="flex flex-col overflow-hidden">
-                                            <span class="font-medium truncate text-[#111812] dark:text-white">Documento</span>
-                                            <span class="text-xs text-gray-500">Click para descargar</span>
-                                        </div>
-                                    </a>`;
+<a href="${mediaSrc}" target="_blank"
+    class="flex items-center gap-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-2">
+    <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center">
+        <span class="material-symbols-outlined">description</span>
+    </div>
+    <div class="flex flex-col overflow-hidden">
+        <span class="font-medium truncate text-[#111812] dark:text-white">Documento</span>
+        <span class="text-xs text-gray-500">Click para descargar</span>
+    </div>
+</a>`;
                             }
                         }
 
@@ -562,27 +583,28 @@
 
                     if (msg.direction === 'inbound') {
                         html += `
-                            <div class="flex flex-col items-start max-w-[80%]">
-                                <div class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
-                                    ${contentHtml}
-                                    <div class="text-[10px] text-gray-400 text-right mt-1">${msg.time}</div>
-                                </div>
-                            </div>`;
+<div class="flex flex-col items-start max-w-[80%]">
+    <div
+        class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
+        ${contentHtml}
+        <div class="text-[10px] text-gray-400 text-right mt-1">${msg.time}</div>
+    </div>
+</div>`;
                     } else {
                         let icon = 'check';
                         if (msg.status === 'read') icon = 'done_all';
                         else if (msg.status === 'delivered') icon = 'done_all';
 
                         html += `
-                            <div class="flex flex-col items-end max-w-[80%] self-end">
-                                <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
-                                    ${contentHtml}
-                                    <div class="flex items-center justify-end gap-1 mt-1">
-                                        <span class="text-[10px] text-white/80">${msg.time}</span>
-                                        <span class="material-symbols-outlined text-[14px] text-white">${icon}</span>
-                                    </div>
-                                </div>
-                            </div>`;
+<div class="flex flex-col items-end max-w-[80%] self-end">
+    <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
+        ${contentHtml}
+        <div class="flex items-center justify-end gap-1 mt-1">
+            <span class="text-[10px] text-white/80">${msg.time}</span>
+            <span class="material-symbols-outlined text-[14px] text-white">${icon}</span>
+        </div>
+    </div>
+</div>`;
                     }
                 });
                 container.innerHTML = html;
@@ -622,7 +644,7 @@
         document.getElementById('text-mode').classList.toggle('hidden', mode !== 'text');
         document.getElementById('template-mode').classList.toggle('hidden', mode !== 'template');
 
-        // Visual toggle of radio buttons is handled by browser native radio behavior usually, 
+        // Visual toggle of radio buttons is handled by browser native radio behavior usually,
         // but we might need to force check if they are custom styled.
         // In this design, they are radio inputs.
         const radios = document.getElementsByName('composer-mode');
@@ -703,9 +725,11 @@
                     const div = document.createElement('div');
                     div.className = 'flex flex-col';
                     div.innerHTML = `
-                            <label class="text-[10px] text-gray-500 uppercase font-bold">Variable {{ '{{' }}${varNum}{{ '}}' }}</label>
-                            <input type="text" name="var_${varNum}" class="rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-2 px-3 focus:border-primary focus:ring-0" placeholder="Valor para variable ${varNum}">
-                         `;
+<label class="text-[10px] text-gray-500 uppercase font-bold">Variable {{ '{{' }}${varNum}{{ '}}' }}</label>
+<input type="text" name="var_${varNum}"
+    class="rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-2 px-3 focus:border-primary focus:ring-0"
+    placeholder="Valor para variable ${varNum}">
+`;
                     container.appendChild(div);
                 });
             }
@@ -814,7 +838,7 @@
 
     // ========== SCROLL INFINITO HÍBRIDO + BÚSQUEDA ==========
     // Los primeros 50 contactos ya están renderizados desde el servidor
-    let contactsOffset = {{ contacts|length }};  // Offset inicial = contactos ya cargados
+    let contactsOffset = {{ contacts| length }}; // Offset inicial = contactos ya cargados
     let contactsLoading = false;
     let contactsHasMore = {{ 'true' if has_more_contacts else 'false' }};
     let searchTimeout = null;
@@ -838,24 +862,33 @@
                 const div = document.createElement('div');
                 div.onclick = () => selectContact(contact.phone_number);
                 div.dataset.phone = contact.phone_number;
-                div.className = `contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent`;
+                div.className = `contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4
+bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent`;
 
                 const initial = contact.name ? contact.name[0].toUpperCase() : contact.phone_number.slice(-2);
                 const displayName = contact.name || contact.phone_number;
-                const time = contact.last_timestamp ? new Date(contact.last_timestamp).toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : '';
+                const time = contact.last_timestamp ? (() => {
+                    const d = new Date(contact.last_timestamp); return
+                    d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', {
+                        hour:
+                            '2-digit', minute: '2-digit'
+                    });
+                })() : '';
 
                 div.innerHTML = `
-                    <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">${escapeHtml(initial)}</div>
-                    <div class="flex flex-col justify-center flex-1 min-w-0">
-                        <div class="flex justify-between items-center">
-                            <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(displayName)}</p>
-                            <p class="text-[10px] text-gray-400">${time}</p>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(contact.last_message || '')}</p>
-                        </div>
-                    </div>
-                `;
+<div
+    class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+    ${escapeHtml(initial)}</div>
+<div class="flex flex-col justify-center flex-1 min-w-0">
+    <div class="flex justify-between items-center">
+        <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(displayName)}</p>
+        <p class="text-[10px] text-gray-400">${time}</p>
+    </div>
+    <div class="flex justify-between items-center">
+        <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(contact.last_message || '')}</p>
+    </div>
+</div>
+`;
                 container.appendChild(div);
             });
 
@@ -889,24 +922,33 @@
                     const div = document.createElement('div');
                     div.onclick = () => selectContact(contact.phone_number);
                     div.dataset.phone = contact.phone_number;
-                    div.className = `contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent`;
+                    div.className = `contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4
+bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent`;
 
                     const initial = contact.name ? contact.name[0].toUpperCase() : contact.phone_number.slice(-2);
                     const displayName = contact.name || contact.phone_number;
-                    const time = contact.last_timestamp ? new Date(contact.last_timestamp).toLocaleTimeString('es-AR', {hour: '2-digit', minute: '2-digit'}) : '';
+                    const time = contact.last_timestamp ? (() => {
+                        const d = new Date(contact.last_timestamp); return
+                        d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', {
+                            hour:
+                                '2-digit', minute: '2-digit'
+                        });
+                    })() : '';
 
                     div.innerHTML = `
-                        <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">${escapeHtml(initial)}</div>
-                        <div class="flex flex-col justify-center flex-1 min-w-0">
-                            <div class="flex justify-between items-center">
-                                <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(displayName)}</p>
-                                <p class="text-[10px] text-gray-400">${time}</p>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(contact.last_message || '')}</p>
-                            </div>
-                        </div>
-                    `;
+<div
+    class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+    ${escapeHtml(initial)}</div>
+<div class="flex flex-col justify-center flex-1 min-w-0">
+    <div class="flex justify-between items-center">
+        <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(displayName)}</p>
+        <p class="text-[10px] text-gray-400">${time}</p>
+    </div>
+    <div class="flex justify-between items-center">
+        <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(contact.last_message || '')}</p>
+    </div>
+</div>
+`;
                     container.appendChild(div);
                 });
             }
@@ -931,7 +973,7 @@
     }
 
     // Scroll infinito - solo carga más cuando llega al final
-    document.getElementById('contacts-list').addEventListener('scroll', function() {
+    document.getElementById('contacts-list').addEventListener('scroll', function () {
         const { scrollTop, scrollHeight, clientHeight } = this;
         if (scrollTop + clientHeight >= scrollHeight - 100) {
             loadMoreContacts();
@@ -939,7 +981,7 @@
     });
 
     // Búsqueda con debounce - solo busca en servidor si hay texto
-    document.getElementById('search-input').addEventListener('input', function(e) {
+    document.getElementById('search-input').addEventListener('input', function (e) {
         clearTimeout(searchTimeout);
         const query = e.target.value.trim();
 
@@ -978,7 +1020,7 @@
             fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
                 .then(r => r.json())
                 .then(data => { if (data.success) renderChat(data); })
-                .catch(() => {});
+                .catch(() => { });
         }
     }, 30000);
 

@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://graph.facebook.com/v18.0"
 
-# Cache en memoria para templates (TTL: 5 minutos)
+# Cache en memoria para templates (TTL: 30 minutos — templates cambian rara vez)
 _template_cache = {'data': None, 'expires_at': 0}
-CACHE_TTL = 300
+CACHE_TTL = 1800
 
 # Cliente MinIO/S3
 _s3_client = None
