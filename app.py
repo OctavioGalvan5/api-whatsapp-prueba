@@ -1026,9 +1026,15 @@ def api_dashboard_contacts():
     for r in results:
         contact = contacts_map.get(r.phone_number)
         last_msg = r.last_message
+        # Manejar timestamp de forma robusta (raw SQL puede devolver string o datetime)
+        ts = r.last_timestamp
+        if ts:
+            ts_str = ts.isoformat() if hasattr(ts, 'isoformat') else str(ts)
+        else:
+            ts_str = None
         contacts.append({
             'phone_number': r.phone_number,
-            'last_timestamp': r.last_timestamp.isoformat() if r.last_timestamp else None,
+            'last_timestamp': ts_str,
             'last_message': (last_msg[:50] + '...') if last_msg and len(last_msg) > 50 else last_msg,
             'name': contact.name if contact else None,
             'tags': [t.name for t in contact.tags] if contact else []
