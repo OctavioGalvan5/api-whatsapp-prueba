@@ -1131,6 +1131,12 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
             const editBtn = headerActions.querySelector('button');
             if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
         }
+    } else {
+        // Sin ?phone= en URL: cargar el primer contacto via AJAX (evita SSR pesado)
+        const firstContact = document.querySelector('.contact-item[data-phone]');
+        if (firstContact) {
+            selectContact(firstContact.dataset.phone);
+        }
     }
 
     // Polling: actualiza chat cada 30s

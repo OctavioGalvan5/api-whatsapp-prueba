@@ -519,20 +519,11 @@ def dashboard():
             'read': sum(1 for m in outbound_msgs if m.latest_status == 'read')
         }
     elif contacts:
-        # Seleccionar primer contacto por defecto
-        selected_contact = contacts[0]['phone_number']
-        recent_messages = Message.query.filter_by(phone_number=selected_contact)\
-            .order_by(Message.timestamp.desc())\
-            .limit(MESSAGE_LIMIT).all()
-        messages = recent_messages[::-1]  # Invertir para orden cronológico
-        
-        outbound_msgs = [m for m in messages if m.direction == 'outbound']
-        contact_stats = {
-            'message_count': len(messages),
-            'sent': sum(1 for m in outbound_msgs if m.latest_status in ['sent', 'delivered', 'read']),
-            'delivered': sum(1 for m in outbound_msgs if m.latest_status in ['delivered', 'read']),
-            'read': sum(1 for m in outbound_msgs if m.latest_status == 'read')
-        }
+        # Sin ?phone= en la URL: NO cargar mensajes en SSR.
+        # El JS se encarga de cargar el chat del primer contacto via AJAX al iniciar.
+        selected_contact = None
+        messages = []
+        contact_stats = {}
     
     # OPTIMIZACIÓN: Removidas queries de gráficos (se cargan en /analytics)
     chart_data = {
@@ -1813,8 +1804,10 @@ def contacts_page():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
-    # Base query
-    query = Contact.query
+    from sqlalchemy.orm import joinedload
+
+    # Base query con joinedload para evitar N+1 en tags
+    query = Contact.query.options(joinedload(Contact.tags))
 
     # Apply tag filter (Include)
     if tag_filter:
