@@ -12,7 +12,7 @@
                 <h1 class="text-xl font-bold text-[#111812] dark:text-white">Campañas</h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Envío masivo de templates por etiqueta</p>
             </div>
-            <button onclick="document.getElementById('createModal').classList.remove('hidden')"
+            <button onclick="openCreateModal()"
                 class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
                 <span class="material-symbols-outlined text-lg">add</span>
                 Nueva Campaña
@@ -187,7 +187,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-6">
                 Crea una campaña para enviar un template de WhatsApp a todos los contactos de una etiqueta.
             </p>
-            <button onclick="document.getElementById('createModal').classList.remove('hidden')"
+            <button onclick="openCreateModal()"
                 class="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
                 <span class="material-symbols-outlined text-lg">add</span>
                 Crear Primera Campaña
@@ -231,15 +231,16 @@
             <div>
                 <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Template
                     aprobado</label>
-                <select id="camp-template"
-                    class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary"
-                    onchange="onTemplateChange()">
-                    <option value="">Selecciona un template...</option>
-                    {% for t in templates %}
-                    <option value="{{ t.name }}|{{ t.language }}" data-components='{{ t.components|tojson }}'>{{
-                        t.name }} ({{ t.language }})</option>
-                    {% endfor %}
-                </select>
+                <div class="relative">
+                    <select id="camp-template"
+                        class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary"
+                        onchange="onTemplateChange()" disabled>
+                        <option value="">Cargando templates...</option>
+                    </select>
+                    <span id="template-loading-spinner"
+                        class="absolute right-3 top-2.5 material-symbols-outlined text-[16px] text-gray-400 animate-spin">progress_activity</span>
+                </div>
+                <p id="template-load-error" class="hidden text-xs text-red-500 mt-1">Error cargando templates.</p>
             </div>
 
             <!-- Variables Section -->
@@ -257,10 +258,6 @@
                     class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
                 <p class="text-xs text-gray-400 mt-1">Si se deja vacío, se guardará como borrador.</p>
             </div>
-
-            {% if not templates %}
-            <p class="text-xs text-red-500">No hay templates aprobados disponibles. Configura WhatsApp primero.</p>
-            {% endif %}
         </div>
         <div id="create-error" class="hidden mt-4 p-3 rounded-lg text-sm bg-red-500/10 text-red-500"></div>
         <div class="flex justify-end gap-3 mt-6">
@@ -277,6 +274,51 @@
 </div>
 
 <script>
+    // ── Templates: carga async al abrir el modal ──────────────────────────────
+    let _allTemplates = [];
+    let _templatesLoaded = false;
+
+    async function loadTemplatesIntoModal() {
+        if (_templatesLoaded) return; // Ya cargados, no repetir
+        try {
+            const resp = await fetch('/api/whatsapp/templates');
+            const data = await resp.json();
+            _allTemplates = (data.templates || []).filter(t => t.status === 'APPROVED');
+
+            const select = document.getElementById('camp-template');
+            const spinner = document.getElementById('template-loading-spinner');
+            const errEl = document.getElementById('template-load-error');
+
+            select.innerHTML = '<option value="">Selecciona un template...</option>';
+            if (_allTemplates.length === 0) {
+                select.innerHTML += '<option value="" disabled>No hay templates aprobados</option>';
+                errEl.textContent = 'No hay templates aprobados disponibles. Configura WhatsApp primero.';
+                errEl.classList.remove('hidden');
+            } else {
+                _allTemplates.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = `${t.name}|${t.language}`;
+                    opt.dataset.components = JSON.stringify(t.components || []);
+                    opt.textContent = `${t.name} (${t.language})`;
+                    select.appendChild(opt);
+                });
+            }
+            select.disabled = false;
+            spinner.classList.add('hidden');
+            _templatesLoaded = true;
+        } catch (e) {
+            const errEl = document.getElementById('template-load-error');
+            errEl.textContent = 'Error cargando templates: ' + e.message;
+            errEl.classList.remove('hidden');
+            document.getElementById('template-loading-spinner').classList.add('hidden');
+        }
+    }
+
+    function openCreateModal() {
+        document.getElementById('createModal').classList.remove('hidden');
+        loadTemplatesIntoModal(); // carga solo si no están ya
+    }
+
     // Create campaign
     async function createCampaign() {
         const name = document.getElementById('camp-name').value.trim();

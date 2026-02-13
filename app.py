@@ -2801,10 +2801,11 @@ def api_send_text():
 
 @app.route("/campaigns")
 def campaigns_page():
-    """Página de campañas — OPTIMIZADO: stats calculados en SQL."""
+    """Página de campañas — OPTIMIZADO: stats en SQL + templates cargados async."""
     from sqlalchemy import case
+    from sqlalchemy.orm import joinedload as _jl_camp
 
-    # Query optimizada: stats calculados en SQL en lugar de iterar logs en Python
+    # joinedload en tag evita N+1 (una query por campaña para cargar su tag)
     campaigns_with_stats = db.session.query(
         Campaign,
         func.count(CampaignLog.id).label('total'),
@@ -2816,6 +2817,7 @@ def campaigns_page():
         )).label('failed')
     ).outerjoin(
         CampaignLog, Campaign.id == CampaignLog.campaign_id
+    ).options(_jl_camp(Campaign.tag)
     ).group_by(Campaign.id).order_by(Campaign.created_at.desc()).all()
 
     campaigns_data = []
@@ -2827,15 +2829,11 @@ def campaigns_page():
 
     tags = Tag.query.filter_by(is_active=True).all()
 
-    templates = []
-    if whatsapp_api.is_configured():
-        templates_result = whatsapp_api.get_templates()
-        templates = [t for t in templates_result.get("templates", []) if t.get("status") == "APPROVED"]
-
+    # Los templates se cargan async via AJAX para no bloquear el SSR
+    # (la llamada HTTP a Meta puede tardar 500ms-2s cuando el cache está frío)
     return render_template('campaigns.html',
                          campaigns=campaigns_data,
-                         tags=tags,
-                         templates=templates)
+                         tags=tags)
 
 @app.route("/campaigns/<int:campaign_id>")
 def campaign_details_page(campaign_id):
