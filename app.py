@@ -2803,9 +2803,8 @@ def api_send_text():
 def campaigns_page():
     """Página de campañas — OPTIMIZADO: stats en SQL + templates cargados async."""
     from sqlalchemy import case
-    from sqlalchemy.orm import joinedload as _jl_camp
 
-    # joinedload en tag evita N+1 (una query por campaña para cargar su tag)
+    # Stats en SQL — GROUP BY solo sobre Campaign.id (joinedload rompe GROUP BY en Postgres)
     campaigns_with_stats = db.session.query(
         Campaign,
         func.count(CampaignLog.id).label('total'),
@@ -2817,8 +2816,17 @@ def campaigns_page():
         )).label('failed')
     ).outerjoin(
         CampaignLog, Campaign.id == CampaignLog.campaign_id
-    ).options(_jl_camp(Campaign.tag)
     ).group_by(Campaign.id).order_by(Campaign.created_at.desc()).all()
+
+    # Cargar tags en batch (una sola query IN) para evitar N+1 lazy load en el template
+    tag_ids = list({c.tag_id for c, *_ in campaigns_with_stats if c.tag_id})
+    tags_by_id = {}
+    if tag_ids:
+        for t in Tag.query.filter(Tag.id.in_(tag_ids)).all():
+            tags_by_id[t.id] = t
+    for c, *_ in campaigns_with_stats:
+        if c.tag_id and c.tag_id in tags_by_id:
+            c.__dict__['tag'] = tags_by_id[c.tag_id]
 
     campaigns_data = []
     for c, total, sent, failed in campaigns_with_stats:
