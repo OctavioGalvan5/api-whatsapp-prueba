@@ -229,15 +229,19 @@ Criterios para needs_human_assistance:
         # Si necesita asistencia humana, asignar la etiqueta al contacto existente
         if needs_human:
             from models import Contact, Tag
+            # Normalizar número (tolerancia a '+' inicial)
+            phone_normalized = phone.strip().lstrip('+')
             # Buscar contacto existente (NO crear uno nuevo para evitar duplicados)
-            contact = Contact.query.filter_by(phone_number=phone).first()
+            contact = Contact.query.filter_by(phone_number=phone_normalized).first()
+            if not contact:
+                contact = Contact.query.filter_by(phone_number='+' + phone_normalized).first()
             if contact:
                 tag = Tag.query.filter_by(name='Asistencia Humana').first()
                 if tag and tag not in contact.tags:
                     contact.tags.append(tag)
-                    logger.info(f"Tag 'Asistencia Humana' assigned to existing contact {phone}")
+                    logger.info(f"Tag 'Asistencia Humana' assigned to existing contact {phone_normalized}")
             else:
-                logger.warning(f"Contact {phone} not found in DB — tag not assigned (contact will get tag when n8n calls escalate endpoint)")
+                logger.warning(f"Contact {phone_normalized} not found in DB — tag not assigned (contact will get tag when n8n calls escalate endpoint)")
 
         db.session.commit()
 
