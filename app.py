@@ -966,6 +966,30 @@ def format_utc_iso(dt):
     # Si tiene zona horaria, convertir a UTC explícitamente
     return dt.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 
+def normalize_phone(phone):
+    """
+    Normaliza un número de teléfono eliminando el '+' inicial y espacios.
+    Ejemplo: '+5493874882011' -> '5493874882011'
+    Busca primero con el número normalizado; si no encuentra, intenta con el original.
+    """
+    if not phone:
+        return phone
+    return phone.strip().lstrip('+')
+
+
+def find_contact_by_phone(phone):
+    """
+    Busca un contacto tolerando variantes con/sin '+'.
+    Prueba: número normalizado (sin +), luego con '+'.
+    """
+    normalized = normalize_phone(phone)
+    contact = Contact.query.filter_by(phone_number=normalized).first()
+    if not contact and not phone.startswith('+'):
+        # Intentar también con el '+' por si se guardó con él
+        contact = Contact.query.filter_by(phone_number='+' + normalized).first()
+    return contact
+
+
 def register_contact_if_new(phone_number, name=None):
     """Registra un contacto si no existe."""
     try:
@@ -1969,12 +1993,17 @@ def api_escalate_to_human():
         if not phone:
             return jsonify({'error': 'phone_number is required'}), 400
 
-        # Buscar o crear contacto
-        contact = Contact.query.filter_by(phone_number=phone).first()
+        # Normalizar número (eliminar '+' inicial si viene de n8n)
+        phone_normalized = normalize_phone(phone)
+
+        # Buscar contacto tolerando variantes con/sin '+'
+        contact = find_contact_by_phone(phone_normalized)
         if not contact:
-            contact = Contact(phone_number=phone)
+            # Crear con el número normalizado (sin '+')
+            contact = Contact(phone_number=phone_normalized)
             db.session.add(contact)
             db.session.flush()
+            logger.info(f"Created new contact for escalation: {phone_normalized} (original: {phone})")
 
         # Buscar tag del sistema
         tag = Tag.query.filter_by(name='Asistencia Humana').first()
@@ -1998,17 +2027,18 @@ def api_escalate_to_human():
 def api_bot_status(phone):
     """Retorna si el bot está activo para este contacto. Llamado por n8n."""
     try:
-        contact = Contact.query.filter_by(phone_number=phone).first()
+        phone_normalized = normalize_phone(phone)
+        contact = find_contact_by_phone(phone_normalized)
         if not contact:
             # Sin registro de contacto = bot activo (usuario nuevo)
-            return jsonify({'bot_active': True, 'phone': phone})
+            return jsonify({'bot_active': True, 'phone': phone_normalized})
 
         # Verificar si tiene la etiqueta "Asistencia Humana"
         has_human_tag = any(t.name == 'Asistencia Humana' for t in contact.tags)
 
         return jsonify({
             'bot_active': not has_human_tag,
-            'phone': phone,
+            'phone': phone_normalized,
             'has_human_assistance_tag': has_human_tag
         })
     except Exception as e:
@@ -2020,7 +2050,8 @@ def api_bot_status(phone):
 def api_resume_bot(phone):
     """Quita etiqueta 'Asistencia Humana' del contacto. Llamado desde dashboard."""
     try:
-        contact = Contact.query.filter_by(phone_number=phone).first()
+        phone_normalized = normalize_phone(phone)
+        contact = find_contact_by_phone(phone_normalized)
         if not contact:
             return jsonify({'error': 'Contacto no encontrado'}), 404
 
