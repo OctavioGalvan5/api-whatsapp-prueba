@@ -487,9 +487,10 @@ def dashboard():
             'last_timestamp': s.last_timestamp,
             'last_message': (last_msg[:50] + '...') if last_msg and len(last_msg) > 50 else last_msg,
             'name': contact.name if contact else None,
-            'tags': contact.tags if contact else []
+            'tags': contact.tags if contact else [],
+            'has_human_assistance': any(t.name == 'Asistencia Humana' for t in contact.tags) if contact else False
         })
-    
+
     # Si hay contacto seleccionado, obtener sus mensajes
     messages = []
     contact_stats = {}
@@ -1061,12 +1062,14 @@ def api_dashboard_contacts():
             ts_str = ts.isoformat() if hasattr(ts, 'isoformat') else str(ts)
         else:
             ts_str = None
+        has_human = any(t.name == 'Asistencia Humana' for t in contact.tags) if contact else False
         contacts.append({
             'phone_number': r.phone_number,
             'last_timestamp': ts_str,
             'last_message': (last_msg[:50] + '...') if last_msg and len(last_msg) > 50 else last_msg,
             'name': contact.name if contact else None,
-            'tags': [t.name for t in contact.tags] if contact else []
+            'tags': [t.name for t in contact.tags] if contact else [],
+            'has_human_assistance': has_human
         })
 
     return jsonify({
@@ -2034,6 +2037,28 @@ def api_resume_bot(phone):
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error resuming bot: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/human-assistance/pending", methods=["GET"])
+def api_human_assistance_pending():
+    """Retorna la cantidad y lista de contactos que necesitan asistencia humana."""
+    try:
+        tag = Tag.query.filter_by(name='Asistencia Humana').first()
+        if not tag:
+            return jsonify({'count': 0, 'contacts': []})
+
+        contacts_with_tag = tag.contacts  # relación many-to-many
+        result = []
+        for c in contacts_with_tag:
+            result.append({
+                'phone_number': c.phone_number,
+                'name': c.name or c.phone_number
+            })
+
+        return jsonify({'count': len(result), 'contacts': result})
+    except Exception as e:
+        logger.error(f"Error getting human assistance pending: {e}")
         return jsonify({'error': str(e)}), 500
 
 

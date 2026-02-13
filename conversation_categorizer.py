@@ -208,6 +208,8 @@ Criterios para needs_human_assistance:
                 topic_id = t.id
                 break
         
+        needs_human = result.get("needs_human_assistance", False)
+
         # Create session record
         session = ConversationSession(
             phone_number=phone,
@@ -219,13 +221,27 @@ Criterios para needs_human_assistance:
             summary=result.get("summary", ""),
             auto_categorized=True,
             has_unanswered_questions=result.get("has_unanswered_questions", False),
-            escalated_to_human=result.get("needs_human_assistance", False)
+            escalated_to_human=needs_human
         )
-        
+
         db.session.add(session)
+
+        # Si necesita asistencia humana, asignar la etiqueta al contacto existente
+        if needs_human:
+            from models import Contact, Tag
+            # Buscar contacto existente (NO crear uno nuevo para evitar duplicados)
+            contact = Contact.query.filter_by(phone_number=phone).first()
+            if contact:
+                tag = Tag.query.filter_by(name='Asistencia Humana').first()
+                if tag and tag not in contact.tags:
+                    contact.tags.append(tag)
+                    logger.info(f"Tag 'Asistencia Humana' assigned to existing contact {phone}")
+            else:
+                logger.warning(f"Contact {phone} not found in DB — tag not assigned (contact will get tag when n8n calls escalate endpoint)")
+
         db.session.commit()
-        
-        logger.info(f"Categorized session for {phone}: {topic_name} / {result.get('rating')} ({len(messages)} msgs)")
+
+        logger.info(f"Categorized session for {phone}: {topic_name} / {result.get('rating')} ({len(messages)} msgs) | human={needs_human}")
         
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse OpenAI response: {e}")

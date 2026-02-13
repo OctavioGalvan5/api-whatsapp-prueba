@@ -11,6 +11,35 @@
     .custom-scrollbar::-webkit-scrollbar {
         width: 4px;
     }
+
+    /* Estilo especial para contactos con etiqueta Asistencia Humana */
+    .contact-item.needs-human {
+        background: linear-gradient(90deg, rgba(249,115,22,0.07) 0%, transparent 100%);
+        border-left-color: #f97316 !important;
+    }
+    .contact-item.needs-human:hover {
+        background: linear-gradient(90deg, rgba(249,115,22,0.13) 0%, transparent 100%);
+    }
+    .contact-item.needs-human.active {
+        background: linear-gradient(90deg, rgba(249,115,22,0.18) 0%, transparent 100%);
+    }
+    .human-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        background: rgba(249,115,22,0.15);
+        color: #f97316;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .human-avatar {
+        background: rgba(249,115,22,0.15) !important;
+        color: #f97316 !important;
+    }
 </style>
 {% endblock %}
 
@@ -45,6 +74,18 @@
             </div>
         </div>
 
+        <!-- Banner de Asistencia Humana Pendiente -->
+        <div id="human-assistance-banner" class="hidden items-center justify-between bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-xl px-3 py-2">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-orange-500 text-[18px]">support_agent</span>
+                <div>
+                    <p class="text-xs font-semibold text-orange-700 dark:text-orange-400">Asistencia Humana</p>
+                    <p class="text-[11px] text-orange-600 dark:text-orange-500"><span id="human-assistance-count">0</span> persona(s) esperando</p>
+                </div>
+            </div>
+            <button onclick="scrollToFirstHumanContact()" class="text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:underline shrink-0">Ver</button>
+        </div>
+
         <!-- Search Bar -->
         <div class="relative">
             <label class="flex flex-col w-full">
@@ -64,21 +105,27 @@
     <!-- Conversation List -->
     <div class="flex-1 overflow-y-auto custom-scrollbar" id="contacts-list">
         {% for contact in contacts %}
+        {% set is_human = contact.has_human_assistance %}
         <div onclick="selectContact('{{ contact.phone_number }}')" data-phone="{{ contact.phone_number }}"
-            class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 {% if selected_contact == contact.phone_number %}bg-primary/10 dark:bg-primary/20 border-primary active{% else %}bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-transparent{% endif %}">
+            class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 {% if is_human %}needs-human{% endif %} {% if selected_contact == contact.phone_number %}bg-primary/10 dark:bg-primary/20 border-primary active{% else %}bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 {% if not is_human %}border-transparent{% endif %}{% endif %}">
             <div
-                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 flex items-center justify-center font-bold text-lg {% if is_human %}human-avatar{% else %}bg-gray-200 text-gray-500{% endif %}">
                 {{ contact.name[0] if contact.name else contact.phone_number[-2:] }}
             </div>
             <div class="flex flex-col justify-center flex-1 min-w-0">
-                <div class="flex justify-between items-center">
+                <div class="flex justify-between items-center gap-1">
                     <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or
                         contact.phone_number }}</p>
-                    <p class="text-[10px] text-gray-400">{{ (contact.last_timestamp|to_argentina).strftime('%d/%m
-                        %H:%M') if contact.last_timestamp else '' }}</p>
+                    <p class="text-[10px] text-gray-400 shrink-0">{{ (contact.last_timestamp|to_argentina).strftime('%d/%m %H:%M') if contact.last_timestamp else '' }}</p>
                 </div>
-                <div class="flex justify-between items-center">
+                <div class="flex justify-between items-center gap-1">
                     <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}</p>
+                    {% if is_human %}
+                    <span class="human-badge shrink-0">
+                        <span class="material-symbols-outlined text-[10px]">support_agent</span>
+                        Humano
+                    </span>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -401,7 +448,7 @@
             const data = await response.json();
 
             if (data.success) {
-                // Ocultar banner
+                // Ocultar banner de bot pausado
                 const banner = document.getElementById('bot-paused-banner');
                 if (banner) banner.classList.add('hidden');
 
@@ -414,6 +461,9 @@
                         }
                     });
                 }
+
+                // Quitar badge e indicador visual del contacto en la lista
+                removeHumanBadgeFromContact(phone);
 
                 alert('Bot reactivado exitosamente');
             } else {
@@ -943,17 +993,19 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                     return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
                 })() : '';
 
+                const isHuman = contact.has_human_assistance || false;
+                if (isHuman) div.classList.add('needs-human');
                 div.innerHTML = `
-<div
-    class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 flex items-center justify-center font-bold text-lg ${isHuman ? 'human-avatar' : 'bg-gray-200 text-gray-500'}">
     ${escapeHtml(initial)}</div>
 <div class="flex flex-col justify-center flex-1 min-w-0">
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center gap-1">
         <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(displayName)}</p>
-        <p class="text-[10px] text-gray-400">${time}</p>
+        <p class="text-[10px] text-gray-400 shrink-0">${time}</p>
     </div>
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center gap-1">
         <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(contact.last_message || '')}</p>
+        ${isHuman ? `<span class="human-badge shrink-0"><span class="material-symbols-outlined text-[10px]">support_agent</span>Humano</span>` : ''}
     </div>
 </div>
 `;
@@ -1000,17 +1052,19 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                         return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
                     })() : '';
 
+                    const isHuman2 = contact.has_human_assistance || false;
+                    if (isHuman2) div.classList.add('needs-human');
                     div.innerHTML = `
-<div
-    class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 flex items-center justify-center font-bold text-lg ${isHuman2 ? 'human-avatar' : 'bg-gray-200 text-gray-500'}">
     ${escapeHtml(initial)}</div>
 <div class="flex flex-col justify-center flex-1 min-w-0">
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center gap-1">
         <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(displayName)}</p>
-        <p class="text-[10px] text-gray-400">${time}</p>
+        <p class="text-[10px] text-gray-400 shrink-0">${time}</p>
     </div>
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center gap-1">
         <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(contact.last_message || '')}</p>
+        ${isHuman2 ? `<span class="human-badge shrink-0"><span class="material-symbols-outlined text-[10px]">support_agent</span>Humano</span>` : ''}
     </div>
 </div>
 `;
@@ -1088,6 +1142,56 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                 .catch(() => { });
         }
     }, 30000);
+
+    // ========== BANNER ASISTENCIA HUMANA ==========
+    async function updateHumanAssistanceBanner() {
+        try {
+            const resp = await fetch('/api/human-assistance/pending');
+            const data = await resp.json();
+            const banner = document.getElementById('human-assistance-banner');
+            const countEl = document.getElementById('human-assistance-count');
+            if (data.count > 0) {
+                if (countEl) countEl.textContent = data.count;
+                if (banner) banner.classList.replace('hidden', 'flex');
+            } else {
+                if (banner) banner.classList.replace('flex', 'hidden');
+            }
+        } catch (e) {
+            console.warn('Error checking human assistance:', e);
+        }
+    }
+
+    function scrollToFirstHumanContact() {
+        const firstHuman = document.querySelector('.contact-item.needs-human');
+        if (firstHuman) {
+            firstHuman.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Parpadeo para resaltar
+            firstHuman.style.transition = 'outline 0.2s';
+            firstHuman.style.outline = '2px solid #f97316';
+            setTimeout(() => { firstHuman.style.outline = ''; }, 1500);
+        }
+    }
+
+    // Cargar banner al iniciar y cada 60s
+    updateHumanAssistanceBanner();
+    setInterval(updateHumanAssistanceBanner, 60000);
+
+    // Actualizar badge del contacto en la lista cuando se reactiva el bot
+    function removeHumanBadgeFromContact(phone) {
+        const item = document.querySelector(`.contact-item[data-phone="${phone}"]`);
+        if (item) {
+            item.classList.remove('needs-human');
+            const badge = item.querySelector('.human-badge');
+            if (badge) badge.remove();
+            const avatar = item.querySelector('.human-avatar');
+            if (avatar) {
+                avatar.classList.remove('human-avatar');
+                avatar.classList.add('bg-gray-200', 'text-gray-500');
+            }
+        }
+        // Actualizar el banner también
+        updateHumanAssistanceBanner();
+    }
 
 </script>
 {% endblock %}
