@@ -442,53 +442,63 @@ def dashboard():
     # Si se necesitan, se pueden cargar via AJAX o en /analytics
     stats = {'total': 0, 'sent': 0, 'read': 0, 'failed': 0}
     
-    # Lista de contactos con últimos mensajes - OPTIMIZADO con DISTINCT ON
-    # En vez de GROUP BY (escanea TODA la tabla), usamos una estrategia más eficiente:
-    # 1. Tomamos los mensajes más recientes de la tabla (ya indexado por timestamp)
-    # 2. Extraemos teléfonos únicos de esos mensajes recientes
     CONTACTS_LIMIT = 25
-
-    # Estrategia: buscar mensajes recientes y obtener el último por teléfono
-    # Usamos raw SQL con DISTINCT ON para máxima eficiencia en PostgreSQL
     from sqlalchemy import text
-    
-    distinct_query = text("""
-        SELECT phone_number, content AS last_message, timestamp AS last_timestamp
+
+    # Query optimizada: un solo JOIN entre mensajes y contactos (con sus tags).
+    # Usa lateral join para obtener el último mensaje por teléfono sin doble sort.
+    # El índice ix_messages_phone_ts (phone_number, timestamp) hace esto muy rápido.
+    combined_query = text("""
+        SELECT
+            m.phone_number,
+            m.content        AS last_message,
+            m.timestamp      AS last_timestamp,
+            c.id             AS contact_id,
+            c.name           AS contact_name
         FROM (
             SELECT DISTINCT ON (phone_number) phone_number, content, timestamp
             FROM whatsapp_messages
             WHERE phone_number NOT IN ('unknown', 'outbound', '')
             ORDER BY phone_number, timestamp DESC
-        ) sub
-        ORDER BY last_timestamp DESC
+        ) m
+        LEFT JOIN whatsapp_contacts c ON c.phone_number = m.phone_number
+        ORDER BY m.timestamp DESC
         LIMIT :lim
     """)
-    
-    stats_query = db.session.execute(distinct_query, {'lim': CONTACTS_LIMIT + 1}).fetchall()
-    
-    # Si obtuvimos más de LIMIT, hay más contactos
-    has_more_contacts = len(stats_query) > CONTACTS_LIMIT
-    stats_query = stats_query[:CONTACTS_LIMIT]
 
-    # Obtener contactos para enriquecer la data (batch fetch)
-    phones_in_view = [s.phone_number for s in stats_query]
-    contacts_map = {}
-    if phones_in_view:
-        found_contacts = Contact.query.filter(Contact.phone_number.in_(phones_in_view)).all()
-        contacts_map = {c.phone_number: c for c in found_contacts}
+    rows = db.session.execute(combined_query, {'lim': CONTACTS_LIMIT + 1}).fetchall()
+
+    has_more_contacts = len(rows) > CONTACTS_LIMIT
+    rows = rows[:CONTACTS_LIMIT]
+
+    # Cargar tags solo para los contactos encontrados (una sola query con IN)
+    contact_ids = [r.contact_id for r in rows if r.contact_id]
+    tags_map = {}  # contact_id -> [Tag, ...]
+    if contact_ids:
+        from models import contact_tags as ct_table
+        tag_rows = db.session.execute(
+            text("""
+                SELECT ct.contact_id, t.name
+                FROM whatsapp_contact_tags ct
+                JOIN whatsapp_tags t ON t.id = ct.tag_id
+                WHERE ct.contact_id = ANY(:ids)
+            """),
+            {'ids': contact_ids}
+        ).fetchall()
+        for row in tag_rows:
+            tags_map.setdefault(row.contact_id, []).append(row.name)
 
     contacts = []
-    for s in stats_query:
-        contact = contacts_map.get(s.phone_number)
-        last_msg = s.last_message
+    for r in rows:
+        tag_names = tags_map.get(r.contact_id, [])
+        last_msg = r.last_message
         contacts.append({
-            'phone_number': s.phone_number,
-            'message_count': 0,  # Removido para optimizar, se puede cargar async si es necesario
-            'last_timestamp': s.last_timestamp,
+            'phone_number': r.phone_number,
+            'last_timestamp': r.last_timestamp,
             'last_message': (last_msg[:50] + '...') if last_msg and len(last_msg) > 50 else last_msg,
-            'name': contact.name if contact else None,
-            'tags': contact.tags if contact else [],
-            'has_human_assistance': any(t.name == 'Asistencia Humana' for t in contact.tags) if contact else False
+            'name': r.contact_name,
+            'tags': tag_names,
+            'has_human_assistance': 'Asistencia Humana' in tag_names
         })
 
     # Si hay contacto seleccionado, obtener sus mensajes
@@ -498,22 +508,43 @@ def dashboard():
     contact_details = None
     
     # Límite de mensajes para mostrar en el chat
-    MESSAGE_LIMIT = 100
+    MESSAGE_LIMIT = 60
+    from sqlalchemy.orm import joinedload as _jl
 
     if selected_phone:
         selected_contact = selected_phone
-        # Solo traer los últimos mensajes (orden DESC para LIMIT, luego invertir)
-        recent_messages = Message.query.filter_by(phone_number=selected_phone)\
-            .order_by(Message.timestamp.desc())\
-            .limit(MESSAGE_LIMIT).all()
-        messages = recent_messages[::-1]  # Invertir para orden cronológico (O(n) vs O(n log n))
-        
-        contact_details = Contact.query.filter_by(phone_number=selected_phone).first()
-        
-        # Stats simplificadas basadas en mensajes cargados (evita queries adicionales)
+
+        # Query raw: trae mensajes + latest_status en una sola pasada sin JOIN pesado.
+        # Usa DISTINCT ON en statuses para traer solo el último estado por mensaje.
+        msg_query = text("""
+            SELECT
+                m.id, m.wa_message_id, m.phone_number, m.direction,
+                m.message_type, m.content, m.media_url, m.caption,
+                m.timestamp, m.media_id,
+                s.status AS latest_status
+            FROM whatsapp_messages m
+            LEFT JOIN LATERAL (
+                SELECT status
+                FROM whatsapp_message_statuses
+                WHERE wa_message_id = m.wa_message_id
+                ORDER BY timestamp DESC
+                LIMIT 1
+            ) s ON true
+            WHERE m.phone_number = :phone
+            ORDER BY m.timestamp DESC
+            LIMIT :lim
+        """)
+        raw_msgs = db.session.execute(msg_query, {'phone': selected_phone, 'lim': MESSAGE_LIMIT}).fetchall()
+        messages = list(reversed(raw_msgs))  # orden cronológico
+
+        # joinedload evita query separado para las tags del contacto
+        contact_details = Contact.query.options(_jl(Contact.tags))\
+            .filter_by(phone_number=selected_phone).first()
+
+        # Stats simplificadas
         outbound_msgs = [m for m in messages if m.direction == 'outbound']
         contact_stats = {
-            'message_count': len(messages),  # Aproximado de lo cargado
+            'message_count': len(messages),
             'sent': sum(1 for m in outbound_msgs if m.latest_status in ['sent', 'delivered', 'read']),
             'delivered': sum(1 for m in outbound_msgs if m.latest_status in ['delivered', 'read']),
             'read': sum(1 for m in outbound_msgs if m.latest_status == 'read')

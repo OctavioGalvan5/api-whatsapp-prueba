@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cd:*)"
-    ]
+      "Bash(python -c \"import ast; ast.parse(open(''app.py'', encoding=''utf-8'').read()); print(''OK'')\")"
+    ],
+    "deny": [],
+    "ask": []
   }
 }
