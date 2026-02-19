@@ -1,6 +1,8 @@
 -- ==========================================
 -- Script de creación de base de datos
 -- WhatsApp CRM + Chatbot RAG
+-- Estructura completa SIN datos
+-- Generado: 2026-02-18
 -- ==========================================
 
 -- Extensión para vectores (pgvector)
@@ -23,7 +25,7 @@ CREATE TABLE IF NOT EXISTS conversation_topics (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
-    keywords JSON,
+    keywords JSON DEFAULT '[]',
     color VARCHAR(20) DEFAULT 'blue',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -33,21 +35,23 @@ CREATE TABLE IF NOT EXISTS conversation_topics (
 -- ==========================================
 CREATE TABLE IF NOT EXISTS conversation_sessions (
     id SERIAL PRIMARY KEY,
-    phone_number VARCHAR(50) NOT NULL,
+    phone_number VARCHAR(20) NOT NULL,
     topic_id INTEGER REFERENCES conversation_topics(id) ON DELETE SET NULL,
+    rating VARCHAR(20),
     started_at TIMESTAMP NOT NULL,
     ended_at TIMESTAMP NOT NULL,
     message_count INTEGER DEFAULT 0,
     summary TEXT,
-    rating VARCHAR(50),
     auto_categorized BOOLEAN DEFAULT TRUE,
+    has_unanswered_questions BOOLEAN DEFAULT FALSE NOT NULL,
+    escalated_to_human BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_phone_started ON conversation_sessions(phone_number, started_at);
 
 -- ==========================================
--- DOCUMENT METADATA (para RAG)
+-- DOCUMENT METADATA (para RAG / n8n)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS document_metadata (
     id TEXT PRIMARY KEY,
@@ -116,11 +120,13 @@ CREATE TABLE IF NOT EXISTS rag_documents (
     file_size INTEGER NOT NULL,
     file_hash VARCHAR(64) NOT NULL,
     minio_path VARCHAR(500) NOT NULL,
-    status VARCHAR(50) DEFAULT 'pending',
+    status VARCHAR(20) DEFAULT 'pending',
     error_message TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_rag_documents_file_hash ON rag_documents(file_hash);
 
 -- ==========================================
 -- WHATSAPP TAGS
@@ -129,7 +135,9 @@ CREATE TABLE IF NOT EXISTS whatsapp_tags (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,
     color VARCHAR(20) DEFAULT 'green',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    is_system BOOLEAN DEFAULT FALSE NOT NULL
 );
 
 -- ==========================================
@@ -137,9 +145,9 @@ CREATE TABLE IF NOT EXISTS whatsapp_tags (
 -- ==========================================
 CREATE TABLE IF NOT EXISTS whatsapp_contacts (
     id SERIAL PRIMARY KEY,
-    contact_id VARCHAR(100),
-    phone_number VARCHAR(50) NOT NULL,
-    name VARCHAR(255),
+    contact_id VARCHAR(50) UNIQUE,
+    phone_number VARCHAR(20) NOT NULL,
+    name VARCHAR(100),
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     notes TEXT,
@@ -150,12 +158,13 @@ CREATE TABLE IF NOT EXISTS whatsapp_contacts (
     custom_field_5 VARCHAR(255),
     custom_field_6 VARCHAR(255),
     custom_field_7 VARCHAR(255),
-    tags JSON,
+    tags JSON DEFAULT '[]',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_contacts_phone ON whatsapp_contacts(phone_number);
 CREATE INDEX IF NOT EXISTS idx_contacts_contact_id ON whatsapp_contacts(contact_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_name ON whatsapp_contacts(name);
 
 -- ==========================================
 -- WHATSAPP CONTACT TAGS (tabla de asociación)
@@ -174,33 +183,37 @@ CREATE INDEX IF NOT EXISTS idx_contact_tags_tag ON whatsapp_contact_tags(tag_id)
 CREATE TABLE IF NOT EXISTS whatsapp_messages (
     id SERIAL PRIMARY KEY,
     wa_message_id VARCHAR(100) UNIQUE,
-    phone_number VARCHAR(50) NOT NULL,
-    direction VARCHAR(20) NOT NULL,
-    message_type VARCHAR(50) NOT NULL,
+    phone_number VARCHAR(20) NOT NULL,
+    direction VARCHAR(10) NOT NULL,
+    message_type VARCHAR(20) NOT NULL,
     content TEXT,
-    media_id VARCHAR(255),
-    media_url VARCHAR(500),
+    media_id VARCHAR(100),
+    media_url VARCHAR(255),
     caption TEXT,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS ix_messages_phone_ts ON whatsapp_messages(phone_number, timestamp);
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON whatsapp_messages(timestamp);
+CREATE INDEX IF NOT EXISTS idx_messages_phone ON whatsapp_messages(phone_number);
+CREATE INDEX IF NOT EXISTS idx_messages_direction ON whatsapp_messages(direction);
 
 -- ==========================================
 -- WHATSAPP MESSAGE STATUSES
 -- ==========================================
 CREATE TABLE IF NOT EXISTS whatsapp_message_statuses (
     id SERIAL PRIMARY KEY,
-    wa_message_id VARCHAR(100) NOT NULL,
-    status VARCHAR(50) NOT NULL,
+    wa_message_id VARCHAR(100) NOT NULL REFERENCES whatsapp_messages(wa_message_id),
+    status VARCHAR(20) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     error_code VARCHAR(50),
     error_title VARCHAR(200),
-    error_details TEXT,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    error_details TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_statuses_wa_id ON whatsapp_message_statuses(wa_message_id);
+CREATE INDEX IF NOT EXISTS idx_statuses_status ON whatsapp_message_statuses(status);
+CREATE INDEX IF NOT EXISTS idx_statuses_timestamp ON whatsapp_message_statuses(timestamp);
 
 -- ==========================================
 -- WHATSAPP CAMPAIGNS
@@ -208,10 +221,10 @@ CREATE INDEX IF NOT EXISTS idx_statuses_wa_id ON whatsapp_message_statuses(wa_me
 CREATE TABLE IF NOT EXISTS whatsapp_campaigns (
     id SERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    template_name VARCHAR(200) NOT NULL,
-    template_language VARCHAR(20) DEFAULT 'es_AR',
+    template_name VARCHAR(100) NOT NULL,
+    template_language VARCHAR(10) DEFAULT 'es_AR',
     tag_id INTEGER NOT NULL REFERENCES whatsapp_tags(id),
-    status VARCHAR(50) DEFAULT 'draft',
+    status VARCHAR(20) DEFAULT 'draft',
     variables JSON,
     scheduled_at TIMESTAMP,
     started_at TIMESTAMP,
@@ -226,14 +239,15 @@ CREATE TABLE IF NOT EXISTS whatsapp_campaign_logs (
     id SERIAL PRIMARY KEY,
     campaign_id INTEGER NOT NULL REFERENCES whatsapp_campaigns(id) ON DELETE CASCADE,
     contact_id INTEGER REFERENCES whatsapp_contacts(id),
-    contact_phone VARCHAR(50) NOT NULL,
-    status VARCHAR(50) DEFAULT 'pending',
+    contact_phone VARCHAR(20) NOT NULL,
     message_id VARCHAR(100),
+    status VARCHAR(20) DEFAULT 'pending',
     error_detail TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(campaign_id, contact_id)
+    CONSTRAINT uq_campaign_contact_log UNIQUE (campaign_id, contact_id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_campaign_logs_campaign_status ON whatsapp_campaign_logs(campaign_id, status);
 CREATE INDEX IF NOT EXISTS idx_campaign_logs_campaign_contact ON whatsapp_campaign_logs(campaign_id, contact_id);
 
 -- ==========================================

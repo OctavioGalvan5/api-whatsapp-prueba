@@ -112,7 +112,7 @@ def login():
 @app.route("/login", methods=["POST"])
 def login_post():
     password = request.form.get('password', '')
-    if hmac.compare_digest(password, Config.LOGIN_PASSWORD):
+    if hmac.compare_digest(password.encode('utf-8'), Config.LOGIN_PASSWORD.encode('utf-8')):
         session['logged_in'] = True
         return redirect(url_for('dashboard'))
     return render_template('login.html', error=True)
@@ -448,13 +448,15 @@ def dashboard():
     # Query optimizada: un solo JOIN entre mensajes y contactos (con sus tags).
     # Usa lateral join para obtener el último mensaje por teléfono sin doble sort.
     # El índice ix_messages_phone_ts (phone_number, timestamp) hace esto muy rápido.
+    # Las conversaciones con tag "Asistencia Humana" se muestran primero.
     combined_query = text("""
         SELECT
             m.phone_number,
             m.content        AS last_message,
             m.timestamp      AS last_timestamp,
             c.id             AS contact_id,
-            c.name           AS contact_name
+            c.name           AS contact_name,
+            CASE WHEN ha.contact_id IS NOT NULL THEN 1 ELSE 0 END AS has_human
         FROM (
             SELECT DISTINCT ON (phone_number) phone_number, content, timestamp
             FROM whatsapp_messages
@@ -462,7 +464,14 @@ def dashboard():
             ORDER BY phone_number, timestamp DESC
         ) m
         LEFT JOIN whatsapp_contacts c ON c.phone_number = m.phone_number
-        ORDER BY m.timestamp DESC
+        LEFT JOIN LATERAL (
+            SELECT ct.contact_id
+            FROM whatsapp_contact_tags ct
+            JOIN whatsapp_tags t ON t.id = ct.tag_id
+            WHERE ct.contact_id = c.id AND t.name = 'Asistencia Humana'
+            LIMIT 1
+        ) ha ON true
+        ORDER BY has_human DESC, m.timestamp DESC
         LIMIT :lim
     """)
 
@@ -1049,6 +1058,7 @@ def api_dashboard_contacts():
 
     if search:
         # Búsqueda: filtrar por nombre o teléfono (necesita JOIN con contactos)
+        # Las conversaciones con tag "Asistencia Humana" se muestran primero.
         search_query = text("""
             SELECT sub.phone_number, sub.last_message, sub.last_timestamp
             FROM (
@@ -1064,7 +1074,15 @@ def api_dashboard_contacts():
                   )
                 ORDER BY m.phone_number, m.timestamp DESC
             ) sub
-            ORDER BY sub.last_timestamp DESC
+            LEFT JOIN whatsapp_contacts c2 ON c2.phone_number = sub.phone_number
+            LEFT JOIN LATERAL (
+                SELECT ct.contact_id
+                FROM whatsapp_contact_tags ct
+                JOIN whatsapp_tags t ON t.id = ct.tag_id
+                WHERE ct.contact_id = c2.id AND t.name = 'Asistencia Humana'
+                LIMIT 1
+            ) ha ON true
+            ORDER BY CASE WHEN ha.contact_id IS NOT NULL THEN 1 ELSE 0 END DESC, sub.last_timestamp DESC
             OFFSET :off LIMIT :lim
         """)
         results = db.session.execute(search_query, {
@@ -1072,15 +1090,24 @@ def api_dashboard_contacts():
         }).fetchall()
     else:
         # Sin búsqueda: DISTINCT ON puro, muy rápido
+        # Las conversaciones con tag "Asistencia Humana" se muestran primero.
         distinct_query = text("""
-            SELECT phone_number, content AS last_message, timestamp AS last_timestamp
+            SELECT sub.phone_number, sub.last_message, sub.last_timestamp
             FROM (
-                SELECT DISTINCT ON (phone_number) phone_number, content, timestamp
+                SELECT DISTINCT ON (phone_number) phone_number, content AS last_message, timestamp AS last_timestamp
                 FROM whatsapp_messages
                 WHERE phone_number NOT IN ('unknown', 'outbound', '')
                 ORDER BY phone_number, timestamp DESC
             ) sub
-            ORDER BY last_timestamp DESC
+            LEFT JOIN whatsapp_contacts c ON c.phone_number = sub.phone_number
+            LEFT JOIN LATERAL (
+                SELECT ct.contact_id
+                FROM whatsapp_contact_tags ct
+                JOIN whatsapp_tags t ON t.id = ct.tag_id
+                WHERE ct.contact_id = c.id AND t.name = 'Asistencia Humana'
+                LIMIT 1
+            ) ha ON true
+            ORDER BY CASE WHEN ha.contact_id IS NOT NULL THEN 1 ELSE 0 END DESC, sub.last_timestamp DESC
             OFFSET :off LIMIT :lim
         """)
         results = db.session.execute(distinct_query, {
@@ -3844,12 +3871,18 @@ def api_update_chatbot_config():
 @app.route("/api/chatbot/toggle", methods=["POST"])
 def api_toggle_chatbot():
     """Enciende/apaga el chatbot y el workflow de n8n."""
-    current = ChatbotConfig.get('enabled', 'true')
-    new_value = 'false' if current == 'true' else 'true'
-    ChatbotConfig.set('enabled', new_value)
-    
+    try:
+        db.session.rollback()  # Limpiar cualquier transaccion colgada
+        current = ChatbotConfig.get('enabled', 'true')
+        new_value = 'false' if current == 'true' else 'true'
+        ChatbotConfig.set('enabled', new_value)
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al guardar estado del chatbot en DB: {e}")
+        return jsonify({'success': False, 'error': f'Error de base de datos: {str(e)}'}), 500
+
     n8n_result = None
-    
+
     # También activar/desactivar el workflow de n8n
     if Config.N8N_CHATBOT_WORKFLOW_ID and Config.N8N_API_URL and Config.N8N_API_KEY:
         try:
