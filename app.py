@@ -2645,7 +2645,14 @@ def api_create_template():
     body_text = data.get("body", "").strip()
     if not body_text:
         return jsonify({"error": "body es requerido"}), 400
-    components.append({"type": "BODY", "text": body_text})
+    body_component = {"type": "BODY", "text": body_text}
+
+    # Agregar ejemplos de variables si existen (Meta los requiere para aprobar templates con variables)
+    body_examples = data.get("body_examples", [])
+    if body_examples:
+        body_component["example"] = {"body_text": [body_examples]}
+
+    components.append(body_component)
 
     # Footer (opcional)
     footer_text = data.get("footer", "").strip()
@@ -2660,6 +2667,9 @@ def api_create_template():
             if btn.get("type") == "QUICK_REPLY" and btn.get("text"):
                 button_components.append({"type": "QUICK_REPLY", "text": btn["text"]})
             elif btn.get("type") == "URL" and btn.get("text") and btn.get("url"):
+                btn_url = btn["url"].lower()
+                if "wa.me" in btn_url or "whatsapp.com" in btn_url:
+                    return jsonify({"error": "No se permiten enlaces directos a WhatsApp en los botones de templates."}), 400
                 button_components.append({"type": "URL", "text": btn["text"], "url": btn["url"]})
             elif btn.get("type") == "PHONE_NUMBER" and btn.get("text") and btn.get("phone_number"):
                 button_components.append({"type": "PHONE_NUMBER", "text": btn["text"], "phone_number": btn["phone_number"]})
