@@ -411,6 +411,7 @@ class WhatsAppAPI:
         payload = {
             "name": name,
             "category": category,
+            "allow_category_change": True,
             "language": language,
             "components": components
         }

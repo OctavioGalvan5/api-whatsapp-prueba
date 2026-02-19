@@ -100,21 +100,21 @@
         <div class="px-6 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-4">
-                    <a href="/whatsapp-settings" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <a href="/whatsapp-settings"
+                        class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                         <span class="material-symbols-outlined">arrow_back</span>
                     </a>
                     <div>
                         <h1 class="text-xl font-semibold">Crear Nueva Plantilla</h1>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Diseña tu mensaje con vista previa en tiempo real</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Diseña tu mensaje con vista previa en tiempo
+                            real</p>
                     </div>
                 </div>
-                <button
-                    @click="submitTemplate()"
-                    :disabled="isSubmitting"
-                    class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                <button @click="submitTemplate()" :disabled="isSubmitting"
+                    class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     <span class="material-symbols-outlined text-xl" x-show="!isSubmitting">send</span>
-                    <span class="material-symbols-outlined text-xl animate-spin" x-show="isSubmitting">progress_activity</span>
+                    <span class="material-symbols-outlined text-xl animate-spin"
+                        x-show="isSubmitting">progress_activity</span>
                     <span x-text="isSubmitting ? 'Enviando...' : 'Enviar a WhatsApp'"></span>
                 </button>
             </div>
@@ -129,7 +129,8 @@
             'bg-yellow-50 border-yellow-500 text-yellow-700': alert.type === 'warning'
         }" class="border-l-4 p-4 rounded-lg shadow-lg">
             <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined" x-text="alert.type === 'success' ? 'check_circle' : alert.type === 'error' ? 'error' : 'warning'"></span>
+                <span class="material-symbols-outlined"
+                    x-text="alert.type === 'success' ? 'check_circle' : alert.type === 'error' ? 'error' : 'warning'"></span>
                 <p x-text="alert.message"></p>
                 <button @click="alert.show = false" class="ml-auto">
                     <span class="material-symbols-outlined text-lg">close</span>
@@ -153,20 +154,14 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium mb-2">Nombre de la Plantilla</label>
-                        <input
-                            type="text"
-                            x-model="templateName"
-                            placeholder="mi_plantilla"
-                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent"
-                        >
+                        <input type="text" x-model="templateName" placeholder="mi_plantilla"
+                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent">
                         <p class="text-xs text-gray-500 mt-1">Solo letras minusculas, numeros y guiones bajos</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Categoria</label>
-                        <select
-                            x-model="category"
-                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent"
-                        >
+                        <select x-model="category"
+                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent">
                             <option value="MARKETING">Marketing</option>
                             <option value="UTILITY">Utilidad</option>
                             <option value="AUTHENTICATION">Autenticacion</option>
@@ -174,10 +169,8 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">Idioma</label>
-                        <select
-                            x-model="language"
-                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent"
-                        >
+                        <select x-model="language"
+                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent">
                             <option value="es_AR">Espanol (Argentina)</option>
                             <option value="es">Espanol</option>
                             <option value="en_US">Ingles (US)</option>
@@ -195,45 +188,33 @@
                 </h2>
                 <div class="space-y-4">
                     <div class="flex gap-2">
-                        <button
-                            @click="headerType = 'NONE'"
+                        <button @click="headerType = 'NONE'"
                             :class="headerType === 'NONE' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
-                            class="px-4 py-2 rounded-lg font-medium transition-colors"
-                        >Ninguno</button>
-                        <button
-                            @click="headerType = 'TEXT'"
+                            class="px-4 py-2 rounded-lg font-medium transition-colors">Ninguno</button>
+                        <button @click="headerType = 'TEXT'"
                             :class="headerType === 'TEXT' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
-                            class="px-4 py-2 rounded-lg font-medium transition-colors"
-                        >Texto</button>
-                        <button
-                            @click="headerType = 'IMAGE'"
+                            class="px-4 py-2 rounded-lg font-medium transition-colors">Texto</button>
+                        <button @click="headerType = 'IMAGE'"
                             :class="headerType === 'IMAGE' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
-                            class="px-4 py-2 rounded-lg font-medium transition-colors"
-                        >Imagen</button>
-                        <button
-                            @click="headerType = 'VIDEO'"
+                            class="px-4 py-2 rounded-lg font-medium transition-colors">Imagen</button>
+                        <button @click="headerType = 'VIDEO'"
                             :class="headerType === 'VIDEO' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
-                            class="px-4 py-2 rounded-lg font-medium transition-colors"
-                        >Video</button>
-                        <button
-                            @click="headerType = 'DOCUMENT'"
+                            class="px-4 py-2 rounded-lg font-medium transition-colors">Video</button>
+                        <button @click="headerType = 'DOCUMENT'"
                             :class="headerType === 'DOCUMENT' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
-                            class="px-4 py-2 rounded-lg font-medium transition-colors"
-                        >Documento</button>
+                            class="px-4 py-2 rounded-lg font-medium transition-colors">Documento</button>
                     </div>
 
                     <div x-show="headerType === 'TEXT'" x-transition>
-                        <input
-                            type="text"
-                            x-model="headerText"
-                            placeholder="Texto del encabezado..."
-                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent"
-                        >
+                        <input type="text" x-model="headerText" placeholder="Texto del encabezado..."
+                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent">
                     </div>
 
-                    <div x-show="headerType === 'IMAGE' || headerType === 'VIDEO' || headerType === 'DOCUMENT'" x-transition class="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
+                    <div x-show="headerType === 'IMAGE' || headerType === 'VIDEO' || headerType === 'DOCUMENT'"
+                        x-transition
+                        class="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
                         <span class="material-symbols-outlined text-4xl text-gray-400 mb-2"
-                              x-text="headerType === 'IMAGE' ? 'image' : headerType === 'VIDEO' ? 'videocam' : 'description'"></span>
+                            x-text="headerType === 'IMAGE' ? 'image' : headerType === 'VIDEO' ? 'videocam' : 'description'"></span>
                         <p class="text-gray-500 text-sm">El archivo se proporcionara al enviar el mensaje</p>
                         <p class="text-gray-400 text-xs mt-1">Vista previa de placeholder</p>
                     </div>
@@ -249,37 +230,25 @@
                 <div class="space-y-4">
                     <!-- Formatting Toolbar -->
                     <div class="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-4">
-                        <button
-                            @click="insertFormatting('bold')"
+                        <button @click="insertFormatting('bold')"
                             class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-bold"
-                            title="Negrita"
-                        >B</button>
-                        <button
-                            @click="insertFormatting('italic')"
+                            title="Negrita">B</button>
+                        <button @click="insertFormatting('italic')"
                             class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors italic"
-                            title="Cursiva"
-                        >I</button>
-                        <button
-                            @click="insertFormatting('strike')"
+                            title="Cursiva">I</button>
+                        <button @click="insertFormatting('strike')"
                             class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors line-through"
-                            title="Tachado"
-                        >S</button>
-                        <button
-                            @click="insertFormatting('mono')"
+                            title="Tachado">S</button>
+                        <button @click="insertFormatting('mono')"
                             class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-mono text-sm"
-                            title="Monoespaciado"
-                        >`C`</button>
+                            title="Monoespaciado">`C`</button>
                         <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2"></div>
-                        <button
-                            @click="showEmojiPicker = !showEmojiPicker"
+                        <button @click="showEmojiPicker = !showEmojiPicker"
                             class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-xl"
-                            title="Emojis"
-                        >&#128578;</button>
+                            title="Emojis">&#128578;</button>
                         <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2"></div>
-                        <button
-                            @click="addVariable()"
-                            class="flex items-center gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
-                        >
+                        <button @click="addVariable()"
+                            class="flex items-center gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium">
                             <span class="material-symbols-outlined text-lg">data_object</span>
                             Agregar Variable
                         </button>
@@ -288,41 +257,40 @@
                     <!-- Emoji Picker -->
                     <div x-show="showEmojiPicker" x-transition class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
                         <div class="flex flex-wrap gap-2">
-                            <template x-for="emoji in ['&#128512;', '&#128522;', '&#128525;', '&#128077;', '&#128079;', '&#129309;', '&#128578;', '&#128591;', '&#10084;', '&#10024;', '&#128293;', '&#127881;', '&#128640;', '&#9989;', '&#10060;', '&#128276;']">
-                                <button @click="insertEmoji(emoji)" class="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xl" x-html="emoji"></button>
+                            <template
+                                x-for="emoji in ['&#128512;', '&#128522;', '&#128525;', '&#128077;', '&#128079;', '&#129309;', '&#128578;', '&#128591;', '&#10084;', '&#10024;', '&#128293;', '&#127881;', '&#128640;', '&#9989;', '&#10060;', '&#128276;']">
+                                <button @click="insertEmoji(emoji)"
+                                    class="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-xl"
+                                    x-html="emoji"></button>
                             </template>
                         </div>
                     </div>
 
-                    <textarea
-                        x-ref="bodyTextarea"
-                        x-model="bodyText"
-                        @input="extractVariables()"
+                    <textarea x-ref="bodyTextarea" x-model="bodyText" @input="extractVariables()"
                         placeholder="Escribe el mensaje aqui. Usa {% raw %}{{1}}, {{2}}{% endraw %}, etc. para variables..."
                         rows="6"
-                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                    ></textarea>
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent resize-none"></textarea>
                     <p class="text-sm text-gray-500" x-text="bodyText.length + '/1024 caracteres'"></p>
                 </div>
             </div>
 
             <!-- Variable Examples -->
-            <div x-show="variables.length > 0" x-transition class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <div x-show="variables.length > 0" x-transition
+                class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
                 <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">data_object</span>
                     Valores de Ejemplo para Variables
                 </h2>
-                <p class="text-sm text-gray-500 mb-4">Define valores de ejemplo para ver como se mostrara el mensaje. Meta requiere ejemplos para aprobar la plantilla.</p>
+                <p class="text-sm text-gray-500 mb-4">Define valores de ejemplo para ver como se mostrara el mensaje.
+                    Meta requiere ejemplos para aprobar la plantilla.</p>
                 <div class="space-y-3">
                     <template x-for="(variable, index) in variables" :key="index">
                         <div class="flex items-center gap-4">
-                            <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium" x-text="'{'+'{' + variable.number + '}}'"></span>
-                            <input
-                                type="text"
-                                x-model="variable.example"
+                            <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
+                                x-text="'{'+'{' + variable.number + '}}'"></span>
+                            <input type="text" x-model="variable.example"
                                 :placeholder="'Ejemplo para variable ' + variable.number"
-                                class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent"
-                            >
+                                class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent">
                         </div>
                     </template>
                 </div>
@@ -334,13 +302,8 @@
                     <span class="material-symbols-outlined text-primary">notes</span>
                     Pie de Pagina (Opcional)
                 </h2>
-                <input
-                    type="text"
-                    x-model="footerText"
-                    placeholder="Texto del pie de pagina..."
-                    maxlength="60"
-                    class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
+                <input type="text" x-model="footerText" placeholder="Texto del pie de pagina..." maxlength="60"
+                    class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent">
                 <p class="text-sm text-gray-500 mt-2" x-text="footerText.length + '/60 caracteres'"></p>
             </div>
 
@@ -354,32 +317,28 @@
                 <div class="space-y-4">
                     <!-- Add Button Options -->
                     <div class="flex flex-wrap gap-2">
-                        <button
-                            @click="addButton('QUICK_REPLY')"
+                        <button @click="addButton('QUICK_REPLY')"
                             :disabled="buttons.filter(b => b.type === 'QUICK_REPLY').length >= 10"
-                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
+                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <span class="material-symbols-outlined">reply</span>
                             Respuesta Rapida
-                            <span class="text-xs text-gray-500" x-text="'(' + buttons.filter(b => b.type === 'QUICK_REPLY').length + '/10)'"></span>
+                            <span class="text-xs text-gray-500"
+                                x-text="'(' + buttons.filter(b => b.type === 'QUICK_REPLY').length + '/10)'"></span>
                         </button>
-                        <button
-                            @click="addButton('URL')"
-                            :disabled="buttons.filter(b => b.type === 'URL').length >= 2"
-                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
+                        <button @click="addButton('URL')" :disabled="buttons.filter(b => b.type === 'URL').length >= 2"
+                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <span class="material-symbols-outlined">link</span>
                             Visitar Sitio Web
-                            <span class="text-xs text-gray-500" x-text="'(' + buttons.filter(b => b.type === 'URL').length + '/2)'"></span>
+                            <span class="text-xs text-gray-500"
+                                x-text="'(' + buttons.filter(b => b.type === 'URL').length + '/2)'"></span>
                         </button>
-                        <button
-                            @click="addButton('PHONE_NUMBER')"
+                        <button @click="addButton('PHONE_NUMBER')"
                             :disabled="buttons.filter(b => b.type === 'PHONE_NUMBER').length >= 1"
-                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
+                            class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <span class="material-symbols-outlined">call</span>
                             Llamar
-                            <span class="text-xs text-gray-500" x-text="'(' + buttons.filter(b => b.type === 'PHONE_NUMBER').length + '/1)'"></span>
+                            <span class="text-xs text-gray-500"
+                                x-text="'(' + buttons.filter(b => b.type === 'PHONE_NUMBER').length + '/1)'"></span>
                         </button>
                     </div>
 
@@ -390,38 +349,24 @@
                                 <div class="flex-1 space-y-3">
                                     <div class="flex items-center gap-2">
                                         <span class="material-symbols-outlined text-gray-400"
-                                              x-text="button.type === 'QUICK_REPLY' ? 'reply' : button.type === 'URL' ? 'link' : 'call'"></span>
+                                            x-text="button.type === 'QUICK_REPLY' ? 'reply' : button.type === 'URL' ? 'link' : 'call'"></span>
                                         <span class="text-sm font-medium text-gray-500"
-                                              x-text="button.type === 'QUICK_REPLY' ? 'Respuesta Rapida' : button.type === 'URL' ? 'URL' : 'Telefono'"></span>
+                                            x-text="button.type === 'QUICK_REPLY' ? 'Respuesta Rapida' : button.type === 'URL' ? 'URL' : 'Telefono'"></span>
                                     </div>
-                                    <input
-                                        type="text"
-                                        x-model="button.text"
-                                        placeholder="Texto del boton"
+                                    <input type="text" x-model="button.text" placeholder="Texto del boton"
                                         maxlength="25"
-                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                                    >
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
                                     <div x-show="button.type === 'URL'">
-                                        <input
-                                            type="url"
-                                            x-model="button.url"
-                                            placeholder="https://ejemplo.com"
-                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                                        >
+                                        <input type="url" x-model="button.url" placeholder="https://ejemplo.com"
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
                                     </div>
                                     <div x-show="button.type === 'PHONE_NUMBER'">
-                                        <input
-                                            type="tel"
-                                            x-model="button.phone_number"
-                                            placeholder="+5491123456789"
-                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                                        >
+                                        <input type="tel" x-model="button.phone_number" placeholder="+5491123456789"
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
                                     </div>
                                 </div>
-                                <button
-                                    @click="removeButton(index)"
-                                    class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                >
+                                <button @click="removeButton(index)"
+                                    class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                                     <span class="material-symbols-outlined">delete</span>
                                 </button>
                             </div>
@@ -470,16 +415,21 @@
                                     <!-- Header Preview -->
                                     <div x-show="headerType !== 'NONE'">
                                         <!-- Image Header -->
-                                        <div x-show="headerType === 'IMAGE'" class="w-full h-32 bg-gray-200 rounded-t-lg flex items-center justify-center">
+                                        <div x-show="headerType === 'IMAGE'"
+                                            class="w-full h-32 bg-gray-200 rounded-t-lg flex items-center justify-center">
                                             <span class="material-symbols-outlined text-4xl text-gray-400">image</span>
                                         </div>
                                         <!-- Video Header -->
-                                        <div x-show="headerType === 'VIDEO'" class="w-full h-32 bg-gray-800 rounded-t-lg flex items-center justify-center relative">
-                                            <span class="material-symbols-outlined text-4xl text-white">play_circle</span>
+                                        <div x-show="headerType === 'VIDEO'"
+                                            class="w-full h-32 bg-gray-800 rounded-t-lg flex items-center justify-center relative">
+                                            <span
+                                                class="material-symbols-outlined text-4xl text-white">play_circle</span>
                                         </div>
                                         <!-- Document Header -->
-                                        <div x-show="headerType === 'DOCUMENT'" class="p-3 bg-gray-100 rounded-t-lg flex items-center gap-3 border-b">
-                                            <span class="material-symbols-outlined text-3xl text-red-500">description</span>
+                                        <div x-show="headerType === 'DOCUMENT'"
+                                            class="p-3 bg-gray-100 rounded-t-lg flex items-center gap-3 border-b">
+                                            <span
+                                                class="material-symbols-outlined text-3xl text-red-500">description</span>
                                             <div>
                                                 <p class="text-sm font-medium text-gray-700">documento.pdf</p>
                                                 <p class="text-xs text-gray-500">PDF</p>
@@ -493,7 +443,8 @@
 
                                     <!-- Body Preview -->
                                     <div class="px-3 py-2">
-                                        <p class="text-gray-800 text-sm whitespace-pre-wrap leading-relaxed" x-html="previewBody()"></p>
+                                        <p class="text-gray-800 text-sm whitespace-pre-wrap leading-relaxed"
+                                            x-html="previewBody()"></p>
                                     </div>
 
                                     <!-- Footer Preview -->
@@ -510,7 +461,7 @@
                                     <template x-for="(button, index) in buttons" :key="'preview-' + index">
                                         <div class="wa-button">
                                             <span class="material-symbols-outlined text-sm mr-1 align-middle"
-                                                  x-text="button.type === 'URL' ? 'open_in_new' : button.type === 'PHONE_NUMBER' ? 'call' : ''"></span>
+                                                x-text="button.type === 'URL' ? 'open_in_new' : button.type === 'PHONE_NUMBER' ? 'call' : ''"></span>
                                             <span x-text="button.text || 'Boton'"></span>
                                         </div>
                                     </template>
@@ -547,242 +498,251 @@
 
 {% raw %}
 <script>
-function templateCreator() {
-    return {
-        // Form Data
-        templateName: '',
-        category: 'MARKETING',
-        language: 'es_AR',
-        headerType: 'NONE',
-        headerText: '',
-        bodyText: '',
-        footerText: '',
-        buttons: [],
-        variables: [],
+    function templateCreator() {
+        return {
+            // Form Data
+            templateName: '',
+            category: 'MARKETING',
+            language: 'es_AR',
+            headerType: 'NONE',
+            headerText: '',
+            bodyText: '',
+            footerText: '',
+            buttons: [],
+            variables: [],
 
-        // UI State
-        showEmojiPicker: false,
-        isSubmitting: false,
-        alert: {
-            show: false,
-            type: 'success',
-            message: ''
-        },
+            // UI State
+            showEmojiPicker: false,
+            isSubmitting: false,
+            alert: {
+                show: false,
+                type: 'success',
+                message: ''
+            },
 
-        // Initialize
-        init() {
-            // Watch for body text changes to extract variables
-            this.$watch('bodyText', () => this.extractVariables());
-        },
+            // Initialize
+            init() {
+                // Watch for body text changes to extract variables
+                this.$watch('bodyText', () => this.extractVariables());
+            },
 
-        // Extract variables from body text
-        extractVariables() {
-            const regex = /\{\{(\d+)\}\}/g;
-            const matches = [...this.bodyText.matchAll(regex)];
-            const numbers = [...new Set(matches.map(m => parseInt(m[1])))].sort((a, b) => a - b);
+            // Extract variables from body text
+            extractVariables() {
+                const regex = /\{\{(\d+)\}\}/g;
+                const matches = [...this.bodyText.matchAll(regex)];
+                const numbers = [...new Set(matches.map(m => parseInt(m[1])))].sort((a, b) => a - b);
 
-            // Preserve existing examples
-            const existingExamples = {};
-            this.variables.forEach(v => {
-                existingExamples[v.number] = v.example;
-            });
-
-            this.variables = numbers.map(num => ({
-                number: num,
-                example: existingExamples[num] || ''
-            }));
-        },
-
-        // Add variable to body text
-        addVariable() {
-            const nextNum = this.variables.length > 0
-                ? Math.max(...this.variables.map(v => v.number)) + 1
-                : 1;
-
-            const textarea = this.$refs.bodyTextarea;
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const text = this.bodyText;
-
-            this.bodyText = text.substring(0, start) + `{{${nextNum}}}` + text.substring(end);
-
-            // Set cursor position after the inserted variable
-            this.$nextTick(() => {
-                const newPos = start + `{{${nextNum}}}`.length;
-                textarea.setSelectionRange(newPos, newPos);
-                textarea.focus();
-            });
-        },
-
-        // Insert formatting
-        insertFormatting(type) {
-            const textarea = this.$refs.bodyTextarea;
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const selectedText = this.bodyText.substring(start, end);
-
-            let wrapper = '';
-            switch(type) {
-                case 'bold': wrapper = '*'; break;
-                case 'italic': wrapper = '_'; break;
-                case 'strike': wrapper = '~'; break;
-                case 'mono': wrapper = '```'; break;
-            }
-
-            const newText = wrapper + (selectedText || 'texto') + wrapper;
-            this.bodyText = this.bodyText.substring(0, start) + newText + this.bodyText.substring(end);
-
-            this.$nextTick(() => {
-                const newPos = start + newText.length;
-                textarea.setSelectionRange(newPos, newPos);
-                textarea.focus();
-            });
-        },
-
-        // Insert emoji
-        insertEmoji(emoji) {
-            const textarea = this.$refs.bodyTextarea;
-            const start = textarea.selectionStart;
-
-            // Convert HTML entity to actual emoji
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = emoji;
-            const actualEmoji = tempDiv.textContent;
-
-            this.bodyText = this.bodyText.substring(0, start) + actualEmoji + this.bodyText.substring(start);
-            this.showEmojiPicker = false;
-
-            this.$nextTick(() => {
-                const newPos = start + actualEmoji.length;
-                textarea.setSelectionRange(newPos, newPos);
-                textarea.focus();
-            });
-        },
-
-        // Add button
-        addButton(type) {
-            const button = { type, text: '' };
-            if (type === 'URL') button.url = '';
-            if (type === 'PHONE_NUMBER') button.phone_number = '';
-            this.buttons.push(button);
-        },
-
-        // Remove button
-        removeButton(index) {
-            this.buttons.splice(index, 1);
-        },
-
-        // Preview body with variable replacements
-        previewBody() {
-            if (!this.bodyText) return '<span class="text-gray-400">El mensaje aparecera aqui...</span>';
-
-            let text = this.bodyText;
-
-            // Replace variables with examples
-            this.variables.forEach(v => {
-                const placeholder = `{{${v.number}}}`;
-                const example = v.example || `[Variable ${v.number}]`;
-                text = text.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'),
-                    `<span class="var-highlight">${example}</span>`);
-            });
-
-            // Apply WhatsApp formatting
-            text = text.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
-            text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
-            text = text.replace(/~([^~]+)~/g, '<del>$1</del>');
-            text = text.replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded">$1</code>');
-
-            return text;
-        },
-
-        // Get current time for preview
-        getCurrentTime() {
-            const now = new Date();
-            return now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-        },
-
-        // Show alert
-        showAlert(type, message) {
-            this.alert = { show: true, type, message };
-            setTimeout(() => { this.alert.show = false; }, 5000);
-        },
-
-        // Submit template
-        async submitTemplate() {
-            // Validation
-            if (!this.templateName.trim()) {
-                this.showAlert('error', 'El nombre de la plantilla es requerido');
-                return;
-            }
-
-            if (!/^[a-z0-9_]+$/.test(this.templateName)) {
-                this.showAlert('error', 'El nombre solo puede contener letras minusculas, numeros y guiones bajos');
-                return;
-            }
-
-            if (!this.bodyText.trim()) {
-                this.showAlert('error', 'El cuerpo del mensaje es requerido');
-                return;
-            }
-
-            this.isSubmitting = true;
-
-            // Build payload
-            const payload = {
-                name: this.templateName,
-                category: this.category,
-                language: this.language,
-                body: this.bodyText
-            };
-
-            // Header
-            if (this.headerType !== 'NONE') {
-                payload.header = { format: this.headerType };
-                if (this.headerType === 'TEXT' && this.headerText) {
-                    payload.header.text = this.headerText;
-                }
-            }
-
-            // Footer
-            if (this.footerText.trim()) {
-                payload.footer = this.footerText;
-            }
-
-            // Buttons
-            if (this.buttons.length > 0) {
-                payload.buttons = this.buttons.filter(b => b.text.trim());
-            }
-
-            // Add variable examples for Meta API
-            if (this.variables.length > 0) {
-                payload.body_examples = this.variables.map(v => v.example || `Example ${v.number}`);
-            }
-
-            try {
-                const response = await fetch('/api/whatsapp/create-template', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                // Preserve existing examples
+                const existingExamples = {};
+                this.variables.forEach(v => {
+                    existingExamples[v.number] = v.example;
                 });
 
-                const result = await response.json();
+                this.variables = numbers.map(num => ({
+                    number: num,
+                    example: existingExamples[num] || ''
+                }));
+            },
 
-                if (response.ok && !result.error) {
-                    this.showAlert('success', 'Plantilla enviada correctamente. Estado: ' + (result.status || 'PENDING'));
-                    setTimeout(() => {
-                        window.location.href = '/whatsapp-settings';
-                    }, 2000);
-                } else {
-                    this.showAlert('error', result.error || 'Error al crear la plantilla');
+            // Add variable to body text
+            addVariable() {
+                const nextNum = this.variables.length > 0
+                    ? Math.max(...this.variables.map(v => v.number)) + 1
+                    : 1;
+
+                const textarea = this.$refs.bodyTextarea;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const text = this.bodyText;
+
+                this.bodyText = text.substring(0, start) + `{{${nextNum}}}` + text.substring(end);
+
+                // Set cursor position after the inserted variable
+                this.$nextTick(() => {
+                    const newPos = start + `{{${nextNum}}}`.length;
+                    textarea.setSelectionRange(newPos, newPos);
+                    textarea.focus();
+                });
+            },
+
+            // Insert formatting
+            insertFormatting(type) {
+                const textarea = this.$refs.bodyTextarea;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const selectedText = this.bodyText.substring(start, end);
+
+                let wrapper = '';
+                switch (type) {
+                    case 'bold': wrapper = '*'; break;
+                    case 'italic': wrapper = '_'; break;
+                    case 'strike': wrapper = '~'; break;
+                    case 'mono': wrapper = '```'; break;
                 }
-            } catch (error) {
-                this.showAlert('error', 'Error de conexion: ' + error.message);
-            } finally {
-                this.isSubmitting = false;
+
+                const newText = wrapper + (selectedText || 'texto') + wrapper;
+                this.bodyText = this.bodyText.substring(0, start) + newText + this.bodyText.substring(end);
+
+                this.$nextTick(() => {
+                    const newPos = start + newText.length;
+                    textarea.setSelectionRange(newPos, newPos);
+                    textarea.focus();
+                });
+            },
+
+            // Insert emoji
+            insertEmoji(emoji) {
+                const textarea = this.$refs.bodyTextarea;
+                const start = textarea.selectionStart;
+
+                // Convert HTML entity to actual emoji
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = emoji;
+                const actualEmoji = tempDiv.textContent;
+
+                this.bodyText = this.bodyText.substring(0, start) + actualEmoji + this.bodyText.substring(start);
+                this.showEmojiPicker = false;
+
+                this.$nextTick(() => {
+                    const newPos = start + actualEmoji.length;
+                    textarea.setSelectionRange(newPos, newPos);
+                    textarea.focus();
+                });
+            },
+
+            // Add button
+            addButton(type) {
+                const button = { type, text: '' };
+                if (type === 'URL') button.url = '';
+                if (type === 'PHONE_NUMBER') button.phone_number = '';
+                this.buttons.push(button);
+            },
+
+            // Remove button
+            removeButton(index) {
+                this.buttons.splice(index, 1);
+            },
+
+            // Preview body with variable replacements
+            previewBody() {
+                if (!this.bodyText) return '<span class="text-gray-400">El mensaje aparecera aqui...</span>';
+
+                let text = this.bodyText;
+
+                // Replace variables with examples
+                this.variables.forEach(v => {
+                    const placeholder = `{{${v.number}}}`;
+                    const example = v.example || `[Variable ${v.number}]`;
+                    text = text.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'),
+                        `<span class="var-highlight">${example}</span>`);
+                });
+
+                // Apply WhatsApp formatting
+                text = text.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+                text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
+                text = text.replace(/~([^~]+)~/g, '<del>$1</del>');
+                text = text.replace(/```([^`]+)```/g, '<code class="bg-gray-200 px-1 rounded">$1</code>');
+
+                return text;
+            },
+
+            // Get current time for preview
+            getCurrentTime() {
+                const now = new Date();
+                return now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            },
+
+            // Show alert
+            showAlert(type, message) {
+                this.alert = { show: true, type, message };
+                setTimeout(() => { this.alert.show = false; }, 5000);
+            },
+
+            // Submit template
+            async submitTemplate() {
+                // Validation
+                if (!this.templateName.trim()) {
+                    this.showAlert('error', 'El nombre de la plantilla es requerido');
+                    return;
+                }
+
+                if (!/^[a-z0-9_]+$/.test(this.templateName)) {
+                    this.showAlert('error', 'El nombre solo puede contener letras minusculas, numeros y guiones bajos');
+                    return;
+                }
+
+                if (!this.bodyText.trim()) {
+                    this.showAlert('error', 'El cuerpo del mensaje es requerido');
+                    return;
+                }
+
+                // Validar que todos los ejemplos de variables estén completos
+                if (this.variables.length > 0) {
+                    const emptyExamples = this.variables.filter(v => !v.example.trim());
+                    if (emptyExamples.length > 0) {
+                        this.showAlert('error', 'Debes completar los valores de ejemplo para todas las variables. Meta los requiere para aprobar la plantilla.');
+                        return;
+                    }
+                }
+
+                this.isSubmitting = true;
+
+                // Build payload
+                const payload = {
+                    name: this.templateName,
+                    category: this.category,
+                    language: this.language,
+                    body: this.bodyText
+                };
+
+                // Header
+                if (this.headerType !== 'NONE') {
+                    payload.header = { format: this.headerType };
+                    if (this.headerType === 'TEXT' && this.headerText) {
+                        payload.header.text = this.headerText;
+                    }
+                }
+
+                // Footer
+                if (this.footerText.trim()) {
+                    payload.footer = this.footerText;
+                }
+
+                // Buttons
+                if (this.buttons.length > 0) {
+                    payload.buttons = this.buttons.filter(b => b.text.trim());
+                }
+
+                // Add variable examples for Meta API
+                if (this.variables.length > 0) {
+                    payload.body_examples = this.variables.map(v => v.example || `Example ${v.number}`);
+                }
+
+                try {
+                    const response = await fetch('/api/whatsapp/create-template', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && !result.error) {
+                        this.showAlert('success', 'Plantilla enviada correctamente. Estado: ' + (result.status || 'PENDING'));
+                        setTimeout(() => {
+                            window.location.href = '/whatsapp-settings';
+                        }, 2000);
+                    } else {
+                        this.showAlert('error', result.error || 'Error al crear la plantilla');
+                    }
+                } catch (error) {
+                    this.showAlert('error', 'Error de conexion: ' + error.message);
+                } finally {
+                    this.isSubmitting = false;
+                }
             }
         }
     }
-}
 </script>
 {% endraw %}
 {% endblock %}
