@@ -3,552 +3,637 @@
 {% block title %}Configuración - WhatsApp CRM{% endblock %}
 
 {% block content %}
-        <!-- Main Content -->
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
-            <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
-                <div class="flex items-center justify-between">
+<!-- Main Content -->
+<main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Configuración</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Templates y envío de mensajes</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+
+        {% if not is_configured %}
+        <!-- Not Configured State -->
+        <div
+            class="rounded-xl border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 px-4 py-3 flex items-start gap-3 mb-6">
+            <span class="material-symbols-outlined text-yellow-500 mt-0.5">warning</span>
+            <div>
+                <p class="font-semibold text-yellow-800 dark:text-yellow-300">API no configurada</p>
+                <p class="text-sm text-yellow-700 dark:text-yellow-400">Configura las variables de entorno para conectar
+                    con WhatsApp Business</p>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+            <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">build</span>
+                Configuración Requerida
+            </h2>
+            <div class="flex flex-col gap-3">
+                <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <span
+                        class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">1</span>
                     <div>
-                        <h1 class="text-xl font-bold text-[#111812] dark:text-white">Configuración</h1>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Templates y envío de mensajes</p>
+                        <p class="font-semibold text-sm">WHATSAPP_API_TOKEN</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Token de acceso permanente de Meta Business
+                        </p>
                     </div>
                 </div>
-            </header>
-
-            <!-- Content -->
-            <div class="flex-1 overflow-auto p-6 custom-scrollbar">
-
-                {% if not is_configured %}
-                <!-- Not Configured State -->
-                <div class="rounded-xl border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 px-4 py-3 flex items-start gap-3 mb-6">
-                    <span class="material-symbols-outlined text-yellow-500 mt-0.5">warning</span>
+                <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <span
+                        class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
                     <div>
-                        <p class="font-semibold text-yellow-800 dark:text-yellow-300">API no configurada</p>
-                        <p class="text-sm text-yellow-700 dark:text-yellow-400">Configura las variables de entorno para conectar con WhatsApp Business</p>
+                        <p class="font-semibold text-sm">WHATSAPP_BUSINESS_ACCOUNT_ID</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">ID de tu cuenta de WhatsApp Business
+                            (encontrado en Meta Business Suite)</p>
                     </div>
                 </div>
-
-                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-                    <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary">build</span>
-                        Configuración Requerida
-                    </h2>
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <span class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <div>
-                                <p class="font-semibold text-sm">WHATSAPP_API_TOKEN</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Token de acceso permanente de Meta Business</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <span class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
-                            <div>
-                                <p class="font-semibold text-sm">WHATSAPP_BUSINESS_ACCOUNT_ID</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">ID de tu cuenta de WhatsApp Business (encontrado en Meta Business Suite)</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <span class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
-                            <div>
-                                <p class="font-semibold text-sm">WHATSAPP_PHONE_NUMBER_ID</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">ID del número de teléfono (necesario para enviar mensajes)</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {% else %}
-                <!-- Configured State -->
-
-                {% if error %}
-                <div class="rounded-xl border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-4 py-3 flex items-start gap-3 mb-6">
-                    <span class="material-symbols-outlined text-red-500 mt-0.5">error</span>
+                <div class="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <span
+                        class="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
                     <div>
-                        <p class="font-semibold text-red-800 dark:text-red-300">Error al conectar con la API</p>
-                        <p class="text-sm text-red-700 dark:text-red-400">{{ error }}</p>
+                        <p class="font-semibold text-sm">WHATSAPP_PHONE_NUMBER_ID</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">ID del número de teléfono (necesario para
+                            enviar mensajes)</p>
                     </div>
                 </div>
-                {% endif %}
+            </div>
+        </div>
 
-                <!-- Phone Numbers -->
-                {% if phone_numbers %}
-                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
-                    <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+        {% else %}
+        <!-- Configured State -->
+
+        {% if error %}
+        <div
+            class="rounded-xl border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-4 py-3 flex items-start gap-3 mb-6">
+            <span class="material-symbols-outlined text-red-500 mt-0.5">error</span>
+            <div>
+                <p class="font-semibold text-red-800 dark:text-red-300">Error al conectar con la API</p>
+                <p class="text-sm text-red-700 dark:text-red-400">{{ error }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Phone Numbers -->
+        {% if phone_numbers %}
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
+            <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">phone_android</span>
+                Números de Teléfono
+            </h2>
+            <div class="flex flex-col gap-3">
+                {% for phone in phone_numbers %}
+                <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                         <span class="material-symbols-outlined text-primary">phone_android</span>
-                        Números de Teléfono
-                    </h2>
-                    <div class="flex flex-col gap-3">
-                        {% for phone in phone_numbers %}
-                        <div class="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                            <div class="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                                <span class="material-symbols-outlined text-primary">phone_android</span>
-                            </div>
-                            <div class="flex-1">
-                                <p class="font-semibold text-sm">{{ phone.display_phone_number }}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ phone.verified_name or 'Sin nombre verificado' }}</p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="px-2.5 py-1 rounded-full text-xs font-medium {% if phone.quality_rating == 'GREEN' %}bg-primary/10 text-primary{% elif phone.quality_rating == 'YELLOW' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400{% endif %}">
-                                    {{ phone.quality_rating or 'N/A' }}
-                                </span>
-                                <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                                    {{ phone.messaging_limit_tier or 'N/A' }}
-                                </span>
-                            </div>
-                        </div>
-                        {% endfor %}
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-sm">{{ phone.display_phone_number }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ phone.verified_name or 'Sin nombre
+                            verificado' }}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span
+                            class="px-2.5 py-1 rounded-full text-xs font-medium {% if phone.quality_rating == 'GREEN' %}bg-primary/10 text-primary{% elif phone.quality_rating == 'YELLOW' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                            {{ phone.quality_rating or 'N/A' }}
+                        </span>
+                        <span
+                            class="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                            {{ phone.messaging_limit_tier or 'N/A' }}
+                        </span>
                     </div>
                 </div>
-                {% endif %}
-
-                <!-- Templates -->
-                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="font-semibold text-lg flex items-center gap-2">
-                            <span class="material-symbols-outlined text-primary">description</span>
-                            Templates ({{ templates|length }})
-                        </h2>
-                        <a href="/templates/new"
-                            class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
-                            <span class="material-symbols-outlined text-lg">add</span>
-                            Crear Template
-                        </a>
-                    </div>
-
-                    {% if templates %}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {% for template in templates %}
-                        <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/30">
-                            <div class="flex items-start justify-between mb-3">
-                                <div>
-                                    <p class="font-semibold text-sm">{{ template.name }}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ template.category }}</p>
-                                </div>
-                                <span class="px-2.5 py-1 rounded-full text-xs font-medium {% if template.status == 'APPROVED' %}bg-primary/10 text-primary{% elif template.status == 'PENDING' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400{% endif %}">
-                                    {{ template.status }}
-                                </span>
-                            </div>
-                            <div class="bg-white dark:bg-[#152a17] rounded-lg px-3 py-2 mb-3 max-h-20 overflow-y-auto">
-                                <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                                    {% for comp in template.components %}
-                                    {% if comp.type == 'BODY' %}{{ comp.text or '' }}{% endif %}
-                                    {% endfor %}
-                                </p>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                                    <span class="material-symbols-outlined text-sm">language</span>
-                                    {{ template.language }}
-                                </span>
-                                {% if template.status == 'APPROVED' %}
-                                <button onclick="openSendModal('{{ template.name }}', '{{ template.language }}')"
-                                    class="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
-                                    <span class="material-symbols-outlined text-sm">send</span>
-                                    Enviar
-                                </button>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% else %}
-                    <div class="flex flex-col items-center justify-center py-12 text-center">
-                        <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
-                            <span class="material-symbols-outlined text-3xl text-gray-300 dark:text-gray-600">description</span>
-                        </div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">No hay templates configurados</p>
-                    </div>
-                    {% endif %}
-                </div>
-
-                {% endif %}
+                {% endfor %}
             </div>
-        </main>
-
-    <!-- Send Template Modal -->
-    <div id="send-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/50" onclick="closeSendModal()"></div>
-        <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-lg font-semibold flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">send</span>
-                    Enviar Template
-                </h3>
-                <button onclick="closeSendModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
-            <form id="send-template-form">
-                <input type="hidden" id="modal-template-name">
-                <input type="hidden" id="modal-template-lang">
-
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Template</label>
-                    <input type="text" id="modal-template-display" readonly
-                        class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm" />
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Número de teléfono (con código de país, sin +)</label>
-                    <input type="text" id="modal-phone" placeholder="5493874123456" required
-                        class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
-                </div>
-
-                <div id="modal-result" class="mb-4"></div>
-
-                <button type="submit"
-                    class="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
-                    Enviar Template
-                </button>
-            </form>
         </div>
-    </div>
+        {% endif %}
 
-    <!-- Create Template Modal -->
-    <div id="create-template-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/50" onclick="closeCreateTemplateModal()"></div>
-        <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-lg font-semibold flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">add_box</span>
+        <!-- Templates -->
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-semibold text-lg flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">description</span>
+                    Templates ({{ templates|length }})
+                </h2>
+                <a href="/templates/new"
+                    class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                    <span class="material-symbols-outlined text-lg">add</span>
                     Crear Template
-                </h3>
-                <button onclick="closeCreateTemplateModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
+                </a>
             </div>
 
-            <form id="create-template-form">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <!-- Name -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nombre *</label>
-                        <input type="text" id="tpl-name" placeholder="mi_template" required
-                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                            oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9_]/g, '_')" />
-                        <p class="text-xs text-gray-400 mt-1">snake_case, sin espacios</p>
-                    </div>
-                    <!-- Category -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Categoría *</label>
-                        <select id="tpl-category" required
-                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
-                            <option value="UTILITY">UTILITY</option>
-                            <option value="MARKETING">MARKETING</option>
-                            <option value="AUTHENTICATION">AUTHENTICATION</option>
-                        </select>
-                    </div>
-                    <!-- Language -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Idioma *</label>
-                        <select id="tpl-language"
-                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
-                            <option value="es_AR">Español (Argentina)</option>
-                            <option value="es">Español</option>
-                            <option value="es_MX">Español (México)</option>
-                            <option value="en_US">English (US)</option>
-                            <option value="en">English</option>
-                            <option value="pt_BR">Português (Brasil)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Header -->
-                <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Header (opcional)</label>
-                    <div class="flex gap-3 items-start">
-                        <select id="tpl-header-type" onchange="toggleHeaderText()"
-                            class="w-36 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
-                            <option value="">Ninguno</option>
-                            <option value="TEXT">Texto</option>
-                            <option value="IMAGE">Imagen</option>
-                            <option value="VIDEO">Video</option>
-                            <option value="DOCUMENT">Documento</option>
-                        </select>
-                        <input type="text" id="tpl-header-text" placeholder="Texto del header..." maxlength="60"
-                            class="hidden flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                    </div>
-                    <p class="text-xs text-gray-400 mt-1">Para IMAGE/VIDEO/DOCUMENT, se requerirá el archivo al enviar.</p>
-                </div>
-
-                <!-- Body -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Body *</label>
-                    <textarea id="tpl-body" rows="4" required placeholder="Hola {{1}}, tu pedido {{2}} está listo..."
-                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"></textarea>
-                    <div class="flex items-center gap-2 mt-2">
-                        <span class="text-xs text-gray-400">Insertar variable:</span>
-                        <button type="button" onclick="insertVariable(1)" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{1}}</button>
-                        <button type="button" onclick="insertVariable(2)" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{2}}</button>
-                        <button type="button" onclick="insertVariable(3)" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{3}}</button>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Footer (opcional)</label>
-                    <input type="text" id="tpl-footer" placeholder="Responde STOP para cancelar" maxlength="60"
-                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
-                </div>
-
-                <!-- Buttons -->
-                <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Botones (opcional)</label>
-                    <select id="tpl-button-type" onchange="toggleButtonInputs()"
-                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary mb-3">
-                        <option value="">Sin botones</option>
-                        <option value="QUICK_REPLY">Quick Reply (hasta 3)</option>
-                        <option value="CTA">Call to Action (URL o Teléfono)</option>
-                    </select>
-
-                    <!-- Quick Reply Inputs -->
-                    <div id="quick-reply-inputs" class="hidden space-y-2">
-                        <input type="text" id="qr-btn-1" placeholder="Botón 1 (ej: Sí)" maxlength="25"
-                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
-                        <input type="text" id="qr-btn-2" placeholder="Botón 2 (ej: No)" maxlength="25"
-                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
-                        <input type="text" id="qr-btn-3" placeholder="Botón 3 (opcional)" maxlength="25"
-                            class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
-                    </div>
-
-                    <!-- CTA Inputs -->
-                    <div id="cta-inputs" class="hidden space-y-3">
-                        <div class="flex gap-2">
-                            <select id="cta-type-1" class="w-32 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
-                                <option value="URL">URL</option>
-                                <option value="PHONE_NUMBER">Teléfono</option>
-                            </select>
-                            <input type="text" id="cta-text-1" placeholder="Texto del botón" maxlength="25"
-                                class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
-                            <input type="text" id="cta-value-1" placeholder="URL o número"
-                                class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+            {% if templates %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for template in templates %}
+                <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/30">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <p class="font-semibold text-sm">{{ template.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ template.category }}</p>
                         </div>
-                        <div class="flex gap-2">
-                            <select id="cta-type-2" class="w-32 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
-                                <option value="">Ninguno</option>
-                                <option value="URL">URL</option>
-                                <option value="PHONE_NUMBER">Teléfono</option>
-                            </select>
-                            <input type="text" id="cta-text-2" placeholder="Texto del botón" maxlength="25"
-                                class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
-                            <input type="text" id="cta-value-2" placeholder="URL o número"
-                                class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
-                        </div>
+                        <span
+                            class="px-2.5 py-1 rounded-full text-xs font-medium {% if template.status == 'APPROVED' %}bg-primary/10 text-primary{% elif template.status == 'PENDING' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400{% else %}bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                            {{ template.status }}
+                        </span>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-lg px-3 py-2 mb-3 max-h-20 overflow-y-auto">
+                        <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                            {% for comp in template.components %}
+                            {% if comp.type == 'BODY' %}{{ comp.text or '' }}{% endif %}
+                            {% endfor %}
+                        </p>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                            <span class="material-symbols-outlined text-sm">language</span>
+                            {{ template.language }}
+                        </span>
+                        {% if template.status == 'APPROVED' %}
+                        <button
+                            onclick="openSendModal('{{ template.name }}', '{{ template.language }}', {{ template.components | tojson | e }})"
+                            class="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
+                            <span class="material-symbols-outlined text-sm">send</span>
+                            Enviar
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
-
-                <div id="create-result" class="mb-4"></div>
-
-                <div class="flex gap-3">
-                    <button type="button" onclick="closeCreateTemplateModal()"
-                        class="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                        Cancelar
-                    </button>
-                    <button type="submit" id="create-submit-btn"
-                        class="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
-                        Crear Template
-                    </button>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
+                    <span class="material-symbols-outlined text-3xl text-gray-300 dark:text-gray-600">description</span>
                 </div>
-            </form>
+                <p class="text-sm text-gray-500 dark:text-gray-400">No hay templates configurados</p>
+            </div>
+            {% endif %}
         </div>
+
+        {% endif %}
     </div>
+</main>
 
-    <script>
-        // Utilidades
-        function isValidPhone(phone) {
-            const cleaned = phone.replace(/[\s\-\(\)]/g, '');
-            return /^\+?[1-9]\d{6,14}$/.test(cleaned);
-        }
+<!-- Send Template Modal -->
+<div id="send-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="closeSendModal()"></div>
+    <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">send</span>
+                Enviar Template
+            </h3>
+            <button onclick="closeSendModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <form id="send-template-form">
+            <input type="hidden" id="modal-template-name">
+            <input type="hidden" id="modal-template-lang">
 
-        function showAlert(container, type, message) {
-            const colors = {
-                success: { bg: 'bg-primary/10', border: 'border-primary/30', text: 'text-primary', icon: 'check_circle' },
-                error: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-300 dark:border-red-700', text: 'text-red-600 dark:text-red-400', icon: 'error' },
-                warning: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-300 dark:border-yellow-700', text: 'text-yellow-600 dark:text-yellow-400', icon: 'warning' }
-            };
-            const c = colors[type];
-            container.innerHTML = `<div class="rounded-lg border ${c.border} ${c.bg} px-3 py-2 flex items-center gap-2">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Template</label>
+                <input type="text" id="modal-template-display" readonly
+                    class="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm" />
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Número de teléfono (con
+                    código de país, sin +)</label>
+                <input type="text" id="modal-phone" placeholder="5493874123456" required
+                    class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+            </div>
+
+            <div id="modal-variables-container" class="mb-4 flex flex-col gap-3"></div>
+
+            <div id="modal-result" class="mb-4"></div>
+
+            <button type="submit"
+                class="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                Enviar Template
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Create Template Modal -->
+<div id="create-template-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="closeCreateTemplateModal()"></div>
+    <div
+        class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">add_box</span>
+                Crear Template
+            </h3>
+            <button onclick="closeCreateTemplateModal()"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <form id="create-template-form">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <!-- Name -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Nombre *</label>
+                    <input type="text" id="tpl-name" placeholder="mi_template" required
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9_]/g, '_')" />
+                    <p class="text-xs text-gray-400 mt-1">snake_case, sin espacios</p>
+                </div>
+                <!-- Category -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Categoría *</label>
+                    <select id="tpl-category" required
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                        <option value="UTILITY">UTILITY</option>
+                        <option value="MARKETING">MARKETING</option>
+                        <option value="AUTHENTICATION">AUTHENTICATION</option>
+                    </select>
+                </div>
+                <!-- Language -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Idioma *</label>
+                    <select id="tpl-language"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                        <option value="es_AR">Español (Argentina)</option>
+                        <option value="es">Español</option>
+                        <option value="es_MX">Español (México)</option>
+                        <option value="en_US">English (US)</option>
+                        <option value="en">English</option>
+                        <option value="pt_BR">Português (Brasil)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Header (opcional)</label>
+                <div class="flex gap-3 items-start">
+                    <select id="tpl-header-type" onchange="toggleHeaderText()"
+                        class="w-36 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
+                        <option value="">Ninguno</option>
+                        <option value="TEXT">Texto</option>
+                        <option value="IMAGE">Imagen</option>
+                        <option value="VIDEO">Video</option>
+                        <option value="DOCUMENT">Documento</option>
+                    </select>
+                    <input type="text" id="tpl-header-text" placeholder="Texto del header..." maxlength="60"
+                        class="hidden flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Para IMAGE/VIDEO/DOCUMENT, se requerirá el archivo al enviar.</p>
+            </div>
+
+            <!-- Body -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Body *</label>
+                <textarea id="tpl-body" rows="4" required placeholder="Hola {{1}}, tu pedido {{2}} está listo..."
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"></textarea>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="text-xs text-gray-400">Insertar variable:</span>
+                    <button type="button" onclick="insertVariable(1)"
+                        class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{1}}</button>
+                    <button type="button" onclick="insertVariable(2)"
+                        class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{2}}</button>
+                    <button type="button" onclick="insertVariable(3)"
+                        class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono hover:bg-gray-300 dark:hover:bg-gray-600">{{3}}</button>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Footer (opcional)</label>
+                <input type="text" id="tpl-footer" placeholder="Responde STOP para cancelar" maxlength="60"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary" />
+            </div>
+
+            <!-- Buttons -->
+            <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">Botones
+                    (opcional)</label>
+                <select id="tpl-button-type" onchange="toggleButtonInputs()"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary mb-3">
+                    <option value="">Sin botones</option>
+                    <option value="QUICK_REPLY">Quick Reply (hasta 3)</option>
+                    <option value="CTA">Call to Action (URL o Teléfono)</option>
+                </select>
+
+                <!-- Quick Reply Inputs -->
+                <div id="quick-reply-inputs" class="hidden space-y-2">
+                    <input type="text" id="qr-btn-1" placeholder="Botón 1 (ej: Sí)" maxlength="25"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                    <input type="text" id="qr-btn-2" placeholder="Botón 2 (ej: No)" maxlength="25"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                    <input type="text" id="qr-btn-3" placeholder="Botón 3 (opcional)" maxlength="25"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                </div>
+
+                <!-- CTA Inputs -->
+                <div id="cta-inputs" class="hidden space-y-3">
+                    <div class="flex gap-2">
+                        <select id="cta-type-1"
+                            class="w-32 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
+                            <option value="URL">URL</option>
+                            <option value="PHONE_NUMBER">Teléfono</option>
+                        </select>
+                        <input type="text" id="cta-text-1" placeholder="Texto del botón" maxlength="25"
+                            class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                        <input type="text" id="cta-value-1" placeholder="URL o número"
+                            class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="cta-type-2"
+                            class="w-32 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
+                            <option value="">Ninguno</option>
+                            <option value="URL">URL</option>
+                            <option value="PHONE_NUMBER">Teléfono</option>
+                        </select>
+                        <input type="text" id="cta-text-2" placeholder="Texto del botón" maxlength="25"
+                            class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                        <input type="text" id="cta-value-2" placeholder="URL o número"
+                            class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm" />
+                    </div>
+                </div>
+            </div>
+
+            <div id="create-result" class="mb-4"></div>
+
+            <div class="flex gap-3">
+                <button type="button" onclick="closeCreateTemplateModal()"
+                    class="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" id="create-submit-btn"
+                    class="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                    Crear Template
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Utilidades
+    function isValidPhone(phone) {
+        const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+        return /^\+?[1-9]\d{6,14}$/.test(cleaned);
+    }
+
+    function showAlert(container, type, message) {
+        const colors = {
+            success: { bg: 'bg-primary/10', border: 'border-primary/30', text: 'text-primary', icon: 'check_circle' },
+            error: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-300 dark:border-red-700', text: 'text-red-600 dark:text-red-400', icon: 'error' },
+            warning: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-300 dark:border-yellow-700', text: 'text-yellow-600 dark:text-yellow-400', icon: 'warning' }
+        };
+        const c = colors[type];
+        container.innerHTML = `<div class="rounded-lg border ${c.border} ${c.bg} px-3 py-2 flex items-center gap-2">
                 <span class="material-symbols-outlined text-sm ${c.text}">${c.icon}</span>
                 <p class="text-sm ${c.text}">${message}</p>
             </div>`;
-        }
+    }
 
-        // ============ SEND TEMPLATE MODAL ============
-        function openSendModal(templateName, lang) {
-            document.getElementById('modal-template-name').value = templateName;
-            document.getElementById('modal-template-lang').value = lang;
-            document.getElementById('modal-template-display').value = `${templateName} (${lang})`;
-            document.getElementById('modal-result').innerHTML = '';
-            document.getElementById('modal-phone').value = '';
-            document.getElementById('send-modal').classList.remove('hidden');
-        }
+    // ============ SEND TEMPLATE MODAL ============
+    function openSendModal(templateName, lang, components) {
+        document.getElementById('modal-template-name').value = templateName;
+        document.getElementById('modal-template-lang').value = lang;
+        document.getElementById('modal-template-display').value = `${templateName} (${lang})`;
+        document.getElementById('modal-result').innerHTML = '';
+        document.getElementById('modal-phone').value = '';
 
-        function closeSendModal() {
-            document.getElementById('send-modal').classList.add('hidden');
-        }
+        // Detect variables in template components
+        const varsContainer = document.getElementById('modal-variables-container');
+        varsContainer.innerHTML = '';
 
-        document.getElementById('send-template-form').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            const templateName = document.getElementById('modal-template-name').value;
-            const lang = document.getElementById('modal-template-lang').value;
-            const phone = document.getElementById('modal-phone').value;
-            const resultDiv = document.getElementById('modal-result');
-
-            if (!isValidPhone(phone)) {
-                showAlert(resultDiv, 'error', 'Teléfono inválido. Usa formato E.164 (ej: 5491123456789)');
-                return;
-            }
-
-            resultDiv.innerHTML = '<p class="text-sm text-gray-500">Enviando...</p>';
-
-            try {
-                const response = await fetch('/api/whatsapp/send-template', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ to: phone, template_name: templateName, language: lang })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    showAlert(resultDiv, 'success', 'Mensaje enviado correctamente');
-                    setTimeout(closeSendModal, 2000);
-                } else {
-                    showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
-                }
-            } catch (err) {
-                showAlert(resultDiv, 'error', 'Error de conexión');
-            }
-        });
-
-        // ============ CREATE TEMPLATE MODAL ============
-        function openCreateTemplateModal() {
-            document.getElementById('create-template-form').reset();
-            document.getElementById('tpl-header-text').classList.add('hidden');
-            document.getElementById('quick-reply-inputs').classList.add('hidden');
-            document.getElementById('cta-inputs').classList.add('hidden');
-            document.getElementById('create-result').innerHTML = '';
-            document.getElementById('create-template-modal').classList.remove('hidden');
-        }
-
-        function closeCreateTemplateModal() {
-            document.getElementById('create-template-modal').classList.add('hidden');
-        }
-
-        function toggleHeaderText() {
-            const headerType = document.getElementById('tpl-header-type').value;
-            const headerTextInput = document.getElementById('tpl-header-text');
-            if (headerType === 'TEXT') {
-                headerTextInput.classList.remove('hidden');
-            } else {
-                headerTextInput.classList.add('hidden');
-                headerTextInput.value = '';
-            }
-        }
-
-        function toggleButtonInputs() {
-            const btnType = document.getElementById('tpl-button-type').value;
-            document.getElementById('quick-reply-inputs').classList.add('hidden');
-            document.getElementById('cta-inputs').classList.add('hidden');
-
-            if (btnType === 'QUICK_REPLY') {
-                document.getElementById('quick-reply-inputs').classList.remove('hidden');
-            } else if (btnType === 'CTA') {
-                document.getElementById('cta-inputs').classList.remove('hidden');
-            }
-        }
-
-        function insertVariable(num) {
-            const textarea = document.getElementById('tpl-body');
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const text = textarea.value;
-            const variable = '{{ "{{" }}' + num + '{{ "}}" }}';
-            textarea.value = text.substring(0, start) + variable + text.substring(end);
-            textarea.focus();
-            textarea.setSelectionRange(start + variable.length, start + variable.length);
-        }
-
-        document.getElementById('create-template-form').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            const resultDiv = document.getElementById('create-result');
-            const submitBtn = document.getElementById('create-submit-btn');
-
-            const name = document.getElementById('tpl-name').value.trim();
-            const category = document.getElementById('tpl-category').value;
-            const language = document.getElementById('tpl-language').value;
-            const body = document.getElementById('tpl-body').value.trim();
-
-            if (!name || !body) {
-                showAlert(resultDiv, 'error', 'Nombre y Body son requeridos');
-                return;
-            }
-
-            // Construir payload
-            const payload = { name, category, language, body };
-
-            // Header
-            const headerType = document.getElementById('tpl-header-type').value;
-            if (headerType) {
-                payload.header = { format: headerType };
-                if (headerType === 'TEXT') {
-                    payload.header.text = document.getElementById('tpl-header-text').value.trim();
-                }
-            }
-
-            // Footer
-            const footer = document.getElementById('tpl-footer').value.trim();
-            if (footer) payload.footer = footer;
-
-            // Buttons
-            const btnType = document.getElementById('tpl-button-type').value;
-            if (btnType === 'QUICK_REPLY') {
-                const buttons = [];
-                for (let i = 1; i <= 3; i++) {
-                    const text = document.getElementById(`qr-btn-${i}`).value.trim();
-                    if (text) buttons.push({ type: 'QUICK_REPLY', text });
-                }
-                if (buttons.length) payload.buttons = buttons;
-            } else if (btnType === 'CTA') {
-                const buttons = [];
-                for (let i = 1; i <= 2; i++) {
-                    const type = document.getElementById(`cta-type-${i}`).value;
-                    const text = document.getElementById(`cta-text-${i}`).value.trim();
-                    const value = document.getElementById(`cta-value-${i}`).value.trim();
-                    if (type && text && value) {
-                        if (type === 'URL') {
-                            buttons.push({ type: 'URL', text, url: value });
-                        } else if (type === 'PHONE_NUMBER') {
-                            buttons.push({ type: 'PHONE_NUMBER', text, phone_number: value });
-                        }
+        if (components && components.length > 0) {
+            const allVars = [];
+            components.forEach(c => {
+                if (c.type === 'HEADER' && c.format === 'TEXT' && c.text) {
+                    const regex = /\{\{(\w+)\}\}/g;
+                    let match, idx = 0;
+                    while ((match = regex.exec(c.text)) !== null) {
+                        idx++;
+                        allVars.push({ component: 'header', idx, label: match[0] });
                     }
                 }
-                if (buttons.length) payload.buttons = buttons;
-            }
-
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Creando...';
-            resultDiv.innerHTML = '<p class="text-sm text-gray-500">Enviando a Meta para aprobación...</p>';
-
-            try {
-                const response = await fetch('/api/whatsapp/create-template', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    showAlert(resultDiv, 'success', `Template "${name}" creado. Estado: ${data.status || 'PENDING'}. La página se recargará.`);
-                    setTimeout(() => location.reload(), 2500);
-                } else {
-                    showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Crear Template';
+                if (c.type === 'BODY' && c.text) {
+                    const regex = /\{\{(\w+)\}\}/g;
+                    let match, idx = 0;
+                    while ((match = regex.exec(c.text)) !== null) {
+                        idx++;
+                        allVars.push({ component: 'body', idx, label: match[0] });
+                    }
                 }
-            } catch (err) {
-                showAlert(resultDiv, 'error', 'Error de conexión');
+            });
+
+            if (allVars.length > 0) {
+                const title = document.createElement('p');
+                title.className = 'text-sm font-medium text-gray-600 dark:text-gray-300';
+                title.textContent = 'Variables del template';
+                varsContainer.appendChild(title);
+
+                allVars.forEach(v => {
+                    const componentLabel = v.component === 'header' ? '🔖 Header' : '📝 Body';
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">${componentLabel}: ${v.label}</label>
+                            <input type="text" data-component="${v.component}" class="modal-var-input w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Valor para ${v.label}" />
+                        `;
+                    varsContainer.appendChild(div);
+                });
+            }
+        }
+
+        document.getElementById('send-modal').classList.remove('hidden');
+    }
+
+    function closeSendModal() {
+        document.getElementById('send-modal').classList.add('hidden');
+    }
+
+    document.getElementById('send-template-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const templateName = document.getElementById('modal-template-name').value;
+        const lang = document.getElementById('modal-template-lang').value;
+        const phone = document.getElementById('modal-phone').value;
+        const resultDiv = document.getElementById('modal-result');
+
+        if (!isValidPhone(phone)) {
+            showAlert(resultDiv, 'error', 'Teléfono inválido. Usa formato E.164 (ej: 5491123456789)');
+            return;
+        }
+
+        resultDiv.innerHTML = '<p class="text-sm text-gray-500">Enviando...</p>';
+
+        // Collect variable values
+        const components = [];
+        const varInputs = document.querySelectorAll('.modal-var-input');
+        if (varInputs.length > 0) {
+            const headerParams = [];
+            const bodyParams = [];
+            varInputs.forEach(input => {
+                const comp = input.dataset.component || 'body';
+                const param = { type: 'text', text: input.value || '-' };
+                if (comp === 'header') headerParams.push(param);
+                else bodyParams.push(param);
+            });
+            if (headerParams.length > 0) components.push({ type: 'header', parameters: headerParams });
+            if (bodyParams.length > 0) components.push({ type: 'body', parameters: bodyParams });
+        }
+
+        try {
+            const response = await fetch('/api/whatsapp/send-template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: phone, template_name: templateName, language: lang, components: components.length > 0 ? components : undefined })
+            });
+            const data = await response.json();
+            if (data.success) {
+                showAlert(resultDiv, 'success', 'Mensaje enviado correctamente');
+                setTimeout(closeSendModal, 2000);
+            } else {
+                showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
+            }
+        } catch (err) {
+            showAlert(resultDiv, 'error', 'Error de conexión');
+        }
+    });
+
+    // ============ CREATE TEMPLATE MODAL ============
+    function openCreateTemplateModal() {
+        document.getElementById('create-template-form').reset();
+        document.getElementById('tpl-header-text').classList.add('hidden');
+        document.getElementById('quick-reply-inputs').classList.add('hidden');
+        document.getElementById('cta-inputs').classList.add('hidden');
+        document.getElementById('create-result').innerHTML = '';
+        document.getElementById('create-template-modal').classList.remove('hidden');
+    }
+
+    function closeCreateTemplateModal() {
+        document.getElementById('create-template-modal').classList.add('hidden');
+    }
+
+    function toggleHeaderText() {
+        const headerType = document.getElementById('tpl-header-type').value;
+        const headerTextInput = document.getElementById('tpl-header-text');
+        if (headerType === 'TEXT') {
+            headerTextInput.classList.remove('hidden');
+        } else {
+            headerTextInput.classList.add('hidden');
+            headerTextInput.value = '';
+        }
+    }
+
+    function toggleButtonInputs() {
+        const btnType = document.getElementById('tpl-button-type').value;
+        document.getElementById('quick-reply-inputs').classList.add('hidden');
+        document.getElementById('cta-inputs').classList.add('hidden');
+
+        if (btnType === 'QUICK_REPLY') {
+            document.getElementById('quick-reply-inputs').classList.remove('hidden');
+        } else if (btnType === 'CTA') {
+            document.getElementById('cta-inputs').classList.remove('hidden');
+        }
+    }
+
+    function insertVariable(num) {
+        const textarea = document.getElementById('tpl-body');
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const variable = '{{ "{{" }}' + num + '{{ "}}" }}';
+        textarea.value = text.substring(0, start) + variable + text.substring(end);
+        textarea.focus();
+        textarea.setSelectionRange(start + variable.length, start + variable.length);
+    }
+
+    document.getElementById('create-template-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const resultDiv = document.getElementById('create-result');
+        const submitBtn = document.getElementById('create-submit-btn');
+
+        const name = document.getElementById('tpl-name').value.trim();
+        const category = document.getElementById('tpl-category').value;
+        const language = document.getElementById('tpl-language').value;
+        const body = document.getElementById('tpl-body').value.trim();
+
+        if (!name || !body) {
+            showAlert(resultDiv, 'error', 'Nombre y Body son requeridos');
+            return;
+        }
+
+        // Construir payload
+        const payload = { name, category, language, body };
+
+        // Header
+        const headerType = document.getElementById('tpl-header-type').value;
+        if (headerType) {
+            payload.header = { format: headerType };
+            if (headerType === 'TEXT') {
+                payload.header.text = document.getElementById('tpl-header-text').value.trim();
+            }
+        }
+
+        // Footer
+        const footer = document.getElementById('tpl-footer').value.trim();
+        if (footer) payload.footer = footer;
+
+        // Buttons
+        const btnType = document.getElementById('tpl-button-type').value;
+        if (btnType === 'QUICK_REPLY') {
+            const buttons = [];
+            for (let i = 1; i <= 3; i++) {
+                const text = document.getElementById(`qr-btn-${i}`).value.trim();
+                if (text) buttons.push({ type: 'QUICK_REPLY', text });
+            }
+            if (buttons.length) payload.buttons = buttons;
+        } else if (btnType === 'CTA') {
+            const buttons = [];
+            for (let i = 1; i <= 2; i++) {
+                const type = document.getElementById(`cta-type-${i}`).value;
+                const text = document.getElementById(`cta-text-${i}`).value.trim();
+                const value = document.getElementById(`cta-value-${i}`).value.trim();
+                if (type && text && value) {
+                    if (type === 'URL') {
+                        buttons.push({ type: 'URL', text, url: value });
+                    } else if (type === 'PHONE_NUMBER') {
+                        buttons.push({ type: 'PHONE_NUMBER', text, phone_number: value });
+                    }
+                }
+            }
+            if (buttons.length) payload.buttons = buttons;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creando...';
+        resultDiv.innerHTML = '<p class="text-sm text-gray-500">Enviando a Meta para aprobación...</p>';
+
+        try {
+            const response = await fetch('/api/whatsapp/create-template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert(resultDiv, 'success', `Template "${name}" creado. Estado: ${data.status || 'PENDING'}. La página se recargará.`);
+                setTimeout(() => location.reload(), 2500);
+            } else {
+                showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Crear Template';
             }
-        });
-    </script>
+        } catch (err) {
+            showAlert(resultDiv, 'error', 'Error de conexión');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Crear Template';
+        }
+    });
+</script>
 {% endblock %}

@@ -3092,32 +3092,59 @@ def send_campaign_bg(app_context, cid):
                     # Construir componentes con variables dinámicas
                     components = None
                     if camp.variables:
-                        parameters = []
-                        # Variables es un dict {"1": "field_name", ...}
-                        sorted_vars = sorted(camp.variables.items(), key=lambda x: int(x[0]))
-
                         # Usar contact_id para obtener el contacto (o la relación directa)
                         contact = log.contact or Contact.query.get(log.contact_id)
 
-                        for idx, field in sorted_vars:
-                            value = "-"
-                            if field == 'phone_number':
-                                value = contact.phone_number
-                            elif contact:
-                                val = getattr(contact, field, None)
-                                if val:
-                                    value = str(val)
-                            
-                            parameters.append({
-                                "type": "text",
-                                "text": value
-                            })
+                        # Separar variables por componente (body vs header)
+                        body_vars = {}
+                        header_vars = {}
                         
-                        if parameters:
-                            components = [{
-                                "type": "body",
-                                "parameters": parameters
-                            }]
+                        for key, field in camp.variables.items():
+                            if '-' in key:
+                                # New format: "body-1", "header-1"
+                                comp, idx = key.split('-', 1)
+                                if comp == 'header':
+                                    header_vars[int(idx)] = field
+                                else:
+                                    body_vars[int(idx)] = field
+                            else:
+                                # Old format: "1", "2" (backwards compat, treat as body)
+                                body_vars[int(key)] = field
+                        
+                        components = []
+                        
+                        # Build header parameters
+                        if header_vars:
+                            header_params = []
+                            for idx in sorted(header_vars.keys()):
+                                field = header_vars[idx]
+                                value = "-"
+                                if field == 'phone_number':
+                                    value = contact.phone_number if contact else log.contact_phone
+                                elif contact:
+                                    val = getattr(contact, field, None)
+                                    if val:
+                                        value = str(val)
+                                header_params.append({"type": "text", "text": value})
+                            components.append({"type": "header", "parameters": header_params})
+                        
+                        # Build body parameters
+                        if body_vars:
+                            body_params = []
+                            for idx in sorted(body_vars.keys()):
+                                field = body_vars[idx]
+                                value = "-"
+                                if field == 'phone_number':
+                                    value = contact.phone_number if contact else log.contact_phone
+                                elif contact:
+                                    val = getattr(contact, field, None)
+                                    if val:
+                                        value = str(val)
+                                body_params.append({"type": "text", "text": value})
+                            components.append({"type": "body", "parameters": body_params})
+                        
+                        if not components:
+                            components = None
 
                     result = whatsapp_api.send_template_message(
                         log.contact_phone,
