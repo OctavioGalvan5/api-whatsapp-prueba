@@ -334,12 +334,13 @@
             return;
         }
 
-        // Collect variables
+        // Collect variables grouped by component
         const variables = {};
         const varInputs = document.querySelectorAll('[id^="var-input-"]');
         varInputs.forEach(input => {
-            const idx = input.id.replace('var-input-', '');
-            variables[idx] = input.value;
+            // key is like "body-1", "body-2", "header-1"
+            const key = input.id.replace('var-input-', '');
+            variables[key] = input.value;
         });
 
         const [templateName, templateLang] = templateVal.split('|');
@@ -391,29 +392,54 @@
         const option = select.options[select.selectedIndex];
         const components = JSON.parse(option.dataset.components || '[]');
 
-        // Find body text
-        let bodyText = "";
-        components.forEach(c => {
-            if (c.type === 'BODY') bodyText = c.text;
-        });
+        // Collect variables from HEADER and BODY
+        const allVars = []; // {component: 'header'|'body', idx: '1', label: '{{1}}' or '{{name}}'}
 
-        // Regex to find {{1}}, {{2}}...
-        const regex = /\{\{(\d+)\}\}/g;
-        const matches = [...bodyText.matchAll(regex)];
+        components.forEach(c => {
+            if (c.type === 'HEADER' && c.format === 'TEXT' && c.text) {
+                // Match both {{1}} and {{customer_name}} style variables
+                const regex = /\{\{(\w+)\}\}/g;
+                let match;
+                let headerIdx = 0;
+                while ((match = regex.exec(c.text)) !== null) {
+                    headerIdx++;
+                    allVars.push({
+                        component: 'header',
+                        idx: String(headerIdx),
+                        label: match[0],
+                        varName: match[1]
+                    });
+                }
+            }
+            if (c.type === 'BODY' && c.text) {
+                // Match both {{1}} and {{customer_name}} style variables
+                const regex = /\{\{(\w+)\}\}/g;
+                let match;
+                let bodyIdx = 0;
+                while ((match = regex.exec(c.text)) !== null) {
+                    bodyIdx++;
+                    allVars.push({
+                        component: 'body',
+                        idx: String(bodyIdx),
+                        label: match[0],
+                        varName: match[1]
+                    });
+                }
+            }
+        });
 
         inputsDiv.innerHTML = '';
 
-        if (matches.length > 0) {
+        if (allVars.length > 0) {
             container.classList.remove('hidden');
 
-            // Get unique indices
-            const indices = [...new Set(matches.map(m => m[1]))].sort((a, b) => a - b);
-
-            indices.forEach(idx => {
+            allVars.forEach(v => {
+                const key = `${v.component}-${v.idx}`;
+                const componentLabel = v.component === 'header' ? '🔖 Header' : '📝 Body';
                 const row = `
                         <div class="flex items-center gap-2">
-                            <span class="text-sm font-mono text-gray-500 w-10 shrink-0">{{ '{{' }}${idx}{{ '}}' }}</span>
-                            <select id="var-input-${idx}" class="flex-1 px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
+                            <span class="text-xs font-mono text-gray-500 shrink-0 min-w-[120px]" title="${componentLabel}">${componentLabel}: ${v.label}</span>
+                            <select id="var-input-${key}" class="flex-1 px-3 py-1.5 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm">
                                 <option value="first_name">Nombre (First Name)</option>
                                 <option value="last_name">Apellido (Last Name)</option>
                                 <option value="name">Nombre Completo</option>

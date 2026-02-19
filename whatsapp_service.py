@@ -3,6 +3,7 @@ Servicio para interactuar con la API de WhatsApp Business.
 """
 import requests
 import logging
+import json
 import time
 import os
 import mimetypes
@@ -17,7 +18,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://graph.facebook.com/v21.0"
+BASE_URL = "https://graph.facebook.com/v22.0"
 
 # Cache en memoria para templates (TTL: 30 minutos — templates cambian rara vez)
 _template_cache = {'data': None, 'expires_at': 0}
@@ -369,6 +370,7 @@ class WhatsAppAPI:
             payload["template"]["components"] = components
         
         try:
+            logger.info(f"📤 Enviando template '{template_name}' a {to_phone} con components: {json.dumps(components) if components else 'None'}")
             response = requests.post(url, headers=self.headers, json=payload, timeout=10)
             response.raise_for_status()
             data = response.json()
@@ -381,13 +383,16 @@ class WhatsAppAPI:
             }
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error enviando template: {e}")
+            logger.error(f"Error enviando template '{template_name}' a {to_phone}: {e}")
             error_detail = ""
             if hasattr(e, 'response') and e.response:
                 try:
                     error_detail = e.response.json()
+                    logger.error(f"📛 Detalle del error de Meta: {json.dumps(error_detail)}")
                 except:
                     error_detail = e.response.text
+                    logger.error(f"📛 Respuesta de Meta: {error_detail}")
+            logger.error(f"📦 Payload enviado: {json.dumps(payload)}")
             return {"error": str(e), "detail": error_detail}
     
     def create_template(self, name, category, language, components):

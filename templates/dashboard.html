@@ -845,27 +845,41 @@
         const template = allTemplates.find(t => t.name === templateName);
         if (!template) return;
 
-        // Find BODY component
-        const bodyComp = template.components.find(c => c.type === 'BODY');
-        if (bodyComp && bodyComp.text) {
-            const matches = bodyComp.text.match(/\{\{\d+\}\}/g);
-            if (matches) {
-                // Deduplicate
-                const vars = [...new Set(matches)];
-                vars.forEach((v, index) => {
-                    const varNum = v.replace(/[\{\}]/g, '');
-                    const div = document.createElement('div');
-                    div.className = 'flex flex-col';
-                    div.innerHTML = `
-<label class="text-[10px] text-gray-500 uppercase font-bold">Variable {{ '{{' }}${varNum}{{ '}}' }}</label>
-<input type="text" name="var_${varNum}"
-    class="rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-2 px-3 focus:border-primary focus:ring-0"
-    placeholder="Valor para variable ${varNum}">
-`;
-                    container.appendChild(div);
-                });
+        // Detect variables in HEADER and BODY components
+        const allVars = []; // {component: 'header'|'body', idx, label}
+
+        template.components.forEach(c => {
+            if (c.type === 'HEADER' && c.format === 'TEXT' && c.text) {
+                const regex = /\{\{(\w+)\}\}/g;
+                let match, idx = 0;
+                while ((match = regex.exec(c.text)) !== null) {
+                    idx++;
+                    allVars.push({ component: 'header', idx, label: match[0] });
+                }
             }
-        }
+            if (c.type === 'BODY' && c.text) {
+                const regex = /\{\{(\w+)\}\}/g;
+                let match, idx = 0;
+                while ((match = regex.exec(c.text)) !== null) {
+                    idx++;
+                    allVars.push({ component: 'body', idx, label: match[0] });
+                }
+            }
+        });
+
+        allVars.forEach(v => {
+            const div = document.createElement('div');
+            div.className = 'flex flex-col';
+            const componentLabel = v.component === 'header' ? '🔖 Header' : '📝 Body';
+            div.innerHTML = `
+<label class="text-[10px] text-gray-500 uppercase font-bold">${componentLabel}: ${v.label}</label>
+<input type="text" name="var_${v.component}_${v.idx}"
+    data-component="${v.component}"
+    class="rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-2 px-3 focus:border-primary focus:ring-0"
+    placeholder="Valor para ${v.label}">
+`;
+            container.appendChild(div);
+        });
     });
 
     async function sendTemplateMessage(e) {
@@ -880,21 +894,27 @@
             return;
         }
 
-        // Collect variables
+        // Collect variables grouped by component
         const components = [];
         const inputs = document.querySelectorAll('#template-variables-container input');
         if (inputs.length > 0) {
-            const params = [];
+            const headerParams = [];
+            const bodyParams = [];
             inputs.forEach(input => {
-                params.push({
-                    type: "text",
-                    text: input.value
-                });
+                const comp = input.dataset.component || 'body';
+                const param = { type: "text", text: input.value || "-" };
+                if (comp === 'header') {
+                    headerParams.push(param);
+                } else {
+                    bodyParams.push(param);
+                }
             });
-            components.push({
-                type: "body",
-                parameters: params
-            });
+            if (headerParams.length > 0) {
+                components.push({ type: "header", parameters: headerParams });
+            }
+            if (bodyParams.length > 0) {
+                components.push({ type: "body", parameters: bodyParams });
+            }
         }
 
         const resDiv = document.getElementById('send-result');
