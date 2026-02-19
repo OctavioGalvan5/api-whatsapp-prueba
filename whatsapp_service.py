@@ -439,7 +439,9 @@ class WhatsAppAPI:
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_json = e.response.json()
-                    error_detail = error_json.get("error", {}).get("message", str(e))
+                    error_obj = error_json.get("error", {})
+                    # Preferir error_user_msg (mensaje amigable en español) sobre message (genérico)
+                    error_detail = error_obj.get("error_user_msg") or error_obj.get("message", str(e))
                     logger.error(f"Error creando template: {e} | Detalle Meta: {error_json}")
                 except:
                     error_detail = e.response.text
