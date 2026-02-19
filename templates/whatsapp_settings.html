@@ -155,8 +155,9 @@
                             {{ template.language }}
                         </span>
                         {% if template.status == 'APPROVED' %}
-                        <button
-                            onclick="openSendModal('{{ template.name }}', '{{ template.language }}', {{ template.components | tojson | e }})"
+                        <button data-tpl-name="{{ template.name }}" data-tpl-lang="{{ template.language }}"
+                            data-tpl-components='{{ template.components | tojson }}'
+                            onclick="openSendModal(this.dataset.tplName, this.dataset.tplLang, JSON.parse(this.dataset.tplComponents))"
                             class="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
                             <span class="material-symbols-outlined text-sm">send</span>
                             Enviar
