@@ -17,7 +17,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://graph.facebook.com/v18.0"
+BASE_URL = "https://graph.facebook.com/v21.0"
 
 # Cache en memoria para templates (TTL: 30 minutos — templates cambian rara vez)
 _template_cache = {'data': None, 'expires_at': 0}
@@ -434,14 +434,17 @@ class WhatsAppAPI:
             }
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error creando template: {e}")
             error_detail = ""
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     error_json = e.response.json()
                     error_detail = error_json.get("error", {}).get("message", str(e))
+                    logger.error(f"Error creando template: {e} | Detalle Meta: {error_json}")
                 except:
                     error_detail = e.response.text
+                    logger.error(f"Error creando template: {e} | Response: {error_detail}")
+            else:
+                logger.error(f"Error creando template: {e}")
             return {"error": error_detail or str(e)}
 
     def send_text_message(self, to_phone, text):
