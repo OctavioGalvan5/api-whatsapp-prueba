@@ -14,20 +14,23 @@
 
     /* Estilo especial para contactos con etiqueta Asistencia Humana */
     .contact-item.needs-human {
-        background: linear-gradient(90deg, rgba(249,115,22,0.07) 0%, transparent 100%);
+        background: linear-gradient(90deg, rgba(249, 115, 22, 0.07) 0%, transparent 100%);
         border-left-color: #f97316 !important;
     }
+
     .contact-item.needs-human:hover {
-        background: linear-gradient(90deg, rgba(249,115,22,0.13) 0%, transparent 100%);
+        background: linear-gradient(90deg, rgba(249, 115, 22, 0.13) 0%, transparent 100%);
     }
+
     .contact-item.needs-human.active {
-        background: linear-gradient(90deg, rgba(249,115,22,0.18) 0%, transparent 100%);
+        background: linear-gradient(90deg, rgba(249, 115, 22, 0.18) 0%, transparent 100%);
     }
+
     .human-badge {
         display: inline-flex;
         align-items: center;
         gap: 2px;
-        background: rgba(249,115,22,0.15);
+        background: rgba(249, 115, 22, 0.15);
         color: #f97316;
         font-size: 10px;
         font-weight: 700;
@@ -36,8 +39,9 @@
         text-transform: uppercase;
         letter-spacing: 0.04em;
     }
+
     .human-avatar {
-        background: rgba(249,115,22,0.15) !important;
+        background: rgba(249, 115, 22, 0.15) !important;
         color: #f97316 !important;
     }
 </style>
@@ -75,15 +79,18 @@
         </div>
 
         <!-- Banner de Asistencia Humana Pendiente -->
-        <div id="human-assistance-banner" class="hidden items-center justify-between bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-xl px-3 py-2">
+        <div id="human-assistance-banner"
+            class="hidden items-center justify-between bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-xl px-3 py-2">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-orange-500 text-[18px]">support_agent</span>
                 <div>
                     <p class="text-xs font-semibold text-orange-700 dark:text-orange-400">Asistencia Humana</p>
-                    <p class="text-[11px] text-orange-600 dark:text-orange-500"><span id="human-assistance-count">0</span> persona(s) esperando</p>
+                    <p class="text-[11px] text-orange-600 dark:text-orange-500"><span
+                            id="human-assistance-count">0</span> persona(s) esperando</p>
                 </div>
             </div>
-            <button onclick="scrollToFirstHumanContact()" class="text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:underline shrink-0">Ver</button>
+            <button onclick="scrollToFirstHumanContact()"
+                class="text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:underline shrink-0">Ver</button>
         </div>
 
         <!-- Search Bar -->
@@ -116,7 +123,9 @@
                 <div class="flex justify-between items-center gap-1">
                     <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">{{ contact.name or
                         contact.phone_number }}</p>
-                    <p class="text-[10px] text-gray-400 shrink-0">{{ (contact.last_timestamp|to_argentina).strftime('%d/%m %H:%M') if contact.last_timestamp else '' }}</p>
+                    <p class="text-[10px] text-gray-400 shrink-0">{{
+                        (contact.last_timestamp|to_argentina).strftime('%d/%m %H:%M') if contact.last_timestamp else ''
+                        }}</p>
                 </div>
                 <div class="flex justify-between items-center gap-1">
                     <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}</p>
@@ -146,32 +155,33 @@
     {% if selected_contact %}
     <!-- Chat Header -->
     <header
-        class="h-16 bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 z-10">
-        <div class="flex items-center gap-3">
+        class="min-h-[64px] py-2 bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 z-10">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
             <div
-                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-10 w-10 bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
+                class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-10 w-10 bg-gray-200 flex items-center justify-center text-gray-500 font-bold shrink-0">
                 {{ contact_details.name[0] if contact_details and contact_details.name else selected_contact[-2:] }}
             </div>
-            <div class="flex flex-col">
+            <div class="flex flex-col min-w-0">
                 <div class="flex items-center gap-2">
-                    <h2 class="chat-user-name text-[#111812] dark:text-white text-base font-semibold">
+                    <h2 class="chat-user-name text-[#111812] dark:text-white text-base font-semibold truncate">
                         {{ contact_details.name if contact_details and contact_details.name else selected_contact }}
                     </h2>
+                    <p class="chat-user-phone text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ selected_contact }}
+                    </p>
+                </div>
+                <div class="flex gap-1 flex-wrap chat-tags-container">
                     {% if contact_details and contact_details.tags %}
-                    <div class="flex gap-1">
-                        {% for tag in contact_details.tags %}
-                        <span
-                            class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">{{
-                            tag }}</span>
-                        {% endfor %}
-                    </div>
+                    {% for tag in contact_details.tags %}
+                    <span
+                        class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider whitespace-nowrap">{{
+                        tag }}</span>
+                    {% endfor %}
                     {% endif %}
                 </div>
-                <p class="chat-user-phone text-xs text-gray-500 dark:text-gray-400">{{ selected_contact }}</p>
             </div>
         </div>
         <!-- Header Actions -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
             <!-- Stats in header -->
             <div class="hidden md:flex gap-3 mr-4 text-xs text-gray-500">
                 <div class="chat-stat-sent flex items-center gap-1"><span
@@ -186,7 +196,8 @@
             </div>
             <!-- Bot pausado: banner + botón reactivar -->
             <div id="bot-paused-banner" class="{% if not bot_paused %}hidden{% endif %} flex items-center gap-2">
-                <span class="flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-medium px-3 py-1.5 rounded-full">
+                <span
+                    class="flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-medium px-3 py-1.5 rounded-full">
                     <span class="material-symbols-outlined text-sm">support_agent</span>
                     Bot pausado
                 </span>
@@ -453,7 +464,7 @@
                 if (banner) banner.classList.add('hidden');
 
                 // Quitar tag "Asistencia Humana" del header
-                const tagsContainer = document.querySelector('.chat-user-name')?.closest('.flex.items-center.gap-2')?.querySelector('.flex.gap-1');
+                const tagsContainer = document.querySelector('.chat-tags-container');
                 if (tagsContainer) {
                     tagsContainer.querySelectorAll('span').forEach(span => {
                         if (span.textContent.trim() === 'ASISTENCIA HUMANA') {
@@ -580,17 +591,17 @@
         currentContactName = contact.name || '';
 
         // Actualizar tags en header
-        const tagsContainer = document.querySelector('.chat-user-name')?.closest('.flex.items-center.gap-2')?.querySelector('.flex.gap-1');
-        if (contact.tags && contact.tags.length > 0) {
-            let tagsHtml = '';
-            contact.tags.forEach(tag => {
-                tagsHtml += `<span class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">${escapeHtml(tag)}</span>`;
-            });
-            if (tagsContainer) {
+        const tagsContainer = document.querySelector('.chat-tags-container');
+        if (tagsContainer) {
+            if (contact.tags && contact.tags.length > 0) {
+                let tagsHtml = '';
+                contact.tags.forEach(tag => {
+                    tagsHtml += `<span class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">${escapeHtml(tag)}</span>`;
+                });
                 tagsContainer.innerHTML = tagsHtml;
+            } else {
+                tagsContainer.innerHTML = '';
             }
-        } else if (tagsContainer) {
-            tagsContainer.innerHTML = '';
         }
 
         // Actualizar banner de bot pausado
