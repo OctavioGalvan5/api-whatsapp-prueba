@@ -251,5 +251,30 @@ CREATE INDEX IF NOT EXISTS idx_campaign_logs_campaign_status ON whatsapp_campaig
 CREATE INDEX IF NOT EXISTS idx_campaign_logs_campaign_contact ON whatsapp_campaign_logs(campaign_id, contact_id);
 
 -- ==========================================
+-- CONVERSATION NOTES (notas internas del equipo)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS conversation_notes (
+    id SERIAL PRIMARY KEY,
+    phone_number VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_conversation_notes_phone ON conversation_notes(phone_number);
+
+-- ==========================================
+-- PERMISOS PUBLICOS (para cualquier usuario)
+-- ==========================================
+
+-- Permisos para TODOS los usuarios en tablas y secuencias existentes
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO PUBLIC;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO PUBLIC;
+
+-- Permisos automáticos para futuras tablas/secuencias
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO PUBLIC;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO PUBLIC;
+
+-- ==========================================
 -- FIN DEL SCRIPT
 -- ==========================================
+
