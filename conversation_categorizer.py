@@ -27,30 +27,50 @@ SESSION_GAP_MINUTES = 30  # Gap between messages to consider separate sessions
 CATEGORIZATION_START_DATE = datetime(2026, 2, 3, 23, 0, 0)  # Only categorize from this date onwards
 
 
-def run_categorization(app_context):
-    """Main categorization job - runs periodically."""
+def run_categorization(app_context, force_phone=None):
+    """Main categorization job - runs periodically.
+    Args:
+        app_context: Flask app context
+        force_phone: If set, only categorize this phone number
+    """
     if not client:
+        logger.warning("⚠️ [CATEGORIZER] OpenAI client not initialized - skipping")
         return
     
     with app_context:
         from models import db, Message, ConversationTopic, ConversationSession
         
         try:
+            logger.info(f"🔄 [CATEGORIZER] Job started (inactivity={INACTIVITY_MINUTES}min, session_gap={SESSION_GAP_MINUTES}min, start_date={CATEGORIZATION_START_DATE})")
+            
             # Find all topics for prompt
             topics = ConversationTopic.query.all()
             if not topics:
-                logger.debug("No topics configured - skipping categorization")
+                logger.warning("⚠️ [CATEGORIZER] No topics configured - skipping")
                 return
+            
+            logger.info(f"📋 [CATEGORIZER] {len(topics)} topics loaded: {[t.name for t in topics]}")
             
             cutoff_time = datetime.utcnow() - timedelta(minutes=INACTIVITY_MINUTES)
             
             # Get distinct phone numbers with activity since start date
-            phones_query = db.session.query(
+            phones_q = db.session.query(
                 Message.phone_number
             ).filter(
                 Message.phone_number.notin_(['unknown', 'outbound', '']),
                 Message.timestamp >= CATEGORIZATION_START_DATE
-            ).distinct().all()
+            )
+            if force_phone:
+                phones_q = phones_q.filter(Message.phone_number == force_phone)
+            phones_query = phones_q.distinct().all()
+            
+            total_phones = len(phones_query)
+            total_categorized = 0
+            total_skipped_active = 0
+            total_skipped_existing = 0
+            total_skipped_few_msgs = 0
+            
+            logger.info(f"📱 [CATEGORIZER] Found {total_phones} phones with activity since {CATEGORIZATION_START_DATE}")
             
             for (phone,) in phones_query:
                 # Get all messages for this phone since start date
@@ -60,13 +80,17 @@ def run_categorization(app_context):
                 ).order_by(Message.timestamp).all()
                 
                 if len(messages) < 2:
+                    total_skipped_few_msgs += 1
+                    logger.debug(f"  ⏭️ [CATEGORIZER] {phone}: only {len(messages)} msg(s) - skipping")
                     continue
                 
                 # Split into sessions based on time gaps
                 sessions = split_into_sessions(messages)
+                logger.debug(f"  📞 [CATEGORIZER] {phone}: {len(messages)} msgs → {len(sessions)} session(s)")
                 
-                for session_msgs in sessions:
+                for idx, session_msgs in enumerate(sessions):
                     if len(session_msgs) < 2:
+                        total_skipped_few_msgs += 1
                         continue
                     
                     session_start = session_msgs[0].timestamp
@@ -74,7 +98,9 @@ def run_categorization(app_context):
                     
                     # Only categorize if session ended >15 min ago (inactive)
                     if session_end >= cutoff_time:
-                        continue  # Still active, skip
+                        total_skipped_active += 1
+                        logger.debug(f"  ⏳ [CATEGORIZER] {phone} session {idx+1}: still active (last msg {session_end}) - skipping")
+                        continue
                     
                     # Check if this session was already categorized
                     existing = ConversationSession.query.filter(
@@ -84,16 +110,21 @@ def run_categorization(app_context):
                     ).first()
                     
                     if existing:
-                        continue  # Already categorized
+                        total_skipped_existing += 1
+                        continue
                     
                     # Categorize this session
+                    logger.info(f"  🤖 [CATEGORIZER] {phone} session {idx+1}: categorizing {len(session_msgs)} msgs ({session_start} → {session_end})")
                     categorize_conversation(
                         db, phone, session_msgs, topics,
                         session_start, session_end
                     )
+                    total_categorized += 1
+            
+            logger.info(f"✅ [CATEGORIZER] Job complete: {total_phones} phones | {total_categorized} categorized | {total_skipped_existing} already done | {total_skipped_active} still active | {total_skipped_few_msgs} too few msgs")
                 
         except Exception as e:
-            logger.error(f"Error in categorization job: {e}")
+            logger.error(f"❌ [CATEGORIZER] Error in categorization job: {e}", exc_info=True)
 
 
 def split_into_sessions(messages):

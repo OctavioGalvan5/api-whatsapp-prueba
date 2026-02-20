@@ -3655,6 +3655,39 @@ def api_update_conversation_session(session_id):
     return jsonify({'success': True, 'session': session.to_dict()})
 
 
+@app.route("/api/categorize/force", methods=["POST"])
+def api_force_categorize():
+    """Fuerza la categorización inmediata de conversaciones."""
+    import conversation_categorizer
+
+    data = request.get_json(silent=True) or {}
+    phone = data.get('phone')
+
+    def run_force():
+        # Guardar valor original y restaurar después
+        original_inactivity = conversation_categorizer.INACTIVITY_MINUTES
+        conversation_categorizer.INACTIVITY_MINUTES = 0
+        try:
+            conversation_categorizer.run_categorization(
+                app.app_context(),
+                force_phone=phone
+            )
+        finally:
+            conversation_categorizer.INACTIVITY_MINUTES = original_inactivity
+
+    t = threading.Thread(target=run_force)
+    t.daemon = True
+    t.start()
+
+    msg = f'Clasificación forzada iniciada para {phone}' if phone else 'Clasificación forzada iniciada para todas las conversaciones'
+    logger.info(f"⚡ [CATEGORIZER] {msg}")
+
+    return jsonify({
+        'success': True,
+        'message': msg
+    })
+
+
 # ==========================================
 # RAG DOCUMENTS API
 # ==========================================

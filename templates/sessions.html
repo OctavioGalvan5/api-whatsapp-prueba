@@ -31,6 +31,11 @@
                     <option value="unanswered">Sin respuesta</option>
                     <option value="escalated">Escalado a humano</option>
                 </select>
+                <button id="force-categorize-btn" onclick="forceCategorization()"
+                    class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">sync</span>
+                    Forzar Clasificación
+                </button>
             </div>
         </div>
     </header>
@@ -316,6 +321,39 @@
             }
         } catch (e) {
             alert('Error: ' + e.message);
+        }
+    }
+
+    async function forceCategorization() {
+        const btn = document.getElementById('force-categorize-btn');
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-lg animate-spin">sync</span> Clasificando...';
+
+        try {
+            const resp = await fetch('/api/categorize/force', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                btn.innerHTML = '<span class="material-symbols-outlined text-lg">check</span> Iniciado';
+                // Esperar unos segundos y recargar sesiones
+                setTimeout(() => {
+                    loadSessions(true);
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                }, 8000);
+            } else {
+                alert('Error: ' + (data.error || 'Desconocido'));
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
         }
     }
 
