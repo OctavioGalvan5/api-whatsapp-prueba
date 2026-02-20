@@ -3401,10 +3401,10 @@ def api_campaign_details(campaign_id):
         template_content = None
         try:
             templates_data = whatsapp_api.get_templates()
-            if templates_data and 'data' in templates_data:
+            if templates_data and 'templates' in templates_data:
                 # Buscar el template por nombre y lenguaje
                 matching_template = next(
-                    (t for t in templates_data['data']
+                    (t for t in templates_data['templates']
                      if t.get('name') == campaign.template_name and
                         t.get('language') == campaign.template_language),
                     None
