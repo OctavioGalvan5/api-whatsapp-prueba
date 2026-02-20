@@ -53,7 +53,7 @@
                     </div>
                 </div>
 
-                <!-- Info Grid -->
+                <!-- Info Section -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                     <!-- Info -->
                     <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
@@ -78,8 +78,19 @@
                         </div>
                     </div>
 
+                    <!-- Template Content Preview -->
+                    <div id="template-content-card" class="hidden col-span-1 lg:col-span-2 bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+                        <h3 class="font-semibold mb-4">Contenido del Template</h3>
+                        <div id="template-content" class="space-y-3 text-sm">
+                            <!-- Template content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Section -->
+                <div class="grid grid-cols-1 gap-6 mb-6">
                     <!-- Logs Preview -->
-                    <div class="col-span-1 lg:col-span-2 bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5 flex flex-col">
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5 flex flex-col">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="font-semibold">Últimos envíos</h3>
                             <div class="flex items-center gap-2 text-sm">
@@ -116,6 +127,13 @@
         const CAMPAIGN_ID = {{ campaign_id }};
         let currentPage = 1;
         let totalPages = 1;
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
         
         async function loadCampaignData(page = 1) {
             try {
@@ -157,6 +175,96 @@
                 document.getElementById('camp-tag').textContent = data.tag_name;
                 document.getElementById('camp-start').textContent = data.started_at ? new Date(data.started_at).toLocaleString() : (data.scheduled_at ? 'Prog: ' + new Date(data.scheduled_at).toLocaleString() : '-');
                 document.getElementById('camp-end').textContent = data.completed_at ? new Date(data.completed_at).toLocaleString() : '-';
+
+                // Template Content
+                if (data.template_content) {
+                    const templateCard = document.getElementById('template-content-card');
+                    const templateContent = document.getElementById('template-content');
+                    templateCard.classList.remove('hidden');
+
+                    let contentHTML = '';
+                    const components = data.template_content.components || [];
+
+                    components.forEach(comp => {
+                        if (comp.type === 'HEADER') {
+                            if (comp.format === 'TEXT' && comp.text) {
+                                contentHTML += `
+                                    <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="material-symbols-outlined text-sm text-blue-600">title</span>
+                                            <span class="text-xs font-semibold text-blue-600 uppercase">Header</span>
+                                        </div>
+                                        <p class="text-sm font-medium">${escapeHtml(comp.text)}</p>
+                                    </div>
+                                `;
+                            } else if (comp.format === 'IMAGE') {
+                                contentHTML += `
+                                    <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-sm text-blue-600">image</span>
+                                            <span class="text-xs font-semibold text-blue-600 uppercase">Header (Imagen)</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        } else if (comp.type === 'BODY' && comp.text) {
+                            contentHTML += `
+                                <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="material-symbols-outlined text-sm text-gray-600">description</span>
+                                        <span class="text-xs font-semibold text-gray-600 uppercase">Body</span>
+                                    </div>
+                                    <p class="text-sm whitespace-pre-wrap">${escapeHtml(comp.text)}</p>
+                                </div>
+                            `;
+                        } else if (comp.type === 'FOOTER' && comp.text) {
+                            contentHTML += `
+                                <div class="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="material-symbols-outlined text-sm text-gray-500">info</span>
+                                        <span class="text-xs font-semibold text-gray-500 uppercase">Footer</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500">${escapeHtml(comp.text)}</p>
+                                </div>
+                            `;
+                        } else if (comp.type === 'BUTTONS') {
+                            const buttons = comp.buttons || [];
+                            if (buttons.length > 0) {
+                                let buttonsHTML = '<div class="flex flex-col gap-2">';
+                                buttons.forEach(btn => {
+                                    const buttonIcon = btn.type === 'URL' ? 'link' :
+                                                     btn.type === 'PHONE_NUMBER' ? 'call' :
+                                                     'smart_button';
+                                    buttonsHTML += `
+                                        <div class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg">
+                                            <span class="material-symbols-outlined text-sm text-primary">${buttonIcon}</span>
+                                            <span class="text-sm font-medium">${escapeHtml(btn.text || '')}</span>
+                                        </div>
+                                    `;
+                                });
+                                buttonsHTML += '</div>';
+
+                                contentHTML += `
+                                    <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="material-symbols-outlined text-sm text-green-600">smart_button</span>
+                                            <span class="text-xs font-semibold text-green-600 uppercase">Buttons</span>
+                                        </div>
+                                        ${buttonsHTML}
+                                    </div>
+                                `;
+                            }
+                        }
+                    });
+
+                    if (contentHTML) {
+                        templateContent.innerHTML = contentHTML;
+                    } else {
+                        templateContent.innerHTML = '<p class="text-gray-500">No hay contenido disponible para este template.</p>';
+                    }
+                } else {
+                    document.getElementById('template-content-card').classList.add('hidden');
+                }
                 
                 // Logs
                 const tbody = document.getElementById('logs-body');

@@ -2980,12 +2980,12 @@ def api_create_campaign():
 
 @app.route("/api/campaigns/<int:campaign_id>", methods=["DELETE"])
 def api_delete_campaign(campaign_id):
-    """Elimina una campaña (solo si está en draft)."""
+    """Elimina una campaña (solo si está en draft o scheduled)."""
     campaign = Campaign.query.get(campaign_id)
     if not campaign:
         return jsonify({'error': 'Campaña no encontrada'}), 404
-    if campaign.status != 'draft':
-        return jsonify({'error': 'Solo se puede eliminar una campaña en estado draft'}), 400
+    if campaign.status not in ('draft', 'scheduled'):
+        return jsonify({'error': 'Solo se puede eliminar una campaña en estado draft o programada'}), 400
 
     CampaignLog.query.filter_by(campaign_id=campaign_id).delete()
     db.session.delete(campaign)
@@ -3354,31 +3354,31 @@ def api_campaign_details(campaign_id):
     """API para obtener detalles y estadísticas de una campaña."""
     try:
         campaign = Campaign.query.get_or_404(campaign_id)
-        
+
         # Estadísticas agregadas
         total_logs = CampaignLog.query.filter_by(campaign_id=campaign_id).count()
-        
+
         # Contar por estados
         logs_stats = db.session.query(
             CampaignLog.status, func.count(CampaignLog.id)
         ).filter(
             CampaignLog.campaign_id == campaign_id
         ).group_by(CampaignLog.status).all()
-        
+
         stats_map = {s: c for s, c in logs_stats}
         sent_count = stats_map.get('sent', 0)
         delivered_count = stats_map.get('delivered', 0)
         read_count = stats_map.get('read', 0)
         failed_count = stats_map.get('failed', 0)
-        
+
         # 'Enviados' para la UI incluye todo lo que salió exitosamente (sent, delivered, read)
         total_successful = sent_count + delivered_count + read_count
-        
+
         # Logs preview (últimos 50)
         # Logs preview con PAGINACIÓN
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
-        
+
         pagination = db.session.query(
             CampaignLog, Contact.name
         ).outerjoin(
@@ -3386,7 +3386,7 @@ def api_campaign_details(campaign_id):
         ).filter(
             CampaignLog.campaign_id == campaign_id
         ).order_by(CampaignLog.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
-        
+
         logs_preview = []
         for log, contact_name in pagination.items:
             logs_preview.append({
@@ -3396,12 +3396,35 @@ def api_campaign_details(campaign_id):
                 'error': log.error_detail,
                 'created_at': format_utc_iso(log.created_at)
             })
-            
+
+        # Obtener detalles del template desde WhatsApp API
+        template_content = None
+        try:
+            templates_data = whatsapp_api.get_templates()
+            if templates_data and 'data' in templates_data:
+                # Buscar el template por nombre y lenguaje
+                matching_template = next(
+                    (t for t in templates_data['data']
+                     if t.get('name') == campaign.template_name and
+                        t.get('language') == campaign.template_language),
+                    None
+                )
+                if matching_template:
+                    template_content = {
+                        'name': matching_template.get('name'),
+                        'language': matching_template.get('language'),
+                        'status': matching_template.get('status'),
+                        'components': matching_template.get('components', [])
+                    }
+        except Exception as e:
+            logger.warning(f"No se pudo obtener contenido del template: {e}")
+
         return jsonify({
             'id': campaign.id,
             'name': campaign.name,
             'status': campaign.status,
             'template_name': campaign.template_name,
+            'template_content': template_content,
             'tag_name': campaign.tag.name if campaign.tag else 'N/A',
             'created_at': format_utc_iso(campaign.created_at),
             'started_at': format_utc_iso(campaign.started_at),
@@ -3410,7 +3433,7 @@ def api_campaign_details(campaign_id):
             'stats': {
                 'total': total_logs,
                 'sent': total_successful,
-                'read': read_count, 
+                'read': read_count,
                 'failed': failed_count
             },
             'logs_preview': logs_preview,
@@ -3423,7 +3446,7 @@ def api_campaign_details(campaign_id):
                 'has_prev': pagination.has_prev
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting campaign details: {e}")
         return jsonify({'error': str(e)}), 500
