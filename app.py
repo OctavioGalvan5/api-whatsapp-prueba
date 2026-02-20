@@ -6,7 +6,7 @@ import pandas as pd
 import hmac
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for
 from config import Config
-from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig
+from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote
 import threading
 import time as time_module
 from event_handlers import process_event
@@ -3567,6 +3567,190 @@ def api_delete_conversation_topic(topic_id):
     db.session.commit()
     
     return jsonify({'success': True})
+
+
+# ==================== CONVERSATION NOTES ====================
+
+@app.route("/api/conversations/<phone>/notes", methods=["GET"])
+def api_get_notes(phone):
+    """Lista notas internas de una conversación."""
+    notes = ConversationNote.query.filter_by(
+        phone_number=phone
+    ).order_by(ConversationNote.created_at.desc()).all()
+    return jsonify({'notes': [n.to_dict() for n in notes]})
+
+
+@app.route("/api/conversations/<phone>/notes", methods=["POST"])
+def api_create_note(phone):
+    """Crea una nota interna para una conversación."""
+    data = request.get_json()
+    content = (data.get('content') or '').strip()
+    if not content:
+        return jsonify({'error': 'El contenido es requerido'}), 400
+
+    note = ConversationNote(
+        phone_number=phone,
+        content=content
+    )
+    db.session.add(note)
+    db.session.commit()
+    return jsonify({'success': True, 'note': note.to_dict()})
+
+
+@app.route("/api/conversations/notes/<int:note_id>", methods=["DELETE"])
+def api_delete_note(note_id):
+    """Elimina una nota interna."""
+    note = ConversationNote.query.get_or_404(note_id)
+    db.session.delete(note)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+# ==================== EXPORT CONVERSATION PDF ====================
+
+@app.route("/api/conversations/<phone>/export-pdf")
+def api_export_conversation_pdf(phone):
+    """Exporta una conversación completa a PDF."""
+    from fpdf import FPDF
+
+    # Obtener contacto
+    contact = Contact.query.filter_by(phone_number=phone).first()
+    contact_name = contact.name if contact else phone
+
+    # Obtener mensajes
+    messages = Message.query.filter_by(
+        phone_number=phone
+    ).order_by(Message.timestamp.asc()).all()
+
+    if not messages:
+        return jsonify({'error': 'No hay mensajes para exportar'}), 404
+
+    # Obtener notas internas
+    notes = ConversationNote.query.filter_by(
+        phone_number=phone
+    ).order_by(ConversationNote.created_at.desc()).all()
+
+    # Zona horaria
+    tz = pytz.timezone('America/Argentina/Buenos_Aires')
+
+    # Crear PDF
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    # --- Encabezado ---
+    pdf.set_font('Helvetica', 'B', 16)
+    pdf.cell(0, 10, 'Conversacion de WhatsApp', ln=True, align='C')
+    pdf.set_font('Helvetica', '', 11)
+    pdf.cell(0, 7, f'Contacto: {_safe_text(contact_name)}', ln=True)
+    pdf.cell(0, 7, f'Telefono: {phone}', ln=True)
+
+    if contact and contact.contact_id:
+        pdf.cell(0, 7, f'Client ID: {contact.contact_id}', ln=True)
+
+    now_ar = datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(tz)
+    pdf.cell(0, 7, f'Exportado: {now_ar.strftime("%d/%m/%Y %H:%M")}', ln=True)
+    pdf.cell(0, 7, f'Total de mensajes: {len(messages)}', ln=True)
+    pdf.ln(5)
+
+    # Línea separadora
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+
+    # --- Mensajes ---
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 8, 'Mensajes', ln=True)
+    pdf.ln(3)
+
+    current_date = None
+
+    for msg in messages:
+        # Convertir timestamp a Argentina
+        ts = msg.timestamp
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=pytz.utc)
+        ts_ar = ts.astimezone(tz)
+
+        # Separador por día
+        msg_date = ts_ar.strftime('%d/%m/%Y')
+        if msg_date != current_date:
+            current_date = msg_date
+            pdf.ln(3)
+            pdf.set_font('Helvetica', 'B', 9)
+            pdf.set_text_color(120, 120, 120)
+            pdf.cell(0, 6, f'--- {msg_date} ---', ln=True, align='C')
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(2)
+
+        # Dirección
+        if msg.direction == 'inbound':
+            sender = _safe_text(contact_name)
+            pdf.set_text_color(0, 100, 0)
+        else:
+            sender = 'Bot / Operador'
+            pdf.set_text_color(0, 50, 150)
+
+        time_str = ts_ar.strftime('%H:%M')
+
+        # Sender + hora
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.cell(0, 5, f'{sender}  [{time_str}]', ln=True)
+
+        # Contenido
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font('Helvetica', '', 9)
+        content = msg.content or f'[{msg.message_type}]'
+        content = _safe_text(content)
+
+        # Multi-line cell para textos largos
+        pdf.multi_cell(0, 5, content)
+        pdf.ln(2)
+
+    # --- Notas internas ---
+    if notes:
+        pdf.ln(5)
+        pdf.set_draw_color(200, 200, 200)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+        pdf.set_font('Helvetica', 'B', 12)
+        pdf.cell(0, 8, 'Notas internas del equipo', ln=True)
+        pdf.ln(3)
+
+        for note in notes:
+            ts = note.created_at
+            if ts and ts.tzinfo is None:
+                ts = ts.replace(tzinfo=pytz.utc)
+            ts_ar = ts.astimezone(tz) if ts else None
+
+            pdf.set_font('Helvetica', 'I', 9)
+            pdf.set_text_color(100, 100, 100)
+            date_str = ts_ar.strftime('%d/%m/%Y %H:%M') if ts_ar else ''
+            pdf.cell(0, 5, date_str, ln=True)
+
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font('Helvetica', '', 9)
+            pdf.multi_cell(0, 5, _safe_text(note.content))
+            pdf.ln(3)
+
+    # Generar PDF
+    pdf_bytes = pdf.output()
+    safe_name = contact_name.replace(' ', '_')[:30] if contact_name else phone
+    filename = f'conversacion_{safe_name}_{now_ar.strftime("%Y%m%d")}.pdf'
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        download_name=filename,
+        as_attachment=True
+    )
+
+
+def _safe_text(text):
+    """Limpia texto para PDF (remueve caracteres no soportados por latin-1)."""
+    if not text:
+        return ''
+    return text.encode('latin-1', errors='replace').decode('latin-1')
 
 
 # ==================== CONVERSATION SESSIONS ====================

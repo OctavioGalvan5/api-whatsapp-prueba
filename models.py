@@ -289,6 +289,37 @@ class ConversationSession(db.Model):
 
 
 # ==========================================
+# CONVERSATION NOTES (Internal team notes)
+# ==========================================
+
+class ConversationNote(db.Model):
+    """Notas internas del equipo sobre conversaciones."""
+    __tablename__ = 'conversation_notes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    phone_number = db.Column(db.String(20), nullable=False, index=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        tz_argentina = pytz.timezone('America/Argentina/Buenos_Aires')
+        created_ar = None
+        if self.created_at:
+            if self.created_at.tzinfo is None:
+                created_utc = pytz.utc.localize(self.created_at)
+            else:
+                created_utc = self.created_at
+            created_ar = created_utc.astimezone(tz_argentina).isoformat()
+
+        return {
+            'id': self.id,
+            'phone_number': self.phone_number,
+            'content': self.content,
+            'created_at': created_ar
+        }
+
+
+# ==========================================
 # RAG DOCUMENTS
 # ==========================================
 

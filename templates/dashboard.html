@@ -207,8 +207,15 @@
                     Reactivar Bot
                 </button>
             </div>
-            <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-                <span class="material-symbols-outlined text-gray-500">more_vert</span>
+            <button onclick="exportPDF()"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                title="Exportar a PDF">
+                <span class="material-symbols-outlined text-gray-500">picture_as_pdf</span>
+            </button>
+            <button onclick="toggleNotesPanel()"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                title="Notas internas" id="notes-toggle-btn">
+                <span class="material-symbols-outlined text-gray-500">sticky_note_2</span>
             </button>
         </div>
     </header>
@@ -409,6 +416,35 @@
         <p class="text-sm mt-2">Selecciona una conversación para comenzar</p>
     </div>
     {% endif %}
+
+    <!-- Notes Side Panel -->
+    <div id="notes-panel"
+        class="hidden absolute top-0 right-0 w-80 h-full bg-white dark:bg-[#152a17] border-l border-gray-200 dark:border-gray-800 flex flex-col z-20 shadow-xl">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">sticky_note_2</span>
+                <h3 class="font-semibold text-sm">Notas internas</h3>
+            </div>
+            <button onclick="toggleNotesPanel()" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                <span class="material-symbols-outlined text-gray-500 text-lg">close</span>
+            </button>
+        </div>
+        <!-- Add note form -->
+        <div class="p-3 border-b border-gray-100 dark:border-gray-800">
+            <div class="flex gap-2">
+                <textarea id="note-input" rows="2" placeholder="Escribir nota interna..."
+                    class="flex-1 text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-3 py-2 focus:outline-none focus:border-primary resize-none"></textarea>
+                <button onclick="addNote()"
+                    class="bg-primary text-white px-3 rounded-lg hover:bg-primary/90 transition-colors shrink-0 self-end">
+                    <span class="material-symbols-outlined text-lg">add</span>
+                </button>
+            </div>
+        </div>
+        <!-- Notes list -->
+        <div id="notes-list" class="flex-1 overflow-y-auto p-3 space-y-3">
+            <p class="text-xs text-gray-400 text-center">Cargando notas...</p>
+        </div>
+    </div>
 </main>
 
 <script>
@@ -622,6 +658,9 @@
             const editBtn = headerActions.querySelector('button');
             if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
         }
+
+        // Reload notes if panel is open
+        if (notesOpen) loadNotes();
 
         // Render Messages
         const container = document.getElementById('chat-messages');
@@ -1228,6 +1267,81 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         }
         // Actualizar el banner también
         updateHumanAssistanceBanner();
+    }
+
+    // ==================== NOTES & PDF ====================
+
+    function exportPDF() {
+        if (!currentPhone) return;
+        window.open(`/api/conversations/${encodeURIComponent(currentPhone)}/export-pdf`, '_blank');
+    }
+
+    let notesOpen = false;
+
+    function toggleNotesPanel() {
+        const panel = document.getElementById('notes-panel');
+        if (!panel) return;
+        notesOpen = !notesOpen;
+        panel.classList.toggle('hidden', !notesOpen);
+        if (notesOpen) loadNotes();
+    }
+
+    async function loadNotes() {
+        if (!currentPhone) return;
+        const list = document.getElementById('notes-list');
+        try {
+            const resp = await fetch(`/api/conversations/${encodeURIComponent(currentPhone)}/notes`);
+            const data = await resp.json();
+            if (!data.notes || data.notes.length === 0) {
+                list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">No hay notas para este contacto</p>';
+                return;
+            }
+            list.innerHTML = data.notes.map(n => `
+                <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 group">
+                    <div class="flex justify-between items-start gap-2">
+                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap flex-1">${escapeHtml(n.content)}</p>
+                        <button onclick="deleteNote(${n.id})" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-all shrink-0" title="Eliminar">
+                            <span class="material-symbols-outlined text-red-500 text-sm">delete</span>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-2">${n.created_at ? new Date(n.created_at).toLocaleString('es-AR') : ''}</p>
+                </div>
+            `).join('');
+        } catch (e) {
+            list.innerHTML = '<p class="text-xs text-red-400 text-center">Error cargando notas</p>';
+        }
+    }
+
+    async function addNote() {
+        if (!currentPhone) return;
+        const input = document.getElementById('note-input');
+        const content = input.value.trim();
+        if (!content) return;
+
+        try {
+            const resp = await fetch(`/api/conversations/${encodeURIComponent(currentPhone)}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                input.value = '';
+                loadNotes();
+            }
+        } catch (e) {
+            alert('Error guardando nota: ' + e.message);
+        }
+    }
+
+    async function deleteNote(noteId) {
+        if (!confirm('¿Eliminar esta nota?')) return;
+        try {
+            await fetch(`/api/conversations/notes/${noteId}`, { method: 'DELETE' });
+            loadNotes();
+        } catch (e) {
+            alert('Error eliminando nota: ' + e.message);
+        }
     }
 
 </script>
