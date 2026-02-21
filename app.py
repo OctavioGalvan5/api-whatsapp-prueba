@@ -2097,6 +2097,31 @@ def api_bot_status(phone):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route("/api/contact/<phone>/pause-bot", methods=["POST"])
+def api_pause_bot(phone):
+    """Agrega etiqueta 'Asistencia Humana' al contacto. Llamado desde dashboard."""
+    try:
+        phone_normalized = normalize_phone(phone)
+        contact = find_contact_by_phone(phone_normalized)
+        if not contact:
+            return jsonify({'error': 'Contacto no encontrado'}), 404
+
+        tag = Tag.query.filter_by(name='Asistencia Humana').first()
+        if not tag:
+            return jsonify({'error': 'System tag not found'}), 500
+
+        if tag not in contact.tags:
+            contact.tags.append(tag)
+            db.session.commit()
+            logger.info(f"Bot paused for: {phone}")
+
+        return jsonify({'success': True, 'phone': phone})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error pausing bot: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/api/contact/<phone>/resume-bot", methods=["POST"])
 def api_resume_bot(phone):
     """Quita etiqueta 'Asistencia Humana' del contacto. Llamado desde dashboard."""
