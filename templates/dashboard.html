@@ -207,6 +207,14 @@
                     Reactivar Bot
                 </button>
             </div>
+            <!-- Bot activo: botón pausar -->
+            <div id="bot-active-controls" class="{% if bot_paused %}hidden{% endif %}">
+                <button onclick="pauseBot('{{ selected_contact }}')"
+                    class="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors">
+                    <span class="material-symbols-outlined text-sm">pause</span>
+                    Pausar Bot
+                </button>
+            </div>
             <button onclick="exportPDF()"
                 class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                 title="Exportar a PDF">
@@ -485,6 +493,49 @@
         return div.innerHTML;
     }
 
+    async function pauseBot(phone) {
+        if (!confirm('¿Pausar el bot para este contacto? Se agregará la etiqueta "Asistencia Humana" y el bot dejará de responder automáticamente.')) return;
+
+        try {
+            const response = await fetch(`/api/contact/${encodeURIComponent(phone)}/pause-bot`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Ocultar botón de pausar
+                const activeControls = document.getElementById('bot-active-controls');
+                if (activeControls) activeControls.classList.add('hidden');
+
+                // Mostrar banner de bot pausado
+                const banner = document.getElementById('bot-paused-banner');
+                if (banner) {
+                    banner.classList.remove('hidden');
+                    const resumeBtn = banner.querySelector('button');
+                    if (resumeBtn) resumeBtn.onclick = () => resumeBot(phone);
+                }
+
+                // Agregar tag "Asistencia Humana" al header
+                const tagsContainer = document.querySelector('.chat-tags-container');
+                if (tagsContainer) {
+                    const tagSpan = document.createElement('span');
+                    tagSpan.className = 'bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider';
+                    tagSpan.textContent = 'ASISTENCIA HUMANA';
+                    tagsContainer.appendChild(tagSpan);
+                }
+
+                // Agregar badge e indicador visual al contacto en la lista
+                addHumanBadgeToContact(phone);
+
+                alert('Bot pausado exitosamente. Este contacto requiere asistencia humana.');
+            } else {
+                alert('Error: ' + (data.error || 'Desconocido'));
+            }
+        } catch (e) {
+            alert('Error de conexión: ' + e.message);
+        }
+    }
+
     async function resumeBot(phone) {
         if (!confirm('Reactivar el bot para este contacto? Se quitará la etiqueta "Asistencia Humana".')) return;
 
@@ -495,6 +546,10 @@
             const data = await response.json();
 
             if (data.success) {
+                // Mostrar botón de pausar
+                const activeControls = document.getElementById('bot-active-controls');
+                if (activeControls) activeControls.classList.remove('hidden');
+
                 // Ocultar banner de bot pausado
                 const banner = document.getElementById('bot-paused-banner');
                 if (banner) banner.classList.add('hidden');
@@ -640,15 +695,22 @@
             }
         }
 
-        // Actualizar banner de bot pausado
+        // Actualizar banner de bot pausado y botón de pausar
         const banner = document.getElementById('bot-paused-banner');
-        if (banner) {
-            if (data.bot_paused) {
+        const activeControls = document.getElementById('bot-active-controls');
+        if (data.bot_paused) {
+            if (banner) {
                 banner.classList.remove('hidden');
                 const resumeBtn = banner.querySelector('button');
                 if (resumeBtn) resumeBtn.onclick = () => resumeBot(currentPhone);
-            } else {
-                banner.classList.add('hidden');
+            }
+            if (activeControls) activeControls.classList.add('hidden');
+        } else {
+            if (banner) banner.classList.add('hidden');
+            if (activeControls) {
+                activeControls.classList.remove('hidden');
+                const pauseBtn = activeControls.querySelector('button');
+                if (pauseBtn) pauseBtn.onclick = () => pauseBot(currentPhone);
             }
         }
 
@@ -1251,6 +1313,30 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
     // Cargar banner al iniciar y cada 60s
     updateHumanAssistanceBanner();
     setInterval(updateHumanAssistanceBanner, 60000);
+
+    // Agregar badge del contacto en la lista cuando se pausa el bot
+    function addHumanBadgeToContact(phone) {
+        const item = document.querySelector(`.contact-item[data-phone="${phone}"]`);
+        if (item) {
+            item.classList.add('needs-human');
+            // Agregar badge si no existe
+            const badgeContainer = item.querySelector('.flex.justify-between.items-center.gap-1:last-child');
+            if (badgeContainer && !badgeContainer.querySelector('.human-badge')) {
+                const badge = document.createElement('span');
+                badge.className = 'human-badge shrink-0';
+                badge.innerHTML = '<span class="material-symbols-outlined text-[10px]">support_agent</span>Humano';
+                badgeContainer.appendChild(badge);
+            }
+            // Cambiar estilo del avatar
+            const avatar = item.querySelector('.bg-gray-200.text-gray-500');
+            if (avatar) {
+                avatar.classList.remove('bg-gray-200', 'text-gray-500');
+                avatar.classList.add('human-avatar');
+            }
+        }
+        // Actualizar el banner también
+        updateHumanAssistanceBanner();
+    }
 
     // Actualizar badge del contacto en la lista cuando se reactiva el bot
     function removeHumanBadgeFromContact(phone) {

@@ -166,12 +166,23 @@ def categorize_conversation(db, phone, messages, topics, started_at, ended_at):
     
     # Build conversation text
     conv_lines = []
+    has_bot_response = False
+    last_role = None
+
     for msg in messages:
         role = "Usuario" if msg.direction == "inbound" else "Bot"
         content = msg.content or f"[{msg.message_type}]"
         conv_lines.append(f"[{role}]: {content[:200]}")  # Limit content length
-    
+
+        if role == "Bot":
+            has_bot_response = True
+        last_role = role
+
     conversation_text = "\n".join(conv_lines[-20:])  # Limit to last 20 messages
+
+    # Agregar nota si la última interacción fue del usuario sin respuesta
+    if last_role == "Usuario":
+        conversation_text += "\n\n[NOTA]: La conversación terminó con un mensaje del Usuario SIN respuesta del Bot."
     
     # Build topics text
     topics_text = ""
@@ -205,12 +216,19 @@ Criterios para rating:
 - problematica: Quejas, insultos, o usuario muy frustrado
 
 Criterios para has_unanswered_questions:
-- true: El usuario hizo preguntas que el bot no pudo responder, o el bot dijo explícitamente que no encontró información
+- true: El usuario hizo preguntas que el bot no pudo responder, el bot dijo explícitamente que no encontró información, o NO hubo ninguna respuesta del sistema a alguna duda del usuario
 - false: Todas las preguntas fueron respondidas adecuadamente
 
 Criterios para needs_human_assistance:
-- true: El usuario necesita atención humana (consulta compleja, queja seria, el bot no pudo ayudar repetidamente, o el usuario pidió hablar con una persona)
-- false: La conversación se resolvió satisfactoriamente con el bot"""
+- true: El usuario necesita atención humana porque:
+  * Consulta compleja
+  * Queja seria
+  * El bot no pudo ayudar repetidamente
+  * El usuario pidió hablar con una persona
+  * NO HUBO RESPUESTA del sistema/bot a alguna duda o pregunta del usuario
+- false: La conversación se resolvió satisfactoriamente con el bot
+
+IMPORTANTE: Si detectas que el usuario hizo una o más preguntas y NO recibió ninguna respuesta del sistema (es decir, no hay mensajes del Bot después de la pregunta del usuario), entonces debes marcar has_unanswered_questions=true Y needs_human_assistance=true"""
 
     try:
         response = client.chat.completions.create(
