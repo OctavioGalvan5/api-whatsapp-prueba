@@ -3815,6 +3815,7 @@ def api_list_conversation_sessions():
     # Filters
     topic_id = request.args.get('topic_id', type=int)
     rating = request.args.get('rating')
+    search = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
@@ -3840,6 +3841,17 @@ def api_list_conversation_sessions():
         query = query.filter(ConversationSession.has_unanswered_questions == True)
     elif status_filter == 'escalated':
         query = query.filter(ConversationSession.escalated_to_human == True)
+
+    # Búsqueda por texto
+    if search:
+        # Buscar por número de teléfono, resumen o nombre de contacto
+        query = query.outerjoin(Contact, ConversationSession.phone_number == Contact.phone_number)
+        search_filter = or_(
+            ConversationSession.phone_number.ilike(f'%{search}%'),
+            ConversationSession.summary.ilike(f'%{search}%'),
+            Contact.name.ilike(f'%{search}%')
+        )
+        query = query.filter(search_filter)
 
     # Order by most recent first
     query = query.order_by(ConversationSession.ended_at.desc())
