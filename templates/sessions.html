@@ -12,6 +12,12 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">Conversaciones categorizadas automáticamente</p>
             </div>
             <div class="flex gap-3">
+                <div class="relative">
+                    <input type="text" id="search-input" placeholder="Buscar por nombre, teléfono o resumen..."
+                        class="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary w-80"
+                        onkeyup="handleSearch(event)">
+                    <span class="material-symbols-outlined absolute left-3 top-2 text-gray-400 text-xl">search</span>
+                </div>
                 <select id="filter-topic" onchange="loadSessions(true)"
                     class="px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
                     <option value="">Todos los temas</option>
@@ -138,6 +144,7 @@
     let topics = [];
     let currentPage = 1;
     let totalPages = 1;
+    let searchTimeout;
 
     const ratingLabels = {
         'excelente': '⭐ Excelente',
@@ -181,11 +188,13 @@
         const topicId = document.getElementById('filter-topic').value;
         const rating = document.getElementById('filter-rating').value;
         const status = document.getElementById('filter-status').value;
+        const search = document.getElementById('search-input').value.trim();
 
         let url = `/api/conversation-sessions?page=${currentPage}`;
         if (topicId) url += `&topic_id=${topicId}`;
         if (rating) url += `&rating=${rating}`;
         if (status) url += `&status=${status}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
 
         try {
             const resp = await fetch(url);
@@ -268,6 +277,18 @@
     function changePage(delta) {
         currentPage += delta;
         loadSessions();
+    }
+
+    function handleSearch(event) {
+        // Clear previous timeout
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+
+        // Wait 500ms after user stops typing before searching
+        searchTimeout = setTimeout(() => {
+            loadSessions(true);
+        }, 500);
     }
 
     function escapeHtml(str) {

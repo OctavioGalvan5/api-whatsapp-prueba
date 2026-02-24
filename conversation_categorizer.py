@@ -191,7 +191,7 @@ def categorize_conversation(db, phone, messages, topics, started_at, ended_at):
         topics_text += f"- {t.name}\n  Descripción: {t.description or 'Sin descripción'}\n  Palabras clave: {keywords_str}\n\n"
     
     # OpenAI prompt
-    prompt = f"""Analiza esta conversación de chat y categorízala.
+    prompt = f"""Analiza esta conversación de WhatsApp entre un usuario y un bot de una caja de abogados y categorízala.
 
 TEMAS DISPONIBLES:
 {topics_text}
@@ -209,36 +209,64 @@ Responde SOLO con un JSON válido con este formato exacto:
 }}
 
 Criterios para rating:
-- excelente: El usuario recibió ayuda completa y quedó satisfecho
-- buena: El usuario recibió información útil
-- neutral: Conversación fue informativa pero sin impacto claro
-- mala: El usuario no obtuvo lo que buscaba o hubo problemas
-- problematica: Quejas, insultos, o usuario muy frustrado
+- excelente: El usuario recibió ayuda completa, información útil y quedó satisfecho
+- buena: El usuario recibió información útil del bot o template automático
+- neutral: Conversación fue informativa pero sin impacto claro, o solo saludos/confirmaciones
+- mala: El usuario no obtuvo lo que buscaba, hubo confusión, o el bot no pudo ayudar
+- problematica: Quejas explícitas, insultos, frustración clara, o usuario muy molesto
 
-Criterios para has_unanswered_questions:
-- true: El usuario hizo preguntas que el bot no pudo responder, el bot dijo explícitamente que no encontró información, o NO hubo ninguna respuesta del sistema a alguna duda del usuario
-- false: Todas las preguntas fueron respondidas adecuadamente
+Criterios para has_unanswered_questions (analiza si hay PREGUNTAS REALES sin respuesta):
+- true SOLO si:
+  * El usuario hizo una PREGUNTA ESPECÍFICA (interrogación, solicitud de información) Y el bot NO respondió a esa pregunta
+  * El bot dijo explícitamente "no tengo esa información" o "no puedo ayudarte con eso"
+  * La conversación terminó con una pregunta del usuario sin ninguna respuesta del bot después
+- false si:
+  * Todas las preguntas fueron respondidas (incluso con templates automáticos)
+  * El usuario solo hace comentarios, afirmaciones o exclamaciones (NO son preguntas)
+  * El usuario solo saluda o se despide
+  * El usuario informa algo sin esperar respuesta
 
-Criterios para needs_human_assistance:
-- true: El usuario necesita atención humana porque:
-  * Consulta compleja
-  * Queja seria
-  * El bot no pudo ayudar repetidamente
-  * El usuario pidió hablar con una persona
-  * NO HUBO RESPUESTA del sistema/bot a alguna duda o pregunta del usuario
-- false: La conversación se resolvió satisfactoriamente con el bot
+Criterios para needs_human_assistance (SÉ MUY SELECTIVO, evita falsos positivos):
+- true SOLO si se cumple AL MENOS UNO de estos casos GRAVES:
+  * El usuario hizo una PREGUNTA ESPECÍFICA sobre temas complejos (planes de pago personalizados, casos especiales, trámites urgentes) Y el bot NO pudo responder adecuadamente
+  * El usuario expresó QUEJA SERIA o frustración clara pidiendo solución
+  * El usuario EXPLÍCITAMENTE pidió hablar con una persona, ser contactado, o que alguien lo llame
+  * El bot dijo que no puede ayudar y sugirió contacto humano
+  * Hay preguntas sin responder Y el tema es crítico (deudas, situaciones legales, urgencias)
 
-IMPORTANTE: Si detectas que el usuario hizo una o más preguntas y NO recibió ninguna respuesta del sistema (es decir, no hay mensajes del Bot después de la pregunta del usuario), entonces debes marcar has_unanswered_questions=true Y needs_human_assistance=true"""
+- false si:
+  * El usuario solo expresó emociones o exclamaciones pero fue atendido con información automática (templates/campañas)
+  * El usuario solo saludó, se despidió, o dio las gracias
+  * El usuario hizo un comentario informativo sin esperar acción específica
+  * El usuario dijo que hará algo ("voy a ir", "llamaré después", etc.) sin pedir ayuda inmediata
+  * La conversación fue respondida con templates informativos aunque sean genéricos (campañas, recordatorios automáticos)
+  * El usuario preguntó algo básico y recibió template automático relevante
+
+CONTEXTO IMPORTANTE:
+- Los mensajes verdes son templates/campañas automáticas del sistema (NO del bot conversacional)
+- Si un template automático responde adecuadamente al contexto del usuario, NO requiere asistencia humana
+- Solo marca needs_human_assistance=true si el usuario realmente necesita interacción personalizada que el sistema automatizado no puede proporcionar
+
+EJEMPLOS DE FALSOS POSITIVOS A EVITAR:
+❌ "SOY JUBILADO!!!!" + template de obras sociales → needs_human_assistance=false (fue atendido con info relevante)
+❌ "Ya aboné la semana pasada" → needs_human_assistance=false (es una afirmación, no pide ayuda)
+❌ "Buenos días" → needs_human_assistance=false (solo saludo)
+❌ "Voy a pedir un turno para regularizar" → needs_human_assistance=false (informa su plan, no pide ayuda)
+
+EJEMPLOS DE VERDADEROS POSITIVOS:
+✅ "Se podrá hacer un plan de pago?" + sin respuesta del bot → needs_human_assistance=true (pregunta específica sin respuesta)
+✅ "Necesito hablar con alguien urgente" → needs_human_assistance=true (solicitud explícita)
+✅ "El bot no me ayuda, esto es urgente" → needs_human_assistance=true (frustración + urgencia)"""
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Eres un analizador de conversaciones. Responde siempre en JSON válido."},
+                {"role": "system", "content": "Eres un analizador experto de conversaciones de atención al cliente. Tu trabajo es clasificar conversaciones con alta precisión, evitando falsos positivos. Sé muy selectivo al marcar conversaciones que requieren asistencia humana. Responde siempre en JSON válido."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3,
-            max_tokens=300
+            temperature=0.2,
+            max_tokens=400
         )
         
         result_text = response.choices[0].message.content.strip()
