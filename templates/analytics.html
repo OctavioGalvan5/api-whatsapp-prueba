@@ -222,7 +222,7 @@
                                 <div class="flex items-center justify-center gap-2">
                                     <div class="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                         <div class="h-full rounded-full {% if t.read_rate >= 70 %}bg-primary{% elif t.read_rate >= 40 %}bg-orange-500{% else %}bg-red-500{% endif %}"
-                                            style="width: {{ t.read_rate }}%"></div>
+                                            style="width: {{ [t.read_rate, 100]|min }}%"></div>
                                     </div>
                                     <span
                                         class="text-sm font-bold {% if t.read_rate >= 70 %}text-primary{% elif t.read_rate >= 40 %}text-orange-500{% else %}text-red-500{% endif %}">{{
@@ -564,6 +564,9 @@
     // Read Rate by Hour Chart
     const hourlyReadRate = {{ hourly_read_rate | tojson | safe }};
     if (hourlyReadRate && hourlyReadRate.length > 0) {
+        // Calcular el máximo para escalar el gráfico dinámicamente
+        const maxRate = Math.max(...hourlyReadRate.map(h => h.rate), 100);
+
         new Chart(document.getElementById('readRateByHourChart'), {
             type: 'line',
             data: {
@@ -584,7 +587,7 @@
                 scales: {
                     y: {
                         beginAtZero: true,
-                        max: 100,
+                        max: Math.ceil(maxRate / 10) * 10, // Redondear al múltiplo de 10 superior
                         ticks: { callback: v => v + '%' }
                     }
                 }

@@ -702,14 +702,18 @@ def analytics():
         ORDER BY hour
     """), {'since': chart_since}).fetchall()
 
-    # Mensajes leídos por hora (hora Argentina) - usa período seleccionado
+    # Mensajes leídos por hora - cuenta mensajes ENVIADOS en esa hora que fueron leídos (en cualquier momento)
+    # Corrige el problema de tasas > 100% comparando mensajes con sus estados correctamente
     read_by_hour = db.session.execute(db.text(f"""
         SELECT
-            EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')::int as hour,
-            COUNT(*) as count
-        FROM whatsapp_message_statuses
-        WHERE status = 'read' AND timestamp >= :since
-        GROUP BY EXTRACT(HOUR FROM timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')
+            EXTRACT(HOUR FROM m.timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')::int as hour,
+            COUNT(DISTINCT m.id) as count
+        FROM whatsapp_messages m
+        INNER JOIN whatsapp_message_statuses s ON m.wa_message_id = s.wa_message_id
+        WHERE m.direction = 'outbound'
+          AND m.timestamp >= :since
+          AND s.status = 'read'
+        GROUP BY EXTRACT(HOUR FROM m.timestamp AT TIME ZONE 'UTC' AT TIME ZONE '{ARGENTINA_TZ}')
         ORDER BY hour
     """), {'since': chart_since}).fetchall()
 
@@ -917,11 +921,9 @@ def analytics():
      .all()
     
     rating_map = {
-        'excelente': ('Excelente', '#22c55e'),
-        'buena': ('Buena', '#3b82f6'),
+        'buena': ('Buena', '#22c55e'),
         'neutral': ('Neutral', '#f59e0b'),
-        'mala': ('Mala', '#ef4444'),
-        'problematica': ('Problemática', '#7c3aed')
+        'mala': ('Mala', '#ef4444')
     }
     
     for stat in rating_stats:
@@ -2911,6 +2913,11 @@ def campaign_details_page(campaign_id):
     campaign = Campaign.query.get_or_404(campaign_id)
     return render_template('campaign_details.html', campaign_id=campaign_id)
 
+@app.route("/campaigns/compare")
+def campaigns_compare_page():
+    """Página de comparación de campañas."""
+    return render_template('campaign_compare.html')
+
 @app.route("/api/campaigns", methods=["GET"])
 def api_list_campaigns():
     """Lista campañas."""
@@ -3399,6 +3406,46 @@ def api_campaign_details(campaign_id):
         # 'Enviados' para la UI incluye todo lo que salió exitosamente (sent, delivered, read)
         total_successful = sent_count + delivered_count + read_count
 
+        # ========== CALCULAR RESPUESTAS A LA CAMPAÑA ==========
+        # Respuestas = mensajes inbound recibidos después del envío de la campaña
+        # Ventana de tiempo: 48 horas después del envío del mensaje de campaña
+        response_window_hours = 48
+
+        # Obtener todos los logs exitosos con sus teléfonos y timestamps
+        successful_logs = db.session.query(
+            CampaignLog.contact_phone,
+            CampaignLog.created_at
+        ).filter(
+            CampaignLog.campaign_id == campaign_id,
+            CampaignLog.status.in_(['sent', 'delivered', 'read']),
+            CampaignLog.created_at.isnot(None)
+        ).all()
+
+        # Para cada contacto, buscar si respondió dentro de la ventana de tiempo
+        responded_phones = set()
+        total_responses = 0
+
+        for phone, sent_time in successful_logs:
+            if not sent_time:
+                continue
+
+            # Buscar mensajes inbound de este teléfono después del envío
+            response_cutoff = sent_time + timedelta(hours=response_window_hours)
+
+            response_count = Message.query.filter(
+                Message.phone_number == phone,
+                Message.direction == 'inbound',
+                Message.timestamp > sent_time,
+                Message.timestamp <= response_cutoff
+            ).count()
+
+            if response_count > 0:
+                responded_phones.add(phone)
+                total_responses += response_count
+
+        unique_responders = len(responded_phones)
+        response_rate = round((unique_responders / total_successful * 100) if total_successful > 0 else 0, 1)
+
         # Logs preview (últimos 50)
         # Logs preview con PAGINACIÓN
         page = request.args.get('page', 1, type=int)
@@ -3459,7 +3506,10 @@ def api_campaign_details(campaign_id):
                 'total': total_logs,
                 'sent': total_successful,
                 'read': read_count,
-                'failed': failed_count
+                'failed': failed_count,
+                'unique_responders': unique_responders,
+                'total_responses': total_responses,
+                'response_rate': response_rate
             },
             'logs_preview': logs_preview,
             'pagination': {

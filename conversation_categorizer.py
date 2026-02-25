@@ -202,18 +202,16 @@ CONVERSACIÓN:
 Responde SOLO con un JSON válido con este formato exacto:
 {{
   "topic": "nombre exacto del tema (debe coincidir exactamente con uno de los nombres de arriba) o 'Otro' si no encaja",
-  "rating": "excelente|buena|neutral|mala|problematica",
+  "rating": "buena|neutral|mala",
   "summary": "resumen de 1-2 oraciones cortas",
   "has_unanswered_questions": true/false,
   "needs_human_assistance": true/false
 }}
 
 Criterios para rating:
-- excelente: El usuario recibió ayuda completa, información útil y quedó satisfecho
-- buena: El usuario recibió información útil del bot o template automático
-- neutral: Conversación fue informativa pero sin impacto claro, o solo saludos/confirmaciones
-- mala: El usuario no obtuvo lo que buscaba, hubo confusión, o el bot no pudo ayudar
-- problematica: Quejas explícitas, insultos, frustración clara, o usuario muy molesto
+- buena: El usuario recibió información útil, ayuda completa o templates automáticos relevantes, y la conversación fue satisfactoria o positiva
+- neutral: Conversación informativa pero sin impacto claro, solo saludos/confirmaciones, o interacción básica sin problemas
+- mala: El usuario no obtuvo lo que buscaba, hubo confusión, frustración, quejas, el bot no pudo ayudar, o el usuario quedó insatisfecho
 
 Criterios para has_unanswered_questions (analiza si hay PREGUNTAS REALES sin respuesta):
 - true SOLO si:
