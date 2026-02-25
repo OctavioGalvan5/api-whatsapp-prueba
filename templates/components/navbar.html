@@ -1,65 +1,95 @@
 <aside
-    class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2">
+    class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2 relative">
+
+    <!-- Dashboard -->
     <a href="/dashboard"
         class="p-3 rounded-xl {% if request.path == '/dashboard' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Dashboard">
         <span
             class="material-symbols-outlined {% if request.path != '/dashboard' %}text-gray-500 dark:text-gray-400{% endif %}">chat</span>
     </a>
-    <a href="/contacts"
-        class="p-3 rounded-xl {% if request.path == '/contacts' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
-        title="Contactos">
-        <span
-            class="material-symbols-outlined {% if request.path != '/contacts' %}text-gray-500 dark:text-gray-400{% endif %}">group</span>
-    </a>
-    <a href="/tags"
-        class="p-3 rounded-xl {% if request.path == '/tags' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
-        title="Etiquetas">
-        <span
-            class="material-symbols-outlined {% if request.path != '/tags' %}text-gray-500 dark:text-gray-400{% endif %}">label</span>
-    </a>
-    <a href="/campaigns"
-        class="p-3 rounded-xl {% if request.path.startswith('/campaigns') %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
-        title="Campañas">
-        <span
-            class="material-symbols-outlined {% if not request.path.startswith('/campaigns') %}text-gray-500 dark:text-gray-400{% endif %}">campaign</span>
-    </a>
-    <a href="/failed-messages"
-        class="p-3 rounded-xl {% if request.path == '/failed-messages' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
-        title="Fallidos">
-        <span
-            class="material-symbols-outlined {% if request.path != '/failed-messages' %}text-gray-500 dark:text-gray-400{% endif %}">error</span>
-    </a>
-    <a href="/analytics"
-        class="p-3 rounded-xl {% if request.path == '/analytics' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
-        title="Analytics">
-        <span
-            class="material-symbols-outlined {% if request.path != '/analytics' %}text-gray-500 dark:text-gray-400{% endif %}">bar_chart</span>
-    </a>
-    <a href="/topics"
-        class="p-3 rounded-xl {% if request.path == '/topics' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
-        title="Temas">
-        <span
-            class="material-symbols-outlined {% if request.path != '/topics' %}text-gray-500 dark:text-gray-400{% endif %}">category</span>
-    </a>
-    <a href="/sessions"
-        class="p-3 rounded-xl {% if request.path == '/sessions' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
-        title="Sesiones">
-        <span
-            class="material-symbols-outlined {% if request.path != '/sessions' %}text-gray-500 dark:text-gray-400{% endif %}">forum</span>
-    </a>
+
+    <!-- Gestión de Datos -->
+    <div class="relative group">
+        <button
+            class="p-3 rounded-xl {% if request.path in ['/contacts', '/tags'] %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+            title="Gestión de Datos">
+            <span
+                class="material-symbols-outlined {% if request.path not in ['/contacts', '/tags'] %}text-gray-500 dark:text-gray-400{% endif %}">folder_shared</span>
+        </button>
+        <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            <a href="/contacts" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/contacts' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">group</span>
+                <span class="text-sm font-medium">Contactos</span>
+            </a>
+            <a href="/tags" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/tags' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">label</span>
+                <span class="text-sm font-medium">Etiquetas</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Mensajería -->
+    <div class="relative group">
+        <button
+            class="p-3 rounded-xl {% if request.path.startswith('/campaigns') or request.path == '/failed-messages' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+            title="Mensajería">
+            <span
+                class="material-symbols-outlined {% if not (request.path.startswith('/campaigns') or request.path == '/failed-messages') %}text-gray-500 dark:text-gray-400{% endif %}">send</span>
+        </button>
+        <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            <a href="/campaigns" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path.startswith('/campaigns') %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">campaign</span>
+                <span class="text-sm font-medium">Campañas</span>
+            </a>
+            <a href="/failed-messages" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/failed-messages' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">error</span>
+                <span class="text-sm font-medium">Fallidos</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Reportes -->
+    <div class="relative group">
+        <button
+            class="p-3 rounded-xl {% if request.path in ['/analytics', '/sessions', '/topics'] %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+            title="Reportes">
+            <span
+                class="material-symbols-outlined {% if request.path not in ['/analytics', '/sessions', '/topics'] %}text-gray-500 dark:text-gray-400{% endif %}">analytics</span>
+        </button>
+        <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            <a href="/analytics" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/analytics' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">bar_chart</span>
+                <span class="text-sm font-medium">Analytics</span>
+            </a>
+            <a href="/sessions" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/sessions' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">forum</span>
+                <span class="text-sm font-medium">Sesiones</span>
+            </a>
+            <a href="/topics" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/topics' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">category</span>
+                <span class="text-sm font-medium">Temas</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Chatbot -->
     <a href="/chatbot"
         class="p-3 rounded-xl {% if request.path == '/chatbot' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Chatbot">
         <span
             class="material-symbols-outlined {% if request.path != '/chatbot' %}text-gray-500 dark:text-gray-400{% endif %}">smart_toy</span>
     </a>
+
+    <!-- Configuración -->
     <a href="/whatsapp-settings"
         class="p-3 rounded-xl mt-auto {% if request.path == '/whatsapp-settings' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Configuración">
         <span
             class="material-symbols-outlined {% if request.path != '/whatsapp-settings' %}text-gray-500 dark:text-gray-400{% endif %}">settings</span>
     </a>
+
+    <!-- Logout -->
     <a href="/logout" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         title="Cerrar sesión">
         <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">logout</span>
