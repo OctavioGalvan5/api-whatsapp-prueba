@@ -34,7 +34,7 @@
 
             <div class="flex-1 overflow-auto p-6">
                 <!-- KPI Cards -->
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
                     <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
                         <p class="text-xs text-gray-500 dark:text-gray-400">Total Contactos</p>
                         <p id="stat-total" class="text-2xl font-bold">0</p>
@@ -50,6 +50,14 @@
                     <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
                         <p class="text-xs text-gray-500 dark:text-gray-400">Fallidos</p>
                         <p id="stat-failed" class="text-2xl font-bold text-red-500">0</p>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Respondieron</p>
+                        <p id="stat-responders" class="text-2xl font-bold text-purple-500">0</p>
+                    </div>
+                    <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Tasa de Respuesta</p>
+                        <p id="stat-response-rate" class="text-2xl font-bold text-orange-500">0%</p>
                     </div>
                 </div>
 
@@ -169,6 +177,8 @@
                 document.getElementById('stat-sent').textContent = data.stats.sent;
                 document.getElementById('stat-read').textContent = data.stats.read;
                 document.getElementById('stat-failed').textContent = data.stats.failed;
+                document.getElementById('stat-responders').textContent = data.stats.unique_responders || 0;
+                document.getElementById('stat-response-rate').textContent = (data.stats.response_rate || 0) + '%';
                 
                 // Info
                 document.getElementById('camp-template').textContent = data.template_name;

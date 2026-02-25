@@ -12,11 +12,18 @@
                 <h1 class="text-xl font-bold text-[#111812] dark:text-white">Campañas</h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Envío masivo de templates por etiqueta</p>
             </div>
-            <button onclick="openCreateModal()"
-                class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-                <span class="material-symbols-outlined text-lg">add</span>
-                Nueva Campaña
-            </button>
+            <div class="flex gap-2">
+                <a href="/campaigns/compare"
+                    class="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <span class="material-symbols-outlined text-lg">analytics</span>
+                    Comparar Campañas
+                </a>
+                <button onclick="openCreateModal()"
+                    class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                    <span class="material-symbols-outlined text-lg">add</span>
+                    Nueva Campaña
+                </button>
+            </div>
         </div>
     </header>
 

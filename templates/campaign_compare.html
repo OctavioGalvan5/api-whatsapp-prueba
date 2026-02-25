@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Comparar Campañas - WhatsApp CRM{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/campaigns" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                    <span class="material-symbols-outlined text-gray-500">arrow_back</span>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold text-[#111812] dark:text-white">Comparar Campañas</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Análisis comparativo de rendimiento</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-auto p-6">
+        <!-- Campaign Selector -->
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5 mb-6">
+            <h3 class="font-semibold mb-4">Seleccionar Campañas a Comparar</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="campaign-checkboxes">
+                <!-- Checkboxes loaded via JS -->
+            </div>
+            <div class="flex justify-end mt-4">
+                <button onclick="loadComparison()"
+                    class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                    Comparar Seleccionadas
+                </button>
+            </div>
+        </div>
+
+        <!-- Comparison Results -->
+        <div id="comparison-results" class="hidden space-y-6">
+            <!-- Summary Table -->
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+                <div class="p-5 border-b border-gray-200 dark:border-gray-800">
+                    <h3 class="font-semibold">Resumen Comparativo</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 dark:bg-gray-800/50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Campaña</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Enviados</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Leídos</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tasa Lectura</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Respuestas</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tasa Respuesta</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fallidos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-table-body" class="divide-y divide-gray-100 dark:divide-gray-800">
+                            <!-- Rows loaded via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Sent vs Read Chart -->
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+                    <h3 class="font-semibold mb-4">Enviados vs Leídos</h3>
+                    <div class="h-[300px]">
+                        <canvas id="sentReadChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Response Rate Chart -->
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+                    <h3 class="font-semibold mb-4">Tasa de Respuesta</h3>
+                    <div class="h-[300px]">
+                        <canvas id="responseRateChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Success Rate Chart -->
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+                    <h3 class="font-semibold mb-4">Tasa de Éxito (Sin Fallos)</h3>
+                    <div class="h-[300px]">
+                        <canvas id="successRateChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Total Reach Chart -->
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+                    <h3 class="font-semibold mb-4">Alcance Total</h3>
+                    <div class="h-[300px]">
+                        <canvas id="totalReachChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="text-center py-12">
+            <span class="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600">analytics</span>
+            <p class="mt-4 text-gray-500 dark:text-gray-400">Selecciona al menos 2 campañas para comparar</p>
+        </div>
+    </div>
+</main>
+
+<script>
+    let allCampaigns = [];
+    let charts = {};
+
+    const colors = {
+        green: '#13ec25',
+        blue: '#3b82f6',
+        purple: '#8b5cf6',
+        red: '#ef4444',
+        orange: '#f97316',
+        yellow: '#eab308',
+        pink: '#ec4899',
+        cyan: '#06b6d4'
+    };
+
+    const colorPalette = [colors.green, colors.blue, colors.purple, colors.orange, colors.cyan, colors.pink, colors.yellow, colors.red];
+
+    // Load campaigns for selection
+    async function loadCampaigns() {
+        try {
+            const resp = await fetch('/api/campaigns');
+            const data = await resp.json();
+            allCampaigns = Array.isArray(data) ? data : (data.campaigns || []);
+
+            const container = document.getElementById('campaign-checkboxes');
+            container.innerHTML = allCampaigns.map((c, idx) => `
+                <label class="flex items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <input type="checkbox" value="${c.id}" class="campaign-checkbox"
+                        ${idx < 3 ? 'checked' : ''}>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-sm truncate">${escapeHtml(c.name)}</div>
+                        <div class="text-xs text-gray-500">${c.template_name || 'Sin template'}</div>
+                    </div>
+                </label>
+            `).join('');
+
+            // Auto-load if at least 2 campaigns exist
+            if (allCampaigns.length >= 2) {
+                loadComparison();
+            }
+        } catch (e) {
+            console.error('Error loading campaigns:', e);
+        }
+    }
+
+    async function loadComparison() {
+        const checkboxes = document.querySelectorAll('.campaign-checkbox:checked');
+        const selectedIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+        if (selectedIds.length < 2) {
+            document.getElementById('comparison-results').classList.add('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('empty-state').classList.add('hidden');
+        document.getElementById('comparison-results').classList.remove('hidden');
+
+        // Fetch detailed stats for selected campaigns
+        const campaignDetails = await Promise.all(
+            selectedIds.map(id => fetch(`/api/campaigns/${id}`).then(r => r.json()))
+        );
+
+        renderComparisonTable(campaignDetails);
+        renderCharts(campaignDetails);
+    }
+
+    function renderComparisonTable(campaigns) {
+        const tbody = document.getElementById('comparison-table-body');
+        tbody.innerHTML = campaigns.map(c => {
+            const readRate = c.stats.sent > 0 ? ((c.stats.read / c.stats.sent) * 100).toFixed(1) : 0;
+            return `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <td class="px-4 py-3">
+                        <a href="/campaigns/${c.id}" class="font-medium text-sm hover:text-primary transition-colors">
+                            ${escapeHtml(c.name)}
+                        </a>
+                        <div class="text-xs text-gray-500">${c.tag_name || 'Sin tag'}</div>
+                    </td>
+                    <td class="px-4 py-3 text-center font-semibold">${c.stats.total}</td>
+                    <td class="px-4 py-3 text-center font-semibold text-primary">${c.stats.sent}</td>
+                    <td class="px-4 py-3 text-center font-semibold text-blue-500">${c.stats.read}</td>
+                    <td class="px-4 py-3 text-center font-bold">${readRate}%</td>
+                    <td class="px-4 py-3 text-center font-semibold text-purple-500">${c.stats.unique_responders || 0}</td>
+                    <td class="px-4 py-3 text-center font-bold text-orange-500">${c.stats.response_rate || 0}%</td>
+                    <td class="px-4 py-3 text-center font-semibold text-red-500">${c.stats.failed}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function renderCharts(campaigns) {
+        // Destroy old charts
+        Object.values(charts).forEach(chart => chart.destroy());
+        charts = {};
+
+        const labels = campaigns.map(c => c.name.length > 20 ? c.name.substring(0, 20) + '...' : c.name);
+
+        // Sent vs Read Chart
+        charts.sentRead = new Chart(document.getElementById('sentReadChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Enviados',
+                        data: campaigns.map(c => c.stats.sent),
+                        backgroundColor: colorPalette[0],
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Leídos',
+                        data: campaigns.map(c => c.stats.read),
+                        backgroundColor: colorPalette[1],
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // Response Rate Chart
+        charts.responseRate = new Chart(document.getElementById('responseRateChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Tasa de Respuesta (%)',
+                    data: campaigns.map(c => c.stats.response_rate || 0),
+                    backgroundColor: colorPalette.slice(0, campaigns.length),
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: v => v + '%' }
+                    }
+                }
+            }
+        });
+
+        // Success Rate Chart (% sin fallos)
+        charts.successRate = new Chart(document.getElementById('successRateChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Tasa de Éxito (%)',
+                    data: campaigns.map(c => {
+                        const successRate = c.stats.total > 0 ? ((c.stats.sent / c.stats.total) * 100).toFixed(1) : 0;
+                        return successRate;
+                    }),
+                    backgroundColor: colorPalette.slice(0, campaigns.length),
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: v => v + '%' }
+                    }
+                }
+            }
+        });
+
+        // Total Reach Chart
+        charts.totalReach = new Chart(document.getElementById('totalReachChart'), {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: campaigns.map(c => c.stats.total),
+                    backgroundColor: colorPalette.slice(0, campaigns.length)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // Init
+    Chart.defaults.font.family = 'Inter';
+    Chart.defaults.color = '#64748b';
+    loadCampaigns();
+</script>
+{% endblock %}

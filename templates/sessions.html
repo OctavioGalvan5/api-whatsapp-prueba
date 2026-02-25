@@ -25,11 +25,9 @@
                 <select id="filter-rating" onchange="loadSessions(true)"
                     class="px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
                     <option value="">Todas las calidades</option>
-                    <option value="excelente">⭐ Excelente</option>
                     <option value="buena">👍 Buena</option>
                     <option value="neutral">😐 Neutral</option>
                     <option value="mala">👎 Mala</option>
-                    <option value="problematica">⚠️ Problemática</option>
                 </select>
                 <select id="filter-status" onchange="loadSessions(true)"
                     class="px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
@@ -121,11 +119,9 @@
                 <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Calidad</label>
                 <select id="edit-rating"
                     class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
-                    <option value="excelente">⭐ Excelente</option>
                     <option value="buena">👍 Buena</option>
                     <option value="neutral">😐 Neutral</option>
                     <option value="mala">👎 Mala</option>
-                    <option value="problematica">⚠️ Problemática</option>
                 </select>
             </div>
         </div>
@@ -147,12 +143,9 @@
     let searchTimeout;
 
     const ratingLabels = {
-        'excelente': '⭐ Excelente',
         'buena': '👍 Buena',
         'neutral': '😐 Neutral',
-        'mala': '👎 Mala',
-        'problematica': '⚠️ Problemática',
-        'problemática': '⚠️ Problemática'  // Variante con acento
+        'mala': '👎 Mala'
     };
 
     async function loadTopics() {
