@@ -1457,13 +1457,20 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         return div.innerHTML;
     }
 
+    // ==========================================
+    // INICIALIZACIÓN: Configurar event listeners ANTES de cualquier acción
+    // ==========================================
+
     // Scroll infinito - solo carga más cuando llega al final
-    document.getElementById('contacts-list').addEventListener('scroll', function () {
-        const { scrollTop, scrollHeight, clientHeight } = this;
-        if (scrollTop + clientHeight >= scrollHeight - 100) {
-            loadMoreContacts();
-        }
-    });
+    const contactsListEl = document.getElementById('contacts-list');
+    if (contactsListEl) {
+        contactsListEl.addEventListener('scroll', function () {
+            const { scrollTop, scrollHeight, clientHeight } = this;
+            if (scrollTop + clientHeight >= scrollHeight - 100) {
+                loadMoreContacts();
+            }
+        });
+    }
 
     // Búsqueda con debounce - solo busca en servidor si hay texto
     document.getElementById('search-input').addEventListener('input', function (e) {
@@ -1499,10 +1506,13 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         }
     } else {
         // Sin ?phone= en URL: cargar el primer contacto via AJAX (evita SSR pesado)
-        const firstContact = document.querySelector('.contact-item[data-phone]');
-        if (firstContact) {
-            selectContact(firstContact.dataset.phone);
-        }
+        // Usar setTimeout para asegurar que el event listener del scroll ya está registrado
+        setTimeout(() => {
+            const firstContact = document.querySelector('.contact-item[data-phone]');
+            if (firstContact) {
+                selectContact(firstContact.dataset.phone);
+            }
+        }, 100);
     }
 
     // Polling: actualiza chat cada 30s
