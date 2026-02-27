@@ -13,7 +13,9 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://graph.facebook.com/v18.0/1013615261827177?access_token=EAARKWBZAyoEIBQpeltw6y6iU1E6to3FOEUvjm8QT7YKmIvZAoSXzRkuEnLd8ingxDjluvXd3MLIDmJ9uqDgrWprbsuSeQqZA5T1bCeX0Ar1el7E7ZACevpLKAlG60moUgEpGAxf2ZCIGETgwEAWyaDDZBC66kW2hKgHqPfxK6ik5nr0iRCGXOZAPIZCmu63yYgZDZD\")",
       "Bash(curl -s \"https://graph.facebook.com/v18.0/1013615261827177/subscribed_apps?access_token=EAARKWBZAyoEIBQpeltw6y6iU1E6to3FOEUvjm8QT7YKmIvZAoSXzRkuEnLd8ingxDjluvXd3MLIDmJ9uqDgrWprbsuSeQqZA5T1bCeX0Ar1el7E7ZACevpLKAlG60moUgEpGAxf2ZCIGETgwEAWyaDDZBC66kW2hKgHqPfxK6ik5nr0iRICGXOZAPIZCmu63yYgZDZD\")",
       "Bash(curl -s \"https://graph.facebook.com/v18.0/1013615261827177?access_token=EAARKWBZAyoEIBQnpm0LfSEdIRgfrMpqNRgOzAvBvJo9j5y3jlc42lvVJTtIZAdASAEFA4VQotonyWISNF2SfFlzywHmHRkmWCEcBKQKa8KIw14xNXqukxxK4xJd6M0ceEkeh3fRS04t7YNreSGr2MxfLQw0oV6zrMUl8r38rynmuZA89irSAmZAtzJZA4wIy5FDnfPBswyx4IGUgy0OyJR7ZAHtysuEmGK0a3SoRQwJSHSAlYmmrX2K5r39trBRpxMWbuW3TV2jpVU2XQ7uZACWM1j0VZCTIPOX2RQZDZD\")",
-      "Bash(Get-Command docker -ErrorAction SilentlyContinue)"
+      "Bash(Get-Command docker -ErrorAction SilentlyContinue)",
+      "Bash(find \"c:\\Users\\octav\\OneDrive\\Escritorio\\chatbot caja de abogados\\api de whatsapp/templates\" -name \"*.html\" -exec basename {} ;)",
+      "Bash(python -c \"import sys; print(sys.version)\")"
     ],
     "deny": [],
     "ask": []
