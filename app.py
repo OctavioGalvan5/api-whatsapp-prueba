@@ -4,6 +4,7 @@ import requests
 import io
 import pandas as pd
 import hmac
+import re
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for
 from config import Config
 from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote
@@ -3043,17 +3044,41 @@ def campaigns_compare_page():
 def api_list_campaigns():
     """Lista campañas."""
     campaigns = Campaign.query.order_by(Campaign.created_at.desc()).all()
+
+    # Obtener templates para preview de mensajes
+    templates_map = {}
+    try:
+        templates_data = whatsapp_api.get_templates()
+        for t in templates_data.get("templates", []):
+            # Extraer el primer componente BODY del template
+            body_text = ""
+            for comp in t.get("components", []):
+                if comp.get("type") == "BODY":
+                    body_text = comp.get("text", "")
+                    break
+            templates_map[t.get("name")] = body_text
+    except Exception as e:
+        logger.warning(f"Error obteniendo templates para preview: {e}")
+        # Continuar sin previews de mensajes
+
     result = []
     for c in campaigns:
         total = len(c.logs)
         sent = sum(1 for l in c.logs if l.status in ('sent', 'delivered', 'read'))
         failed = sum(1 for l in c.logs if l.status == 'failed')
+
+        # Obtener preview del mensaje
+        message_preview = templates_map.get(c.template_name, "")
+        # Eliminar las variables {{1}}, {{2}}, etc. para el preview
+        message_preview = re.sub(r'\{\{\d+\}\}', '...', message_preview)
+
         result.append({
             'id': c.id,
             'name': c.name,
             'status': c.status,
             'tag': c.tag.name if c.tag else None,
             'template_name': c.template_name,
+            'message_preview': message_preview[:100] + ('...' if len(message_preview) > 100 else ''),
             'total': total,
             'sent': sent,
             'failed': failed,
