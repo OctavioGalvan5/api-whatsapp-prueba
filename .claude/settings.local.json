@@ -15,7 +15,8 @@
       "Bash(curl -s \"https://graph.facebook.com/v18.0/1013615261827177?access_token=EAARKWBZAyoEIBQnpm0LfSEdIRgfrMpqNRgOzAvBvJo9j5y3jlc42lvVJTtIZAdASAEFA4VQotonyWISNF2SfFlzywHmHRkmWCEcBKQKa8KIw14xNXqukxxK4xJd6M0ceEkeh3fRS04t7YNreSGr2MxfLQw0oV6zrMUl8r38rynmuZA89irSAmZAtzJZA4wIy5FDnfPBswyx4IGUgy0OyJR7ZAHtysuEmGK0a3SoRQwJSHSAlYmmrX2K5r39trBRpxMWbuW3TV2jpVU2XQ7uZACWM1j0VZCTIPOX2RQZDZD\")",
       "Bash(Get-Command docker -ErrorAction SilentlyContinue)",
       "Bash(find \"c:\\Users\\octav\\OneDrive\\Escritorio\\chatbot caja de abogados\\api de whatsapp/templates\" -name \"*.html\" -exec basename {} ;)",
-      "Bash(python -c \"import sys; print(sys.version)\")"
+      "Bash(python -c \"import sys; print(sys.version)\")",
+      "Bash(python app.py)"
     ],
     "deny": [],
     "ask": []

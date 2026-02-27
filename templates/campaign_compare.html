@@ -4,6 +4,14 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -136,16 +144,56 @@
             allCampaigns = Array.isArray(data) ? data : (data.campaigns || []);
 
             const container = document.getElementById('campaign-checkboxes');
-            container.innerHTML = allCampaigns.map((c, idx) => `
-                <label class="flex items-center gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <input type="checkbox" value="${c.id}" class="campaign-checkbox"
+            container.innerHTML = allCampaigns.map((c, idx) => {
+                // Formatear fecha
+                const date = c.started_at || c.created_at;
+                const dateStr = date ? new Date(date).toLocaleDateString('es-AR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                }) : 'Sin fecha';
+
+                // Color del estado
+                const statusColors = {
+                    'completed': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                    'sending': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                    'draft': 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
+                    'failed': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                };
+                const statusColor = statusColors[c.status] || statusColors.draft;
+
+                // Traducir estado
+                const statusTranslations = {
+                    'completed': 'Completada',
+                    'sending': 'Enviando',
+                    'draft': 'Borrador',
+                    'failed': 'Fallida'
+                };
+                const statusText = statusTranslations[c.status] || c.status;
+
+                return `
+                <label class="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <input type="checkbox" value="${c.id}" class="campaign-checkbox mt-1 flex-shrink-0"
                         ${idx < 3 ? 'checked' : ''}>
                     <div class="flex-1 min-w-0">
-                        <div class="font-medium text-sm truncate">${escapeHtml(c.name)}</div>
-                        <div class="text-xs text-gray-500">${c.template_name || 'Sin template'}</div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <div class="font-semibold text-sm truncate">${escapeHtml(c.name)}</div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusColor} flex-shrink-0">
+                                ${statusText}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                            📅 ${dateStr} • 📊 ${c.total || 0} contactos
+                        </div>
+                        ${c.message_preview ? `
+                            <div class="text-xs text-gray-500 dark:text-gray-500 italic line-clamp-2 mt-1">
+                                "${escapeHtml(c.message_preview)}"
+                            </div>
+                        ` : ''}
                     </div>
                 </label>
-            `).join('');
+            `;
+            }).join('');
 
             // Auto-load if at least 2 campaigns exist
             if (allCampaigns.length >= 2) {
