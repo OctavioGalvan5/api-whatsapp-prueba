@@ -89,7 +89,10 @@ def run_categorization(app_context, force_phone=None):
                 logger.debug(f"  📞 [CATEGORIZER] {phone}: {len(messages)} msgs → {len(sessions)} session(s)")
                 
                 for idx, session_msgs in enumerate(sessions):
-                    if len(session_msgs) < 2:
+                    # Permitir sesiones de 1 mensaje si tiene al menos un inbound
+                    # (ej: respuesta solitaria a una campaña que quedó en sesión separada)
+                    has_inbound = any(m.direction == 'inbound' for m in session_msgs)
+                    if len(session_msgs) < 2 and not has_inbound:
                         total_skipped_few_msgs += 1
                         continue
                     
@@ -131,6 +134,10 @@ def split_into_sessions(messages):
     """
     Split messages into separate sessions based on time gaps.
     If there's >30 min gap between messages, start a new session.
+    
+    EXCEPCIÓN: Si el mensaje anterior es un template/campaña outbound
+    y el siguiente es inbound, NO separar (el usuario está respondiendo
+    a la campaña, sin importar cuánto tiempo pasó).
     """
     if not messages:
         return []
@@ -145,8 +152,15 @@ def split_into_sessions(messages):
         # Calculate time gap between messages
         gap = (curr_msg.timestamp - prev_msg.timestamp).total_seconds() / 60
         
-        if gap >= SESSION_GAP_MINUTES:
-            # Start new session
+        # Detectar si es una respuesta a template/campaña
+        is_campaign_response = (
+            prev_msg.direction == 'outbound'
+            and prev_msg.message_type == 'template'
+            and curr_msg.direction == 'inbound'
+        )
+        
+        if gap >= SESSION_GAP_MINUTES and not is_campaign_response:
+            # Start new session (pero NO si es respuesta a campaña)
             sessions.append(current_session)
             current_session = [curr_msg]
         else:

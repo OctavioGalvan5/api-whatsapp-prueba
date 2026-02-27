@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 import pytz
 import mimetypes
+import uuid
 
 # Fix MIME types for Windows/Local
 mimetypes.add_type('audio/ogg', '.oga')
@@ -2860,6 +2861,100 @@ def api_send_text():
                 logger.error(f"Error al guardar mensaje en BD: {e}")
     
     return jsonify(result)
+
+@app.route("/api/whatsapp/send-media", methods=["POST"])
+def api_send_media():
+    """API para enviar imagen/documento/video/audio desde el dashboard."""
+    to_phone = request.form.get("to")
+    caption = request.form.get("caption", "").strip() or None
+    file = request.files.get("file")
+    
+    if not to_phone:
+        return jsonify({"error": "'to' es requerido"}), 400
+    if not file:
+        return jsonify({"error": "No se envió ningún archivo"}), 400
+    
+    # Leer archivo
+    file_bytes = file.read()
+    if len(file_bytes) == 0:
+        return jsonify({"error": "El archivo está vacío"}), 400
+    
+    # Límite de 16MB (WhatsApp limit para imágenes es 5MB, documentos 100MB, pero mantenemos razonable)
+    if len(file_bytes) > 16 * 1024 * 1024:
+        return jsonify({"error": "El archivo excede el límite de 16MB"}), 400
+    
+    original_filename = file.filename or "archivo"
+    mime_type = file.content_type or mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
+    
+    # Determinar media_type para WhatsApp
+    if mime_type.startswith("image/"):
+        media_type = "image"
+    elif mime_type.startswith("video/"):
+        media_type = "video"
+    elif mime_type.startswith("audio/"):
+        media_type = "audio"
+    else:
+        media_type = "document"
+    
+    # 1. Subir a WhatsApp API
+    upload_result = whatsapp_api.upload_media(file_bytes, mime_type, original_filename)
+    if not upload_result.get("success"):
+        return jsonify({"error": "Error subiendo archivo a WhatsApp: " + upload_result.get("error", "Desconocido")}), 500
+    
+    wa_media_id = upload_result["media_id"]
+    
+    # 2. Enviar mensaje multimedia
+    send_result = whatsapp_api.send_media_message(
+        to_phone, media_type, wa_media_id, 
+        caption=caption,
+        filename=original_filename if media_type == "document" else None
+    )
+    
+    if not send_result.get("success"):
+        return jsonify({"error": "Error enviando mensaje: " + send_result.get("error", "Desconocido")}), 500
+    
+    # 3. Subir a MinIO para almacenamiento persistente
+    ext = mimetypes.guess_extension(mime_type) or ""
+    if ext in ['.oga', '.opus']:
+        ext = '.ogg'
+    minio_filename = f"sent_{uuid.uuid4().hex[:12]}{ext}"
+    media_url = whatsapp_api.upload_to_minio(file_bytes, mime_type, minio_filename)
+    
+    # 4. Guardar en BD
+    wa_id = send_result.get("message_id")
+    if wa_id:
+        existing = Message.query.filter_by(wa_message_id=wa_id).first()
+        if existing:
+            existing.content = caption or f"[{media_type}]"
+            existing.phone_number = to_phone
+            existing.message_type = media_type
+            existing.media_url = media_url
+            existing.caption = caption
+        else:
+            new_msg = Message(
+                wa_message_id=wa_id,
+                phone_number=to_phone,
+                direction="outbound",
+                message_type=media_type,
+                content=caption or f"[{media_type}]",
+                media_url=media_url,
+                caption=caption,
+                timestamp=datetime.utcnow()
+            )
+            db.session.add(new_msg)
+        
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error al guardar mensaje media en BD: {e}")
+    
+    return jsonify({
+        "success": True,
+        "message_id": wa_id,
+        "media_type": media_type,
+        "media_url": media_url
+    })
 
 # ==================== CAMPAÑAS ====================
 

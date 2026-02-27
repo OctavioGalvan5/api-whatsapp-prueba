@@ -455,6 +455,153 @@ class WhatsAppAPI:
                 logger.error(f"Error creando template: {e}")
             return {"error": error_detail or str(e)}
 
+    def upload_media(self, file_bytes, mime_type, filename):
+        """
+        Sube un archivo a WhatsApp para poder enviarlo como mensaje.
+        
+        Args:
+            file_bytes: Bytes del archivo
+            mime_type: Tipo MIME del archivo (e.g. 'image/jpeg')
+            filename: Nombre del archivo
+            
+        Returns:
+            dict con media_id o error
+        """
+        if not self.phone_number_id:
+            return {"error": "Phone Number ID no configurado"}
+        
+        url = f"{BASE_URL}/{self.phone_number_id}/media"
+        
+        # WhatsApp API requiere multipart/form-data para subir media
+        # No usar self.headers porque tiene Content-Type: application/json
+        headers = {
+            "Authorization": f"Bearer {self.token}"
+        }
+        
+        files = {
+            'file': (filename, file_bytes, mime_type)
+        }
+        data = {
+            'messaging_product': 'whatsapp',
+            'type': mime_type
+        }
+        
+        try:
+            logger.info(f"📤 Subiendo media a WhatsApp: {filename} ({mime_type}, {len(file_bytes)} bytes)")
+            response = requests.post(url, headers=headers, files=files, data=data, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+            
+            media_id = result.get("id")
+            logger.info(f"✅ Media subido a WhatsApp: media_id={media_id}")
+            return {"success": True, "media_id": media_id}
+            
+        except requests.exceptions.RequestException as e:
+            error_detail = ""
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    logger.error(f"Error subiendo media: {e} | Detalle: {error_detail}")
+                except:
+                    error_detail = e.response.text
+                    logger.error(f"Error subiendo media: {e} | Response: {error_detail}")
+            else:
+                logger.error(f"Error subiendo media: {e}")
+            return {"error": str(e), "detail": error_detail}
+    
+    def send_media_message(self, to_phone, media_type, media_id, caption=None, filename=None):
+        """
+        Envía un mensaje multimedia usando un media_id previamente subido.
+        
+        Args:
+            to_phone: Número de teléfono destino (con código de país, sin +)
+            media_type: Tipo de media ('image', 'document', 'video', 'audio')
+            media_id: ID del media subido a WhatsApp
+            caption: Texto opcional que acompaña al media
+            filename: Nombre del archivo (solo para documents)
+        """
+        if not self.phone_number_id:
+            return {"error": "Phone Number ID no configurado"}
+        
+        url = f"{BASE_URL}/{self.phone_number_id}/messages"
+        
+        media_object = {"id": media_id}
+        
+        # caption solo es válido para image, video y document
+        if caption and media_type in ('image', 'video', 'document'):
+            media_object["caption"] = caption
+        
+        # filename solo es válido para document
+        if filename and media_type == 'document':
+            media_object["filename"] = filename
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to_phone,
+            "type": media_type,
+            media_type: media_object
+        }
+        
+        try:
+            logger.info(f"📤 Enviando {media_type} a {to_phone} (media_id={media_id})")
+            response = requests.post(url, headers=self.headers, json=payload, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"✅ {media_type} enviado a {to_phone}")
+            return {
+                "success": True,
+                "message_id": data.get("messages", [{}])[0].get("id"),
+                "to": to_phone
+            }
+            
+        except requests.exceptions.RequestException as e:
+            error_detail = ""
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    logger.error(f"Error enviando {media_type}: {e} | Detalle: {error_detail}")
+                except:
+                    error_detail = e.response.text
+                    logger.error(f"Error enviando {media_type}: {e} | Response: {error_detail}")
+            else:
+                logger.error(f"Error enviando {media_type}: {e}")
+            return {"error": str(e), "detail": error_detail}
+    
+    def upload_to_minio(self, file_bytes, mime_type, filename):
+        """
+        Sube un archivo a MinIO para almacenamiento persistente.
+        Retorna la URL pública o None si falla.
+        """
+        try:
+            s3 = get_s3_client()
+            bucket = Config.MINIO_BUCKET
+            ensure_bucket_exists()
+            
+            s3.put_object(
+                Bucket=bucket,
+                Key=filename,
+                Body=file_bytes,
+                ContentType=mime_type
+            )
+            
+            public_url = get_minio_public_url(filename)
+            logger.info(f"✅ Archivo subido a MinIO: {public_url} ({len(file_bytes)} bytes)")
+            return public_url
+            
+        except Exception as e:
+            logger.error(f"Error subiendo a MinIO: {str(e)}")
+            # Fallback: guardar localmente
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            local_dir = os.path.join(base_dir, "static", "media")
+            if not os.path.exists(local_dir):
+                os.makedirs(local_dir)
+            local_path = os.path.join(local_dir, filename)
+            with open(local_path, 'wb') as f:
+                f.write(file_bytes)
+            logger.warning(f"⚠️ Fallback a almacenamiento local: {local_path}")
+            return f"static/media/{filename}"
+
     def send_text_message(self, to_phone, text):
         """
         Envía un mensaje de texto simple.
