@@ -312,7 +312,47 @@
         <div class="flex flex-col items-end max-w-[80%] self-end">
             <div
                 class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
+
+                {% if msg.media_url %}
+                {% set media_src = msg.media_url if (msg.media_url.startswith('http') or msg.media_url.startswith('/'))
+                else '/' ~ msg.media_url %}
+                {% if msg.message_type == 'image' %}
+                <a href="{{ media_src }}" target="_blank">
+                    <img src="{{ media_src }}"
+                        class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                        alt="Imagen">
+                </a>
+                {% elif msg.message_type == 'video' %}
+                <video controls class="rounded-lg mb-2 max-w-full max-h-64">
+                    <source src="{{ media_src }}">
+                </video>
+                {% elif msg.message_type == 'audio' %}
+                <audio controls class="mb-2 max-w-full">
+                    <source src="{{ media_src }}" type="audio/ogg">
+                </audio>
+                {% elif msg.message_type == 'document' %}
+                <a href="{{ media_src }}" target="_blank"
+                    class="flex items-center gap-3 p-3 bg-white/10 rounded-lg hover:bg-white/20 transition-colors mb-2">
+                    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <span class="material-symbols-outlined">description</span>
+                    </div>
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="font-medium truncate">Documento</span>
+                        <span class="text-xs opacity-70">Click para descargar</span>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if msg.caption %}
+                <p class="mt-1">{{ msg.caption }}</p>
+                {% elif not msg.media_url %}
                 <p>{{ msg.content or '[Sin contenido]' }}</p>
+                {% endif %}
+
+                {% else %}
+                <p>{{ msg.content or '[Sin contenido]' }}</p>
+                {% endif %}
+
                 <div class="flex items-center justify-end gap-1 mt-1">
                     <span class="text-[10px] text-white/80">{{ msg_argentina.strftime('%H:%M') if msg_argentina else
                         '' }}</span>
@@ -372,14 +412,42 @@
 
             <!-- Text Mode Input -->
             <div id="text-mode" class="{% if not can_send_free_text %}hidden{% endif %}">
-                <form class="flex items-end gap-3" onsubmit="sendTextMessage(event)">
+                <!-- File Preview (hidden by default) -->
+                <div id="file-preview"
+                    class="hidden mb-2 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                    <div class="flex items-center gap-3">
+                        <div id="file-preview-thumb" class="shrink-0">
+                            <!-- Thumbnail or icon inserted by JS -->
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p id="file-preview-name"
+                                class="text-sm font-medium text-[#111812] dark:text-gray-200 truncate"></p>
+                            <p id="file-preview-size" class="text-xs text-gray-400"></p>
+                        </div>
+                        <button type="button" onclick="cancelFileAttachment()"
+                            class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors shrink-0"
+                            title="Cancelar archivo">
+                            <span class="material-symbols-outlined text-gray-500 text-lg">close</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Hidden file input -->
+                <input type="file" id="file-input" class="hidden"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+                    onchange="handleFileSelected(this)" />
+                <form class="flex items-end gap-2" onsubmit="handleComposerSubmit(event)">
+                    <button type="button" onclick="document.getElementById('file-input').click()"
+                        class="size-11 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0 text-gray-500 hover:text-primary"
+                        title="Adjuntar archivo">
+                        <span class="material-symbols-outlined">attach_file</span>
+                    </button>
                     <div
                         class="flex-1 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 p-2 focus-within:border-primary transition-colors">
                         <input id="message-input" type="text"
                             class="w-full bg-transparent border-none focus:ring-0 text-sm text-[#111812] dark:text-gray-200 placeholder:text-gray-400 resize-none min-h-[40px] custom-scrollbar"
                             placeholder="Escribe un mensaje..." />
                     </div>
-                    <button type="submit"
+                    <button type="submit" id="send-btn"
                         class="bg-primary text-white size-11 rounded-xl flex items-center justify-center hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all shrink-0">
                         <span class="material-symbols-outlined fill-1">send</span>
                     </button>
@@ -615,6 +683,169 @@
         container.scrollTop = container.scrollHeight;
     }
 
+    // ==========================================
+    // FILE ATTACHMENT LOGIC
+    // ==========================================
+    let selectedFile = null;
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function handleFileSelected(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        // Validar tamaño (16MB max)
+        if (file.size > 16 * 1024 * 1024) {
+            alert('El archivo excede el límite de 16MB');
+            input.value = '';
+            return;
+        }
+
+        selectedFile = file;
+        const preview = document.getElementById('file-preview');
+        const thumbEl = document.getElementById('file-preview-thumb');
+        const nameEl = document.getElementById('file-preview-name');
+        const sizeEl = document.getElementById('file-preview-size');
+
+        nameEl.textContent = file.name;
+        sizeEl.textContent = formatFileSize(file.size);
+
+        // Generar preview según tipo
+        if (file.type.startsWith('image/')) {
+            const url = URL.createObjectURL(file);
+            thumbEl.innerHTML = `<img src="${url}" class="w-12 h-12 rounded-lg object-cover" alt="Preview">`;
+        } else if (file.type.startsWith('video/')) {
+            thumbEl.innerHTML = `<div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-500 rounded-lg flex items-center justify-center"><span class="material-symbols-outlined">videocam</span></div>`;
+        } else if (file.type.startsWith('audio/')) {
+            thumbEl.innerHTML = `<div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-500 rounded-lg flex items-center justify-center"><span class="material-symbols-outlined">audio_file</span></div>`;
+        } else if (file.type === 'application/pdf') {
+            thumbEl.innerHTML = `<div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-lg flex items-center justify-center"><span class="material-symbols-outlined">picture_as_pdf</span></div>`;
+        } else {
+            thumbEl.innerHTML = `<div class="w-12 h-12 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-lg flex items-center justify-center"><span class="material-symbols-outlined">description</span></div>`;
+        }
+
+        preview.classList.remove('hidden');
+        // Cambiar placeholder del input
+        document.getElementById('message-input').placeholder = 'Agregar comentario (opcional)...';
+    }
+
+    function cancelFileAttachment() {
+        selectedFile = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('file-preview').classList.add('hidden');
+        document.getElementById('message-input').placeholder = 'Escribe un mensaje...';
+    }
+
+    function handleComposerSubmit(e) {
+        e.preventDefault();
+        if (selectedFile) {
+            sendMediaMessage();
+        } else {
+            sendTextMessage(e);
+        }
+    }
+
+    async function sendMediaMessage() {
+        if (!selectedFile || !currentPhone) {
+            alert('Error: Selecciona un archivo y un contacto');
+            return;
+        }
+
+        const resDiv = document.getElementById('send-result');
+        const sendBtn = document.getElementById('send-btn');
+        const caption = document.getElementById('message-input').value.trim() || '';
+
+        resDiv.innerHTML = '<span class="flex items-center gap-1"><span class="inline-block w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></span> Enviando archivo...</span>';
+        resDiv.className = 'text-xs text-gray-500 pt-1';
+        sendBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('to', currentPhone);
+        formData.append('file', selectedFile);
+        if (caption) formData.append('caption', caption);
+
+        const sentFile = selectedFile; // Keep reference for local render
+
+        try {
+            const response = await fetch('/api/whatsapp/send-media', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const textErr = await response.text();
+                throw new Error(`Server error: ${response.status} ${textErr}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                resDiv.innerHTML = 'Archivo enviado ✓';
+                resDiv.className = 'text-xs text-green-500 pt-1';
+                appendMediaLocally(sentFile, data.media_type, data.media_url, caption);
+                cancelFileAttachment();
+                document.getElementById('message-input').value = '';
+                setTimeout(() => { resDiv.innerHTML = ''; }, 2000);
+            } else {
+                resDiv.innerHTML = 'Error: ' + (data.error || 'Unknown');
+                resDiv.className = 'text-xs text-red-500 pt-1';
+                alert('Error enviando archivo: ' + (data.error || 'Unknown'));
+            }
+        } catch (e) {
+            console.error(e);
+            resDiv.innerHTML = 'Error: ' + e.message;
+            resDiv.className = 'text-xs text-red-500 pt-1';
+            alert('Error de conexión o servidor: ' + e.message);
+        } finally {
+            sendBtn.disabled = false;
+        }
+    }
+
+    function appendMediaLocally(file, mediaType, mediaUrl, caption) {
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+        let mediaHtml = '';
+        const mediaSrc = (mediaUrl && (mediaUrl.startsWith('http') || mediaUrl.startsWith('/'))) ? mediaUrl : '/' + (mediaUrl || '');
+
+        if (mediaType === 'image') {
+            // Use local blob for instant preview, fallback to server URL
+            const localUrl = URL.createObjectURL(file);
+            mediaHtml = `<a href="${mediaSrc}" target="_blank"><img src="${localUrl}" class="rounded-lg mb-2 max-w-full max-h-64 object-cover cursor-pointer hover:opacity-95 transition-opacity" alt="Imagen"></a>`;
+        } else if (mediaType === 'video') {
+            mediaHtml = `<div class="flex items-center gap-2 p-2 bg-white/10 rounded-lg mb-2"><span class="material-symbols-outlined">videocam</span><span class="text-sm">${escapeHtml(file.name)}</span></div>`;
+        } else if (mediaType === 'audio') {
+            mediaHtml = `<div class="flex items-center gap-2 p-2 bg-white/10 rounded-lg mb-2"><span class="material-symbols-outlined">audio_file</span><span class="text-sm">${escapeHtml(file.name)}</span></div>`;
+        } else {
+            mediaHtml = `<a href="${mediaSrc}" target="_blank" class="flex items-center gap-3 p-3 bg-white/10 rounded-lg hover:bg-white/20 transition-colors mb-2">
+    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><span class="material-symbols-outlined">description</span></div>
+    <div class="flex flex-col overflow-hidden"><span class="font-medium truncate">${escapeHtml(file.name)}</span><span class="text-xs opacity-70">${formatFileSize(file.size)}</span></div>
+</a>`;
+        }
+
+        const captionHtml = caption ? `<p class="mt-1">${escapeHtml(caption)}</p>` : '';
+
+        const div = document.createElement('div');
+        div.className = 'flex flex-col items-end max-w-[80%] self-end';
+        div.innerHTML = `
+<div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
+    ${mediaHtml}
+    ${captionHtml}
+    <div class="flex items-center justify-end gap-1 mt-1">
+        <span class="text-[10px] text-white/80">${timeStr}</span>
+        <span class="material-symbols-outlined text-[14px] text-white">check</span>
+    </div>
+</div>`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
     async function selectContact(phone) {
         const fallbackToReload = () => {
             window.location.href = `/dashboard?phone=${encodeURIComponent(phone)}`;
@@ -627,6 +858,9 @@
 
         // Guardar variables de plantilla antes de cambiar
         if (currentPhone) saveTemplateVars(currentPhone);
+
+        // Limpiar archivo adjunto al cambiar de contacto
+        cancelFileAttachment();
 
         // Visual update sidebar
         document.querySelectorAll('.contact-item').forEach(item => {
