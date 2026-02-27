@@ -1332,6 +1332,13 @@
     let currentSearch = '';
     let isSearchMode = false;
 
+    console.log('Scroll Infinito Inicializado:', {
+        contactsOffset,
+        contactsLoading,
+        contactsHasMore,
+        selectedContact: '{{ selected_contact or "" }}'
+    });
+
     async function loadMoreContacts() {
         if (contactsLoading || !contactsHasMore) return;
 
@@ -1461,58 +1468,89 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
     // INICIALIZACIÓN: Configurar event listeners ANTES de cualquier acción
     // ==========================================
 
-    // Scroll infinito - solo carga más cuando llega al final
-    const contactsListEl = document.getElementById('contacts-list');
-    if (contactsListEl) {
-        contactsListEl.addEventListener('scroll', function () {
-            const { scrollTop, scrollHeight, clientHeight } = this;
-            if (scrollTop + clientHeight >= scrollHeight - 100) {
-                loadMoreContacts();
-            }
+    function initializeDashboard() {
+        console.log('Inicializando dashboard...');
+
+        // Scroll infinito - solo carga más cuando llega al final
+        const contactsListEl = document.getElementById('contacts-list');
+        console.log('Elemento contacts-list encontrado:', contactsListEl);
+        console.log('Dimensiones iniciales:', {
+            scrollHeight: contactsListEl?.scrollHeight,
+            clientHeight: contactsListEl?.clientHeight,
+            scrollTop: contactsListEl?.scrollTop
         });
+
+        if (contactsListEl) {
+            contactsListEl.addEventListener('scroll', function () {
+                const { scrollTop, scrollHeight, clientHeight } = this;
+                console.log('Scroll event:', { scrollTop, scrollHeight, clientHeight, diff: scrollHeight - (scrollTop + clientHeight) });
+                if (scrollTop + clientHeight >= scrollHeight - 100) {
+                    console.log('Trigger loadMoreContacts()');
+                    loadMoreContacts();
+                }
+            });
+            console.log('Event listener de scroll registrado exitosamente');
+        } else {
+            console.error('No se pudo encontrar el elemento contacts-list');
+        }
+
+        // Búsqueda con debounce - solo busca en servidor si hay texto
+        const searchInputEl = document.getElementById('search-input');
+        if (searchInputEl) {
+            searchInputEl.addEventListener('input', function (e) {
+                clearTimeout(searchTimeout);
+                const query = e.target.value.trim();
+
+                if (query === '') {
+                    // Si se borra la búsqueda, recargar la página para restaurar estado inicial
+                    if (isSearchMode) {
+                        window.location.href = '/dashboard' + (currentPhone ? '?phone=' + encodeURIComponent(currentPhone) : '');
+                    }
+                    return;
+                }
+
+                searchTimeout = setTimeout(() => {
+                    currentSearch = query;
+                    searchContacts(query);
+                }, 300);
+            });
+        } else {
+            console.error('No se pudo encontrar el elemento search-input');
+        }
+
+        // Auto-scroll del chat
+        const msgs = document.getElementById('chat-messages');
+        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+
+        // Initial setup for Edit button
+        if (currentPhone) {
+            const nameEl = document.querySelector('.chat-user-name');
+            currentContactName = nameEl ? nameEl.textContent.trim() : '';
+            const headerActions = document.querySelector('header .flex.items-center.gap-2');
+            if (headerActions) {
+                const editBtn = headerActions.querySelector('button');
+                if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
+            }
+        } else {
+            // Sin ?phone= en URL: cargar el primer contacto via AJAX (evita SSR pesado)
+            // Usar setTimeout para asegurar que el event listener del scroll ya está registrado
+            setTimeout(() => {
+                const firstContact = document.querySelector('.contact-item[data-phone]');
+                if (firstContact) {
+                    selectContact(firstContact.dataset.phone);
+                }
+            }, 100);
+        }
+
+        console.log('Dashboard inicializado correctamente');
     }
 
-    // Búsqueda con debounce - solo busca en servidor si hay texto
-    document.getElementById('search-input').addEventListener('input', function (e) {
-        clearTimeout(searchTimeout);
-        const query = e.target.value.trim();
-
-        if (query === '') {
-            // Si se borra la búsqueda, recargar la página para restaurar estado inicial
-            if (isSearchMode) {
-                window.location.href = '/dashboard' + (currentPhone ? '?phone=' + encodeURIComponent(currentPhone) : '');
-            }
-            return;
-        }
-
-        searchTimeout = setTimeout(() => {
-            currentSearch = query;
-            searchContacts(query);
-        }, 300);
-    });
-
-    // Auto-scroll del chat
-    const msgs = document.getElementById('chat-messages');
-    if (msgs) msgs.scrollTop = msgs.scrollHeight;
-
-    // Initial setup for Edit button
-    if (currentPhone) {
-        const nameEl = document.querySelector('.chat-user-name');
-        currentContactName = nameEl ? nameEl.textContent.trim() : '';
-        const headerActions = document.querySelector('header .flex.items-center.gap-2');
-        if (headerActions) {
-            const editBtn = headerActions.querySelector('button');
-            if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
-        }
+    // Ejecutar inicialización cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeDashboard);
     } else {
-        // Sin ?phone= en URL: cargar el primer contacto via AJAX (evita SSR pesado)
-        // Usar setTimeout para asegurar que el event listener del scroll ya está registrado
-        setTimeout(() => {
-            const firstContact = document.querySelector('.contact-item[data-phone]');
-            if (firstContact) {
-                selectContact(firstContact.dataset.phone);
-            }
-        }, 100);
+        // DOM ya está listo, ejecutar inmediatamente
+        initializeDashboard();
     }
 
     // Polling: actualiza chat cada 30s

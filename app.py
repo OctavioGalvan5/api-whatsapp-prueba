@@ -438,11 +438,29 @@ def webhook_handler():
 def dashboard():
     """Dashboard para visualizar conversaciones tipo WhatsApp - OPTIMIZADO."""
     selected_phone = request.args.get('phone')
-    
+
+    # Si no hay phone seleccionado, redirigir al primer contacto disponible
+    if not selected_phone:
+        from sqlalchemy import text
+        first_contact_query = text("""
+            SELECT phone_number
+            FROM whatsapp_messages
+            WHERE phone_number NOT IN ('unknown', 'outbound', '')
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """)
+        try:
+            result = db.session.execute(first_contact_query).fetchone()
+            if result:
+                return redirect(url_for('dashboard', phone=result.phone_number))
+        except Exception as e:
+            logger.error(f"Error getting first contact: {e}")
+            # Si falla, continuar con el flujo normal
+
     # OPTIMIZACIÓN: Removidas queries de stats generales (no se usan en UI del chat)
     # Si se necesitan, se pueden cargar via AJAX o en /analytics
     stats = {'total': 0, 'sent': 0, 'read': 0, 'failed': 0}
-    
+
     CONTACTS_LIMIT = 25
     from sqlalchemy import text
 
@@ -1060,7 +1078,7 @@ def api_dashboard_contacts():
     from sqlalchemy import text
 
     if search:
-        # Búsqueda: filtrar por nombre o teléfono (necesita JOIN con contactos)
+        # Búsqueda: filtrar por nombre, teléfono o contenido de mensaje
         # Las conversaciones con tag "Asistencia Humana" se muestran primero.
         search_query = text("""
             SELECT sub.phone_number, sub.last_message, sub.last_timestamp
@@ -1069,10 +1087,18 @@ def api_dashboard_contacts():
                 FROM whatsapp_messages m
                 WHERE m.phone_number NOT IN ('unknown', 'outbound', '')
                   AND (
+                    -- Buscar por teléfono
                     m.phone_number ILIKE :pattern
+                    -- Buscar por nombre de contacto
                     OR m.phone_number IN (
                         SELECT c.phone_number FROM whatsapp_contacts c
                         WHERE c.name ILIKE :pattern OR c.phone_number ILIKE :pattern
+                    )
+                    -- Buscar por contenido de mensaje
+                    OR m.phone_number IN (
+                        SELECT DISTINCT m2.phone_number FROM whatsapp_messages m2
+                        WHERE m2.content ILIKE :pattern
+                          AND m2.phone_number NOT IN ('unknown', 'outbound', '')
                     )
                   )
                 ORDER BY m.phone_number, m.timestamp DESC
