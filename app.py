@@ -3637,6 +3637,23 @@ def api_campaign_details(campaign_id):
         except Exception as e:
             logger.warning(f"No se pudo obtener contenido del template: {e}")
 
+        # Calcular métricas adicionales
+        # 1. Respuestas promedio por contacto (engagement depth)
+        avg_responses_per_contact = round(total_responses / unique_responders, 2) if unique_responders > 0 else 0
+
+        # 2. Score de efectividad (0-10)
+        # Fórmula: (Tasa de entrega × 0.3) + (Tasa de lectura × 0.4) + (Tasa de respuesta × 0.3)
+        delivery_rate = (total_successful / total_logs * 100) if total_logs > 0 else 0
+        read_rate = (read_count / total_successful * 100) if total_successful > 0 else 0
+        # response_rate ya está calculado arriba
+
+        effectiveness_score = round(
+            (delivery_rate / 100 * 3) +  # Max 3 puntos
+            (read_rate / 100 * 4) +       # Max 4 puntos
+            (response_rate / 100 * 3),    # Max 3 puntos
+            1
+        )
+
         return jsonify({
             'id': campaign.id,
             'name': campaign.name,
@@ -3655,7 +3672,11 @@ def api_campaign_details(campaign_id):
                 'failed': failed_count,
                 'unique_responders': unique_responders,
                 'total_responses': total_responses,
-                'response_rate': response_rate
+                'response_rate': response_rate,
+                'avg_responses_per_contact': avg_responses_per_contact,
+                'effectiveness_score': effectiveness_score,
+                'delivery_rate': round(delivery_rate, 1),
+                'read_rate': round(read_rate, 1)
             },
             'logs_preview': logs_preview,
             'pagination': {

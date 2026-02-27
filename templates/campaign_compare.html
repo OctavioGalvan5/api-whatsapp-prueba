@@ -4,6 +4,7 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <style>
     .line-clamp-2 {
         display: -webkit-box;
@@ -180,6 +181,8 @@
                                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tasa Lectura</th>
                                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Respuestas</th>
                                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tasa Respuesta</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Resp/Contacto</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Score</th>
                                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fallidos</th>
                             </tr>
                         </thead>
@@ -567,7 +570,15 @@
     function renderComparisonTable(campaigns) {
         const tbody = document.getElementById('comparison-table-body');
         tbody.innerHTML = campaigns.map(c => {
-            const readRate = c.stats.sent > 0 ? ((c.stats.read / c.stats.sent) * 100).toFixed(1) : 0;
+            const readRate = c.stats.read_rate || (c.stats.sent > 0 ? ((c.stats.read / c.stats.sent) * 100).toFixed(1) : 0);
+            const avgResponses = c.stats.avg_responses_per_contact || 0;
+            const score = c.stats.effectiveness_score || 0;
+
+            // Color del score (verde=bueno, amarillo=medio, rojo=bajo)
+            let scoreColor = 'text-red-500';
+            if (score >= 7) scoreColor = 'text-green-500';
+            else if (score >= 5) scoreColor = 'text-yellow-500';
+
             return `
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td class="px-4 py-3">
@@ -582,6 +593,14 @@
                     <td class="px-4 py-3 text-center font-bold">${readRate}%</td>
                     <td class="px-4 py-3 text-center font-semibold text-purple-500">${c.stats.unique_responders || 0}</td>
                     <td class="px-4 py-3 text-center font-bold text-orange-500">${c.stats.response_rate || 0}%</td>
+                    <td class="px-4 py-3 text-center font-semibold text-cyan-600 dark:text-cyan-400">
+                        ${avgResponses > 0 ? avgResponses.toFixed(1) : '0'}
+                        ${avgResponses > 0 ? '<span class="text-xs text-gray-400">msg</span>' : ''}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="font-bold text-lg ${scoreColor}">${score.toFixed(1)}</span>
+                        <span class="text-xs text-gray-400">/10</span>
+                    </td>
                     <td class="px-4 py-3 text-center font-semibold text-red-500">${c.stats.failed}</td>
                 </tr>
             `;
@@ -679,12 +698,15 @@
         });
 
         // Total Reach Chart
+        const totalReachData = campaigns.map(c => c.stats.total);
+        let totalSum = totalReachData.reduce((a, b) => a + b, 0);
+
         charts.totalReach = new Chart(document.getElementById('totalReachChart'), {
             type: 'doughnut',
             data: {
                 labels: labels,
                 datasets: [{
-                    data: campaigns.map(c => c.stats.total),
+                    data: totalReachData,
                     backgroundColor: colorPalette.slice(0, campaigns.length)
                 }]
             },
@@ -692,9 +714,96 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'right' }
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    return data.labels.map((label, i) => {
+                                        const meta = chart.getDatasetMeta(0);
+                                        const hidden = meta.data[i] ? meta.data[i].hidden : false;
+
+                                        const value = data.datasets[0].data[i];
+                                        const percentage = totalSum > 0 ? ((value / totalSum) * 100).toFixed(1) : 0;
+                                        return {
+                                            text: `${label}: ${value} (${percentage}%)`,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            hidden: hidden,
+                                            index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
+                        },
+                        onClick: function(e, legendItem, legend) {
+                            const index = legendItem.index;
+                            const chart = legend.chart;
+                            const meta = chart.getDatasetMeta(0);
+
+                            // Toggle visibility
+                            meta.data[index].hidden = !meta.data[index].hidden;
+
+                            // Recalcular total solo con elementos visibles
+                            totalSum = 0;
+                            meta.data.forEach((element, i) => {
+                                if (!element.hidden) {
+                                    totalSum += chart.data.datasets[0].data[i];
+                                }
+                            });
+
+                            chart.update();
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const chart = context.chart;
+                                const meta = chart.getDatasetMeta(0);
+
+                                // Calcular total visible
+                                let visibleTotal = 0;
+                                meta.data.forEach((element, i) => {
+                                    if (!element.hidden) {
+                                        visibleTotal += chart.data.datasets[0].data[i];
+                                    }
+                                });
+
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const percentage = visibleTotal > 0 ? ((value / visibleTotal) * 100).toFixed(1) : 0;
+                                return `${label}: ${value} contactos (${percentage}%)`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        color: '#fff',
+                        font: {
+                            weight: 'bold',
+                            size: 14
+                        },
+                        formatter: function(value, context) {
+                            const chart = context.chart;
+                            const meta = chart.getDatasetMeta(0);
+
+                            // Calcular total visible
+                            let visibleTotal = 0;
+                            meta.data.forEach((element, i) => {
+                                if (!element.hidden) {
+                                    visibleTotal += chart.data.datasets[0].data[i];
+                                }
+                            });
+
+                            const percentage = visibleTotal > 0 ? ((value / visibleTotal) * 100).toFixed(1) : 0;
+
+                            // Solo mostrar porcentaje si es mayor a 5% (para que no se amontone)
+                            return percentage > 5 ? percentage + '%' : '';
+                        }
+                    }
                 }
-            }
+            },
+            plugins: [ChartDataLabels] // Plugin para mostrar porcentajes dentro del gráfico
         });
     }
 
