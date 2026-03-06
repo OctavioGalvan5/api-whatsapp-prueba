@@ -114,6 +114,28 @@
         </div>
         {% endif %}
 
+        <!-- Business Profile -->
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-semibold text-lg flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">store</span>
+                    Perfil de Negocio
+                </h2>
+                <button onclick="loadAndEditProfile()" id="edit-profile-btn"
+                    class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                    <span class="material-symbols-outlined text-lg">edit</span>
+                    Editar Perfil
+                </button>
+            </div>
+
+            <div id="profile-display" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex flex-col items-center justify-center py-8 text-center col-span-2">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Cargando perfil...</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Templates -->
         <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
             <div class="flex items-center justify-between mb-4">
@@ -218,6 +240,120 @@
                 class="w-full py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
                 Enviar Template
             </button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div id="edit-profile-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/50" onclick="closeEditProfileModal()"></div>
+    <div class="relative bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">edit</span>
+                Editar Perfil de WhatsApp
+            </h3>
+            <button onclick="closeEditProfileModal()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <form id="edit-profile-form">
+            <!-- About / Descripción -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Descripción (About)
+                    <span class="text-xs text-gray-400">Máx. 256 caracteres</span>
+                </label>
+                <textarea id="profile-about" rows="2" maxlength="256"
+                    placeholder="Ej: Caja de Abogados de Salta - Atención al afiliado"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"></textarea>
+                <p class="text-xs text-gray-400 mt-1"><span id="about-count">0</span>/256 caracteres</p>
+            </div>
+
+            <!-- Description / Descripción larga -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Descripción larga
+                    <span class="text-xs text-gray-400">Máx. 512 caracteres</span>
+                </label>
+                <textarea id="profile-description" rows="3" maxlength="512"
+                    placeholder="Ej: Institución que brinda servicios y beneficios a abogados colegiados..."
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"></textarea>
+                <p class="text-xs text-gray-400 mt-1"><span id="description-count">0</span>/512 caracteres</p>
+            </div>
+
+            <!-- Address -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Dirección</label>
+                <input type="text" id="profile-address" placeholder="Ej: Calle Ejemplo 123, Salta Capital"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+            </div>
+
+            <!-- Email -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Email</label>
+                <input type="email" id="profile-email" placeholder="Ej: info@ejemplo.com"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+            </div>
+
+            <!-- Vertical / Categoría -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Categoría de Negocio</label>
+                <select id="profile-vertical"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                    <option value="">Seleccionar categoría</option>
+                    <option value="PROF_SERVICES">Servicios Profesionales</option>
+                    <option value="GOVT">Gobierno</option>
+                    <option value="NONPROFIT">Organización sin fines de lucro</option>
+                    <option value="FINANCE">Finanzas</option>
+                    <option value="HEALTH">Salud</option>
+                    <option value="EDU">Educación</option>
+                    <option value="AUTO">Automotriz</option>
+                    <option value="BEAUTY">Belleza</option>
+                    <option value="APPAREL">Ropa y accesorios</option>
+                    <option value="ENTERTAIN">Entretenimiento</option>
+                    <option value="EVENT_PLAN">Planificación de eventos</option>
+                    <option value="GROCERY">Supermercado</option>
+                    <option value="HOTEL">Hotel</option>
+                    <option value="RETAIL">Retail</option>
+                    <option value="TRAVEL">Viajes</option>
+                    <option value="RESTAURANT">Restaurante</option>
+                </select>
+            </div>
+
+            <!-- Websites -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Sitio web (máximo 2)
+                </label>
+                <input type="url" id="profile-website1" placeholder="https://www.ejemplo.com"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary mb-2" />
+                <input type="url" id="profile-website2" placeholder="https://www.ejemplo.com (opcional)"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+            </div>
+
+            <!-- Note about limitations -->
+            <div class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <p class="text-xs text-yellow-800 dark:text-yellow-300">
+                    <span class="material-symbols-outlined text-sm align-middle">info</span>
+                    <strong>Nota:</strong> El nombre del negocio y la foto de perfil no se pueden cambiar via API.
+                    Para modificarlos, accede a <a href="https://business.facebook.com/" target="_blank" class="underline">Meta Business Manager</a>.
+                </p>
+            </div>
+
+            <div id="profile-result" class="mb-4"></div>
+
+            <div class="flex gap-3">
+                <button type="button" onclick="closeEditProfileModal()"
+                    class="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" id="profile-submit-btn"
+                    class="flex-1 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                    Guardar Cambios
+                </button>
+            </div>
         </form>
     </div>
 </div>
@@ -634,6 +770,179 @@
             showAlert(resultDiv, 'error', 'Error de conexión');
             submitBtn.disabled = false;
             submitBtn.textContent = 'Crear Template';
+        }
+    });
+
+    // ============ BUSINESS PROFILE FUNCTIONS ============
+    let currentProfile = null;
+
+    // Cargar perfil al cargar la página
+    document.addEventListener('DOMContentLoaded', loadProfile);
+
+    async function loadProfile() {
+        const displayDiv = document.getElementById('profile-display');
+
+        try {
+            const response = await fetch('/api/whatsapp/profile');
+            const data = await response.json();
+
+            if (data.success && data.profile) {
+                currentProfile = data.profile;
+                displayProfile(data.profile);
+            } else {
+                displayDiv.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-8 text-center col-span-2">
+                        <span class="material-symbols-outlined text-4xl text-gray-300 dark:text-gray-600 mb-2">error</span>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">${data.error || 'No se pudo cargar el perfil'}</p>
+                    </div>
+                `;
+            }
+        } catch (err) {
+            displayDiv.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-8 text-center col-span-2">
+                    <span class="material-symbols-outlined text-4xl text-red-400 mb-2">error</span>
+                    <p class="text-sm text-red-600 dark:text-red-400">Error de conexión</p>
+                </div>
+            `;
+        }
+    }
+
+    function displayProfile(profile) {
+        const displayDiv = document.getElementById('profile-display');
+
+        const fields = [
+            { label: 'Descripción', value: profile.about, icon: 'description' },
+            { label: 'Categoría', value: profile.vertical, icon: 'category' },
+            { label: 'Dirección', value: profile.address, icon: 'location_on' },
+            { label: 'Email', value: profile.email, icon: 'email' },
+            { label: 'Sitio web', value: profile.websites ? profile.websites.join(', ') : null, icon: 'language' },
+        ];
+
+        let html = '';
+        fields.forEach(field => {
+            if (field.value) {
+                html += `
+                    <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                        <span class="material-symbols-outlined text-primary mt-0.5">${field.icon}</span>
+                        <div>
+                            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">${field.label}</p>
+                            <p class="text-sm text-gray-700 dark:text-gray-200">${field.value}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        if (html === '') {
+            html = `
+                <div class="flex flex-col items-center justify-center py-8 text-center col-span-2">
+                    <span class="material-symbols-outlined text-4xl text-gray-300 dark:text-gray-600 mb-2">info</span>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No hay información de perfil configurada</p>
+                </div>
+            `;
+        }
+
+        displayDiv.innerHTML = html;
+    }
+
+    function loadAndEditProfile() {
+        if (!currentProfile) {
+            showAlert(document.getElementById('profile-result'), 'error', 'Primero carga el perfil');
+            return;
+        }
+
+        // Llenar formulario con valores actuales
+        document.getElementById('profile-about').value = currentProfile.about || '';
+        document.getElementById('profile-description').value = currentProfile.description || '';
+        document.getElementById('profile-address').value = currentProfile.address || '';
+        document.getElementById('profile-email').value = currentProfile.email || '';
+        document.getElementById('profile-vertical').value = currentProfile.vertical || '';
+
+        if (currentProfile.websites && currentProfile.websites.length > 0) {
+            document.getElementById('profile-website1').value = currentProfile.websites[0] || '';
+            document.getElementById('profile-website2').value = currentProfile.websites[1] || '';
+        } else {
+            document.getElementById('profile-website1').value = '';
+            document.getElementById('profile-website2').value = '';
+        }
+
+        updateCharCount();
+        document.getElementById('edit-profile-modal').classList.remove('hidden');
+    }
+
+    function closeEditProfileModal() {
+        document.getElementById('edit-profile-modal').classList.add('hidden');
+        document.getElementById('profile-result').innerHTML = '';
+    }
+
+    function updateCharCount() {
+        const aboutInput = document.getElementById('profile-about');
+        const descInput = document.getElementById('profile-description');
+        document.getElementById('about-count').textContent = aboutInput.value.length;
+        document.getElementById('description-count').textContent = descInput.value.length;
+    }
+
+    // Actualizar contador de caracteres en tiempo real
+    document.getElementById('profile-about')?.addEventListener('input', updateCharCount);
+    document.getElementById('profile-description')?.addEventListener('input', updateCharCount);
+
+    document.getElementById('edit-profile-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const resultDiv = document.getElementById('profile-result');
+        const submitBtn = document.getElementById('profile-submit-btn');
+
+        const about = document.getElementById('profile-about').value.trim();
+        const description = document.getElementById('profile-description').value.trim();
+        const address = document.getElementById('profile-address').value.trim();
+        const email = document.getElementById('profile-email').value.trim();
+        const vertical = document.getElementById('profile-vertical').value;
+        const website1 = document.getElementById('profile-website1').value.trim();
+        const website2 = document.getElementById('profile-website2').value.trim();
+
+        const payload = {};
+        if (about) payload.about = about;
+        if (description) payload.description = description;
+        if (address) payload.address = address;
+        if (email) payload.email = email;
+        if (vertical) payload.vertical = vertical;
+
+        const websites = [];
+        if (website1) websites.push(website1);
+        if (website2) websites.push(website2);
+        if (websites.length > 0) payload.websites = websites;
+
+        if (Object.keys(payload).length === 0) {
+            showAlert(resultDiv, 'warning', 'No hay cambios para guardar');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Guardando...';
+        resultDiv.innerHTML = '<p class="text-sm text-gray-500">Actualizando perfil...</p>';
+
+        try {
+            const response = await fetch('/api/whatsapp/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert(resultDiv, 'success', 'Perfil actualizado correctamente');
+                setTimeout(() => {
+                    closeEditProfileModal();
+                    loadProfile(); // Recargar perfil actualizado
+                }, 1500);
+            } else {
+                showAlert(resultDiv, 'error', 'Error: ' + (data.error || 'Error desconocido'));
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Guardar Cambios';
+            }
+        } catch (err) {
+            showAlert(resultDiv, 'error', 'Error de conexión');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar Cambios';
         }
     });
 </script>
