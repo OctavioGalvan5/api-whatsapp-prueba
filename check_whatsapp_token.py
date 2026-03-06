@@ -38,10 +38,10 @@ def check_token_validity():
 
         if "data" in data:
             token_data = data["data"]
-            print(f"   ✅ Token válido")
+            print(f"   [OK] Token valido")
             print(f"   App ID: {token_data.get('app_id')}")
             print(f"   Tipo: {token_data.get('type')}")
-            print(f"   Válido: {token_data.get('is_valid')}")
+            print(f"   Valido: {token_data.get('is_valid')}")
 
             # Verificar expiración
             if token_data.get('expires_at'):
@@ -50,23 +50,23 @@ def check_token_validity():
                 print(f"   Expira: {expires_at}")
 
                 if datetime.datetime.now() > expires_at:
-                    print("   ⚠️  ADVERTENCIA: El token ha expirado")
+                    print("   [!] ADVERTENCIA: El token ha expirado")
             else:
-                print("   ✅ Token permanente (no expira)")
+                print("   [OK] Token permanente (no expira)")
 
             print()
             return token_data.get('is_valid', False)
         elif "error" in data:
-            print(f"   ❌ Error verificando token: {data['error'].get('message')}")
+            print(f"   [X] Error verificando token: {data['error'].get('message')}")
             print()
             return False
     except Exception as e:
-        print(f"   ❌ Error de conexión: {e}")
+        print(f"   [X] Error de conexion: {e}")
         print()
         return False
 
     # Probar endpoint de perfil
-    print("3️⃣  Probando endpoint de perfil de negocio...")
+    print("[3] Probando endpoint de perfil de negocio...")
     profile_url = f"https://graph.facebook.com/v22.0/{Config.WHATSAPP_PHONE_NUMBER_ID}/whatsapp_business_profile"
     headers = {"Authorization": f"Bearer {Config.WHATSAPP_API_TOKEN}"}
     params = {"fields": "about,address,description,email,vertical"}
@@ -76,7 +76,7 @@ def check_token_validity():
         data = response.json()
 
         if "data" in data and len(data["data"]) > 0:
-            print("   ✅ Perfil obtenido correctamente")
+            print("   [OK] Perfil obtenido correctamente")
             profile = data["data"][0]
             print(f"   About: {profile.get('about', 'No configurado')}")
             print(f"   Email: {profile.get('email', 'No configurado')}")
@@ -85,23 +85,23 @@ def check_token_validity():
             return True
         elif "error" in data:
             error = data["error"]
-            print(f"   ❌ Error: {error.get('message')}")
-            print(f"   Código: {error.get('code')}")
+            print(f"   [X] Error: {error.get('message')}")
+            print(f"   Codigo: {error.get('code')}")
             print(f"   Tipo: {error.get('type')}")
 
             # Mensajes de ayuda según el error
             if error.get('code') == 190:
                 print()
-                print("   💡 SOLUCIÓN: Tu token ha expirado o es inválido.")
+                print("   [!] SOLUCION: Tu token ha expirado o es invalido.")
                 print("      Necesitas generar un nuevo token de acceso.")
             elif error.get('code') == 100:
                 print()
-                print("   💡 SOLUCIÓN: El PHONE_NUMBER_ID es incorrecto.")
+                print("   [!] SOLUCION: El PHONE_NUMBER_ID es incorrecto.")
 
             print()
             return False
     except Exception as e:
-        print(f"   ❌ Error de conexión: {e}")
+        print(f"   [X] Error de conexion: {e}")
         print()
         return False
 
@@ -146,9 +146,9 @@ if __name__ == "__main__":
 
     if not is_valid:
         show_token_instructions()
-        print("❌ El token necesita ser actualizado")
+        print("[X] El token necesita ser actualizado")
         exit(1)
     else:
-        print("✅ Todo funcionando correctamente")
+        print("[OK] Todo funcionando correctamente")
         print()
         exit(0)
