@@ -20,7 +20,8 @@
       "Bash(python -c \"from config import Config; print(''PHONE_NUMBER_ID:'', Config.WHATSAPP_PHONE_NUMBER_ID); print(''TOKEN:'', Config.WHATSAPP_API_TOKEN[:20] + ''...'' if Config.WHATSAPP_API_TOKEN else ''None'')\")",
       "Bash(curl -s \"https://graph.facebook.com/v22.0/804834189385614/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical&access_token=EAFkkToDHDZAEBQq58D1yRKzS81T9cM38lj4dAEkIFjIh8JQVNU4FBM5LpLjDbLUQNhzjNojrUb3oHy1ldjjd5TAwbfPXfQcTpBDZAFyMfCcm05Q1H67F8aQUqo3j8qWrCXKhM4HHpf1CZCWY5eTxzuZC5TdRkT4ohDZBUIlNOF3lT5rOLW4pxqUdAFkgZDZD\")",
       "Bash(python -m json.tool)",
-      "Bash(python check_whatsapp_token.py)"
+      "Bash(python check_whatsapp_token.py)",
+      "Bash(python -c \"from whatsapp_service import whatsapp_api; import json; result = whatsapp_api.get_business_profile(); print(json.dumps(result, indent=2))\")"
     ],
     "deny": [],
     "ask": []
