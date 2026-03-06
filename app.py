@@ -2668,6 +2668,66 @@ def api_whatsapp_profile():
     """API para obtener perfil del negocio."""
     return jsonify(whatsapp_api.get_business_profile())
 
+@app.route("/api/whatsapp/profile", methods=["POST"])
+def api_update_whatsapp_profile():
+    """API para actualizar el perfil de WhatsApp Business."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Validar campos opcionales
+    profile_data = {}
+
+    # About (descripción corta) - máx 256 caracteres
+    if "about" in data:
+        about = data["about"].strip()
+        if len(about) > 256:
+            return jsonify({"error": "about no puede exceder 256 caracteres"}), 400
+        profile_data["about"] = about
+
+    # Description (descripción larga) - máx 512 caracteres
+    if "description" in data:
+        description = data["description"].strip()
+        if len(description) > 512:
+            return jsonify({"error": "description no puede exceder 512 caracteres"}), 400
+        profile_data["description"] = description
+
+    # Address (dirección)
+    if "address" in data:
+        profile_data["address"] = data["address"].strip()
+
+    # Email
+    if "email" in data:
+        email = data["email"].strip()
+        if email and "@" not in email:
+            return jsonify({"error": "email inválido"}), 400
+        profile_data["email"] = email
+
+    # Vertical (categoría del negocio)
+    if "vertical" in data:
+        profile_data["vertical"] = data["vertical"]
+
+    # Websites - máx 2 URLs
+    if "websites" in data:
+        websites = data["websites"]
+        if isinstance(websites, str):
+            # Si es un string, dividir por comas o crear lista de 1 elemento
+            websites = [w.strip() for w in websites.split(",") if w.strip()]
+        if not isinstance(websites, list):
+            return jsonify({"error": "websites debe ser una lista o string separado por comas"}), 400
+        if len(websites) > 2:
+            return jsonify({"error": "Solo se permiten hasta 2 sitios web"}), 400
+        profile_data["websites"] = websites
+
+    if not profile_data:
+        return jsonify({"error": "No se proporcionaron campos para actualizar"}), 400
+
+    result = whatsapp_api.update_business_profile(profile_data)
+
+    if result.get("error"):
+        return jsonify(result), 400
+    return jsonify(result)
+
 @app.route("/api/whatsapp/create-template", methods=["POST"])
 def api_create_template():
     """API para crear una nueva plantilla de mensaje."""

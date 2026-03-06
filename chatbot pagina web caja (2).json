@@ -1,0 +1,421 @@
+{
+  "name": "chatbot pagina web caja",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "[ROL Y OBJETIVO]\nEres el asistente virtual oficial de la Caja de Abogados de Salta.\nTu única misión es responder consultas de los afiliados utilizando *exclusivamente* la documentación oficial que te es proporcionada a través de tus herramientas de búsqueda.\nEres un facilitador de información, NO un asesor legal.\n\n\n[REGLAS DE PROCESAMIENTO]\n1.  **BÚSQUEDA OBLIGATORIA:** ANTE CUALQUIER PREGUNTA, *siempre* debes activar tu herramienta de búsqueda en la base de datos. No respondas de memoria ni con conocimiento general.\n2.  **BASADO EN HECHOS:** Basa tu respuesta *única y exclusivamente* en la información (contexto) recuperada por la búsqueda.\n3.  **PROHIBIDO INVENTAR:** Si la información no se encuentra en la base de datos, o la pregunta es ambigua, NO intentes adivinar. Es mejor decir \"No encontré la información\" que dar una respuesta incorrecta. RECUERDA ESTO ES LO MAS IMPORTANTE.\n\n4.  **FILTRO DE SEGURIDAD (MUY IMPORTANTE):**\n    * NO des opiniones personales.\n    * NO proporciones asesoramiento legal (ej. \"qué debería hacer en un juicio\", \"interpretar una ley\").\n    * NO respondas preguntas que no tengan que ver con la Caja de Abogados (política, deportes, etc.). Si esto ocurre, redirige amablemente a tu función principal.\n\n5. * **NO DES INFORMACIÓN DEMÁS:** No tienes que dar información demás, se conciso, tienes prohibido dar las fuentes o decir de donde sacaste la información, no digas \"Segun ...\", porfavor.\n\n[INSTRUCCIONES DE RESPUESTA Y TONO]\n* **Tono:** Profesional, claro, conciso y servicial. Amigable pero formal.\n* **Saludo Inicial:** Preséntate en tu primer mensaje.\n* **Honestidad:** Si no estás seguro o no encuentras información específica, sé honesto.\n\n[FORMATO DE RESPUESTA]\n* **Corto y Legible:** Mantén las respuestas relativamente cortas (máximo 3-4 párrafos).\n* **Usa Formato:** Utiliza formato HTML para mejorar la legibilidad:\n    * `<strong>Negrita</strong>` para títulos o puntos clave.\n    * `<em>Cursiva</em>` para énfasis sutil.\n    * Listas HTML cuando sea necesario.\n\n* **Estructura de partes:** Si necesitas dar una respuesta más completa, divídela en máximo 3 partes. Cada parte debe ser autosuficiente y coherente. El chatbot decidirá cuántas partes usar según la extensión de la respuesta.\n\n(Cualquier queja o insulto usar esta respuesta, por ejemplo vagos, chorros)\nRespuesta: Cualquier insulto o queja remitirse por nota a mesadeentrada@cajaabogadossalta.com.ar allí le brindarán una respuesta"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        528
+      ],
+      "id": "b13a1577-c234-4844-b368-c64ea56c3a98",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "content": "## Agent Tools for RAG",
+        "height": 528.85546469693,
+        "width": 583.4552380860637,
+        "color": 4
+      },
+      "id": "49990bf7-1bd4-4ddf-a312-95cdec9eefed",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## RAG AI Agent with Chat Interface",
+        "height": 465,
+        "width": 1804
+      },
+      "id": "14981599-dbb1-44b2-9d16-e8f484b3ead2",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        192,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to fetch all available documents, including the table schema if the file is a CSV or Excel file.",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "document_metadata",
+          "mode": "list",
+          "cachedResultName": "document_metadata"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        1280,
+        752
+      ],
+      "id": "e9e21478-ddd5-451e-ab5c-1f34b34dc834",
+      "name": "List Documents",
+      "credentials": {
+        "postgres": {
+          "id": "eIfwJYAuNOQS39Ra",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Given a file ID, fetches the text from the document.",
+        "operation": "executeQuery",
+        "query": "SELECT \n    string_agg(content, ' ') as document_text\nFROM documents\n  WHERE metadata->>'file_id' = $1\nGROUP BY metadata->>'file_id';",
+        "options": {
+          "queryReplacement": "={{ $fromAI('file_id') }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        1488,
+        768
+      ],
+      "id": "2acce397-45e7-4373-b208-239939b60e7f",
+      "name": "Get File Contents",
+      "credentials": {
+        "postgres": {
+          "id": "eIfwJYAuNOQS39Ra",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Run a SQL query - use this to query from the document_rows table once you know the file ID you are querying.",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('sql_query') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        1664,
+        752
+      ],
+      "id": "6cba2352-fc3f-4bcb-a3cc-73a3f4d5b818",
+      "name": "Query Document Rows",
+      "credentials": {
+        "postgres": {
+          "id": "eIfwJYAuNOQS39Ra",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.1",
+          "mode": "list",
+          "cachedResultName": "gpt-5.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        736
+      ],
+      "id": "73ce2dec-fdf6-49a4-878b-dc0ef4c37349",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "GWAdEx62Jz5Ohm3u",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        576,
+        528
+      ],
+      "id": "3a63ccc1-6de4-4257-b9a6-b35f5f888a20",
+      "name": "When chat message received",
+      "webhookId": "650aa480-5ec1-40a8-a06b-b6f3a21d5dfc"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        976,
+        736
+      ],
+      "id": "1bb257b8-e66d-4ae8-9d9b-b401c89d146a",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2096,
+        736
+      ],
+      "id": "3c0a2d26-c5ec-409c-80a8-80f069b3c7f8",
+      "name": "Embeddings OpenAI2",
+      "credentials": {
+        "openAiApi": {
+          "id": "GWAdEx62Jz5Ohm3u",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topN": 4
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        2224,
+        752
+      ],
+      "id": "b6b67647-f98f-460e-af35-4e50c72e0d51",
+      "name": "Reranker Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "LXwvpUZIKUodyG4m",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use RAG to look up information in the knowledgebase.",
+        "tableName": "documents_pg",
+        "topK": 25,
+        "useReranker": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [
+        2096,
+        544
+      ],
+      "id": "67888926-55c4-4311-89a9-6fd3c874efc1",
+      "name": "Postgres PGVector Store",
+      "credentials": {
+        "postgres": {
+          "id": "eIfwJYAuNOQS39Ra",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\"Response\":{\n  \"Parte1\": \"Primera parte del mensaje\",\n  \"Parte2\": \"Segunda parte del mensaje\",\n  \"Parte3\": \"Tercera parte del mensaje\"\n}\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1136,
+        736
+      ],
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "output",
+              "value": "={{ $json.output.Response.Parte1 }}{{ $json.output.Response.Parte2 ? '\\n\\n' + $json.output.Response.Parte2 : '' }}{{ $json.output.Response.Parte3 ? '\\n\\n' + $json.output.Response.Parte3 : '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        528
+      ],
+      "id": "f1g2h3i4-j5k6-7890-lmno-pq9876543210",
+      "name": "Combine Parts"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Combine Parts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Documents": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get File Contents": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Document Rows": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres PGVector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b6ddade4-72f4-49f1-8ad6-f38d080e2004",
+  "meta": {
+    "instanceId": "a76ee565d5030c7cf86590b8e4b0193690bbdbeb1bc473ece830424f5478fc5b"
+  },
+  "id": "61OEQJlTVeaLpBD0",
+  "tags": []
+}

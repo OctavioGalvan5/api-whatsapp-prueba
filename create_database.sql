@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS documents_pg (
     id BIGSERIAL PRIMARY KEY,
     text TEXT,
     metadata JSONB,
-    embedding vector(1536)
+    embedding vector(3072)
 );
 
 -- ==========================================
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS langchain_pg_collection (
 CREATE TABLE IF NOT EXISTS langchain_pg_embedding (
     id BIGSERIAL PRIMARY KEY,
     collection_id UUID REFERENCES langchain_pg_collection(uuid) ON DELETE CASCADE,
-    embedding vector(1536),
+    embedding vector(3072),
     document TEXT,
     cmetadata JSONB
 );

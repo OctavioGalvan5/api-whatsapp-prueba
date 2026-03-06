@@ -638,6 +638,91 @@ class WhatsAppAPI:
             logger.error(f"Error enviando mensaje: {e}")
             return {"error": str(e)}
 
+    def get_business_profile(self):
+        """
+        Obtiene la información actual del perfil de WhatsApp Business.
+
+        Returns:
+            dict: Información del perfil o error
+        """
+        if not self.phone_number_id:
+            return {"error": "Phone Number ID no configurado"}
+
+        url = f"{BASE_URL}/{self.phone_number_id}/whatsapp_business_profile"
+        params = {
+            "fields": "about,address,description,email,profile_picture_url,websites,vertical"
+        }
+
+        try:
+            response = requests.get(url, headers=self.headers, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            # La API devuelve {"data": [profile_object]}
+            if "data" in data and len(data["data"]) > 0:
+                profile = data["data"][0]
+                logger.info("✅ Perfil de WhatsApp Business obtenido")
+                return {"success": True, "profile": profile}
+            else:
+                return {"error": "No se pudo obtener el perfil"}
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error obteniendo perfil de negocio: {e}")
+            return {"error": str(e)}
+
+    def update_business_profile(self, profile_data):
+        """
+        Actualiza el perfil de WhatsApp Business.
+
+        Args:
+            profile_data: Dict con los campos a actualizar
+                - about: Descripción (máx 256 caracteres)
+                - address: Dirección física
+                - description: Descripción larga (máx 512 caracteres)
+                - email: Email de contacto
+                - vertical: Categoría del negocio (ej: PROF_SERVICES)
+                - websites: Lista de URLs (máx 2)
+
+        Returns:
+            dict: Resultado de la operación
+        """
+        if not self.phone_number_id:
+            return {"error": "Phone Number ID no configurado"}
+
+        url = f"{BASE_URL}/{self.phone_number_id}/whatsapp_business_profile"
+
+        # Construir payload
+        payload = {"messaging_product": "whatsapp"}
+
+        # Agregar solo los campos que vienen en profile_data
+        allowed_fields = ["about", "address", "description", "email", "vertical", "websites"]
+        for field in allowed_fields:
+            if field in profile_data and profile_data[field]:
+                payload[field] = profile_data[field]
+
+        try:
+            response = requests.post(url, headers=self.headers, json=payload, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            logger.info("✅ Perfil de WhatsApp Business actualizado")
+            return {"success": True, "data": data}
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error actualizando perfil de negocio: {e}")
+            error_msg = str(e)
+
+            # Intentar extraer mensaje de error de la API
+            try:
+                if hasattr(e, 'response') and e.response is not None:
+                    error_data = e.response.json()
+                    if 'error' in error_data:
+                        error_msg = error_data['error'].get('message', error_msg)
+            except:
+                pass
+
+            return {"error": error_msg}
+
 
 # Instancia global
 whatsapp_api = WhatsAppAPI()
