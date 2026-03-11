@@ -250,6 +250,12 @@
                 <p id="template-load-error" class="hidden text-xs text-red-500 mt-1">Error cargando templates.</p>
             </div>
 
+            <!-- Template Preview Section -->
+            <div id="template-preview-container" class="hidden">
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Vista previa del template</label>
+                <div id="template-preview-content" class="space-y-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"></div>
+            </div>
+
             <!-- Variables Section -->
             <div id="variables-container"
                 class="hidden space-y-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -386,6 +392,102 @@
         }
     }
 
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(text));
+        return div.innerHTML;
+    }
+
+    function renderTemplatePreview(components) {
+        const previewContainer = document.getElementById('template-preview-container');
+        const previewContent = document.getElementById('template-preview-content');
+
+        if (!components || components.length === 0) {
+            previewContainer.classList.add('hidden');
+            return;
+        }
+
+        let contentHTML = '';
+        components.forEach(comp => {
+            if (comp.type === 'HEADER') {
+                if (comp.format === 'TEXT' && comp.text) {
+                    contentHTML += `
+                        <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div class="flex items-center gap-1 mb-1">
+                                <span class="material-symbols-outlined text-sm text-blue-600">title</span>
+                                <span class="text-xs font-semibold text-blue-600 uppercase">Header</span>
+                            </div>
+                            <p class="text-sm font-medium">${escapeHtml(comp.text)}</p>
+                        </div>`;
+                } else if (comp.format === 'IMAGE') {
+                    contentHTML += `
+                        <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm text-blue-600">image</span>
+                            <span class="text-xs font-semibold text-blue-600 uppercase">Header (Imagen)</span>
+                        </div>`;
+                } else if (comp.format === 'DOCUMENT') {
+                    contentHTML += `
+                        <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm text-blue-600">description</span>
+                            <span class="text-xs font-semibold text-blue-600 uppercase">Header (Documento)</span>
+                        </div>`;
+                } else if (comp.format === 'VIDEO') {
+                    contentHTML += `
+                        <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm text-blue-600">videocam</span>
+                            <span class="text-xs font-semibold text-blue-600 uppercase">Header (Video)</span>
+                        </div>`;
+                }
+            } else if (comp.type === 'BODY' && comp.text) {
+                contentHTML += `
+                    <div class="p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center gap-1 mb-1">
+                            <span class="material-symbols-outlined text-sm text-gray-600">chat</span>
+                            <span class="text-xs font-semibold text-gray-600 uppercase">Body</span>
+                        </div>
+                        <p class="text-sm whitespace-pre-wrap">${escapeHtml(comp.text)}</p>
+                    </div>`;
+            } else if (comp.type === 'FOOTER' && comp.text) {
+                contentHTML += `
+                    <div class="p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center gap-1 mb-1">
+                            <span class="material-symbols-outlined text-sm text-gray-500">info</span>
+                            <span class="text-xs font-semibold text-gray-500 uppercase">Footer</span>
+                        </div>
+                        <p class="text-xs text-gray-500">${escapeHtml(comp.text)}</p>
+                    </div>`;
+            } else if (comp.type === 'BUTTONS') {
+                const buttons = comp.buttons || [];
+                if (buttons.length > 0) {
+                    let btnsHTML = '';
+                    buttons.forEach(btn => {
+                        const icon = btn.type === 'URL' ? 'link' : btn.type === 'PHONE_NUMBER' ? 'call' : 'smart_button';
+                        btnsHTML += `
+                            <div class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg">
+                                <span class="material-symbols-outlined text-sm text-primary">${icon}</span>
+                                <span class="text-sm">${escapeHtml(btn.text || '')}</span>
+                            </div>`;
+                    });
+                    contentHTML += `
+                        <div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                            <div class="flex items-center gap-1 mb-2">
+                                <span class="material-symbols-outlined text-sm text-green-600">smart_button</span>
+                                <span class="text-xs font-semibold text-green-600 uppercase">Botones</span>
+                            </div>
+                            <div class="flex flex-col gap-1">${btnsHTML}</div>
+                        </div>`;
+                }
+            }
+        });
+
+        if (contentHTML) {
+            previewContent.innerHTML = contentHTML;
+            previewContainer.classList.remove('hidden');
+        } else {
+            previewContainer.classList.add('hidden');
+        }
+    }
+
     function onTemplateChange() {
         const select = document.getElementById('camp-template');
         const container = document.getElementById('variables-container');
@@ -393,11 +495,14 @@
 
         if (!select.value) {
             container.classList.add('hidden');
+            document.getElementById('template-preview-container').classList.add('hidden');
             return;
         }
 
         const option = select.options[select.selectedIndex];
         const components = JSON.parse(option.dataset.components || '[]');
+
+        renderTemplatePreview(components);
 
         // Collect variables from HEADER and BODY
         const allVars = []; // {component: 'header'|'body', idx: '1', label: '{{1}}' or '{{name}}'}
