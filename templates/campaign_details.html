@@ -142,6 +142,31 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        const WA_ERROR_MESSAGES = {
+            131026: "El mensaje no pudo ser entregado.",
+            131047: "Mensaje fuera de la ventana de conversación.",
+            130429: "Límite de velocidad alcanzado.",
+            131021: "Número de remitente no coincide.",
+            131000: "Fallo al enviar el mensaje.",
+            132001: "La plantilla no existe o fue eliminada.",
+            133000: "Número no registrado en WhatsApp.",
+        };
+
+        function formatWhatsappError(error) {
+            if (!error) return '';
+            try {
+                const parsed = JSON.parse(error);
+                const errors = Array.isArray(parsed) ? parsed : [parsed];
+                if (errors.length > 0) {
+                    const err = errors[0];
+                    const code = err.code;
+                    if (WA_ERROR_MESSAGES[code]) return WA_ERROR_MESSAGES[code];
+                    return (err.error_data && err.error_data.details) || err.message || err.title || error;
+                }
+            } catch (e) { /* no es JSON, mostrar como texto */ }
+            return error;
+        }
         
         async function loadCampaignData(page = 1) {
             try {
@@ -293,7 +318,7 @@
                                 <td class="px-4 py-3 font-medium font-mono text-xs">${log.phone}</td>
                                 <td class="px-4 py-3">${log.name || '-'}</td>
                                 <td class="px-4 py-3 ${statusColor} font-medium capitalize">${log.status}</td>
-                                <td class="px-4 py-3 text-red-500 text-xs truncate max-w-[200px]">${log.error || ''}</td>
+                                <td class="px-4 py-3 text-red-500 text-xs truncate max-w-[200px]">${escapeHtml(formatWhatsappError(log.error))}</td>
                             </tr>
                         `;
                         tbody.insertAdjacentHTML('beforeend', row);

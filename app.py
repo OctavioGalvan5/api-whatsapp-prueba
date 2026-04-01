@@ -31,6 +31,46 @@ logger = logging.getLogger(__name__)
 ARGENTINA_TZ = pytz.timezone('America/Argentina/Buenos_Aires')
 
 # Filtro Jinja2 para convertir UTC a hora Argentina
+WHATSAPP_ERROR_MESSAGES = {
+    131026: "El mensaje no pudo ser entregado al destinatario.",
+    131047: "El usuario no inició una conversación recientemente (mensaje fuera de ventana).",
+    130429: "Se alcanzó el límite de velocidad de envío. Intente más tarde.",
+    131021: "El número de remitente no coincide con el destinatario.",
+    131031: "El remitente no está en la cuenta de negocios.",
+    130472: "El número del usuario es parte de un experimento de Meta.",
+    131000: "Fallo genérico al enviar el mensaje.",
+    131051: "Tipo de mensaje no soportado.",
+    132000: "El número de parámetros de la plantilla no coincide.",
+    132001: "La plantilla no existe o fue eliminada.",
+    132007: "La plantilla contiene contenido no permitido por Meta.",
+    133000: "El número no está registrado en WhatsApp.",
+    133004: "El servidor de WhatsApp no está disponible temporalmente.",
+    133010: "El número no está registrado o fue desactivado.",
+    135000: "Error genérico del servidor de Meta.",
+}
+
+@app.template_filter('format_whatsapp_error')
+def format_whatsapp_error_filter(error_details):
+    """Convierte el JSON de error de WhatsApp a texto legible."""
+    if not error_details:
+        return ''
+    try:
+        import json as _json
+        errors = _json.loads(error_details) if isinstance(error_details, str) else error_details
+        if isinstance(errors, list) and errors:
+            err = errors[0]
+            code = err.get('code')
+            friendly = WHATSAPP_ERROR_MESSAGES.get(code)
+            if friendly:
+                return friendly
+            # Fallback: usar el mensaje del API
+            msg = err.get('message') or err.get('title') or ''
+            details = (err.get('error_data') or {}).get('details', '')
+            return details or msg or str(error_details)
+    except Exception:
+        pass
+    return str(error_details)
+
 @app.template_filter('to_argentina')
 def to_argentina_filter(dt):
     """Convierte datetime UTC a hora de Argentina."""
