@@ -119,7 +119,7 @@ with app.app_context():
         logger.warning(f"Could not ensure system tag (run migrate_human_assistance.py first): {e}")
 
 # Rutas públicas que no requieren autenticación
-PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api/minio/diagnose'}
+PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api/minio/diagnose', '/sw.js', '/static/manifest.json'}
 
 @app.before_request
 def check_auth():
@@ -140,6 +140,15 @@ def check_auth():
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
         return redirect(url_for('login'))
+
+@app.route("/sw.js")
+def service_worker():
+    """Serve service worker from root for proper scope."""
+    import os
+    return send_file(
+        os.path.join(os.path.dirname(__file__), 'static', 'service-worker.js'),
+        mimetype='application/javascript'
+    )
 
 @app.route("/", methods=["GET"])
 def index():
