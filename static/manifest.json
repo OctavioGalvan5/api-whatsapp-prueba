@@ -1,7 +1,7 @@
 {
-  "name": "WhatsApp CRM - Caja de Abogados",
-  "short_name": "CRM WhatsApp",
-  "description": "CRM de WhatsApp para gestión de conversaciones y contactos",
+  "name": "WhatsApp CRM Gestión",
+  "short_name": "CRM Gestión",
+  "description": "WhatsApp CRM Gestión - Panel de gestión de conversaciones",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#102212",

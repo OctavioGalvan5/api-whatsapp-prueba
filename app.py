@@ -3382,6 +3382,20 @@ def send_campaign_bg(app_context, cid):
         total_sent = 0
         total_failed = 0
         
+        # Pre-cargar el texto del template para usarlo en el historial de cada contacto
+        template_body_text = None
+        try:
+            templates_result = whatsapp_api.get_templates()
+            for t in templates_result.get("templates", []):
+                if t.get("name") == camp.template_name and t.get("language") == camp.template_language:
+                    for comp in t.get("components", []):
+                        if comp.get("type") == "BODY":
+                            template_body_text = comp.get("text", "")
+                            break
+                    break
+        except Exception as e:
+            logger.warning(f"No se pudo obtener texto del template para campaña {cid}: {e}")
+
         while True:
             # Cargar solo un lote de logs pendientes a la vez
             logs = CampaignLog.query.filter_by(
@@ -3464,8 +3478,32 @@ def send_campaign_bg(app_context, cid):
                         total_sent += 1
                         wa_id = result.get('message_id')
                         if wa_id:
-                            # Reemplazar placeholders para el historial local simplificado
-                            content_preview = f'[Campaña: {camp.name}] [Template: {camp.template_name}]'
+                            # Resolver el contenido real del template con las variables del contacto
+                            content_preview = template_body_text or f'[Template: {camp.template_name}]'
+                            if template_body_text and camp.variables:
+                                # Reemplazar {{1}}, {{2}}, etc. con los valores reales
+                                resolved_text = template_body_text
+                                # Recoger body_vars del contacto actual
+                                body_vars_local = {}
+                                for key, field in camp.variables.items():
+                                    if '-' in key:
+                                        comp_name, idx = key.split('-', 1)
+                                        if comp_name == 'body':
+                                            body_vars_local[int(idx)] = field
+                                    else:
+                                        body_vars_local[int(key)] = field
+                                
+                                contact_for_preview = log.contact or Contact.query.get(log.contact_id)
+                                for idx, field in body_vars_local.items():
+                                    value = "-"
+                                    if field == 'phone_number':
+                                        value = contact_for_preview.phone_number if contact_for_preview else log.contact_phone
+                                    elif contact_for_preview:
+                                        val = getattr(contact_for_preview, field, None)
+                                        if val:
+                                            value = str(val)
+                                    resolved_text = resolved_text.replace(f'{{{{{idx}}}}}', value)
+                                content_preview = resolved_text
                             
                             new_msg = Message(
                                 wa_message_id=wa_id,
