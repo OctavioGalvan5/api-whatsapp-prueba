@@ -1,12 +1,11 @@
-<aside
-    class="w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 gap-2 relative">
+<!-- SIDEBAR: visible en desktop (md+) -->
+<aside class="hidden md:flex w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex-col items-center py-4 gap-2 relative">
 
     <!-- Dashboard -->
     <a href="/dashboard"
         class="p-3 rounded-xl {% if request.path == '/dashboard' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Dashboard">
-        <span
-            class="material-symbols-outlined {% if request.path != '/dashboard' %}text-gray-500 dark:text-gray-400{% endif %}">chat</span>
+        <span class="material-symbols-outlined {% if request.path != '/dashboard' %}text-gray-500 dark:text-gray-400{% endif %}">chat</span>
     </a>
 
     <!-- Gestión de Datos -->
@@ -14,8 +13,7 @@
         <button
             class="p-3 rounded-xl {% if request.path in ['/contacts', '/tags'] %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
             title="Gestión de Datos">
-            <span
-                class="material-symbols-outlined {% if request.path not in ['/contacts', '/tags'] %}text-gray-500 dark:text-gray-400{% endif %}">folder_shared</span>
+            <span class="material-symbols-outlined {% if request.path not in ['/contacts', '/tags'] %}text-gray-500 dark:text-gray-400{% endif %}">folder_shared</span>
         </button>
         <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
             <a href="/contacts" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/contacts' %}text-primary{% endif %}">
@@ -34,8 +32,7 @@
         <button
             class="p-3 rounded-xl {% if request.path.startswith('/campaigns') or request.path == '/failed-messages' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
             title="Mensajería">
-            <span
-                class="material-symbols-outlined {% if not (request.path.startswith('/campaigns') or request.path == '/failed-messages') %}text-gray-500 dark:text-gray-400{% endif %}">send</span>
+            <span class="material-symbols-outlined {% if not (request.path.startswith('/campaigns') or request.path == '/failed-messages') %}text-gray-500 dark:text-gray-400{% endif %}">send</span>
         </button>
         <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
             <a href="/campaigns" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path.startswith('/campaigns') %}text-primary{% endif %}">
@@ -54,8 +51,7 @@
         <button
             class="p-3 rounded-xl {% if request.path in ['/analytics', '/sessions', '/topics'] %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
             title="Reportes">
-            <span
-                class="material-symbols-outlined {% if request.path not in ['/analytics', '/sessions', '/topics'] %}text-gray-500 dark:text-gray-400{% endif %}">analytics</span>
+            <span class="material-symbols-outlined {% if request.path not in ['/analytics', '/sessions', '/topics'] %}text-gray-500 dark:text-gray-400{% endif %}">analytics</span>
         </button>
         <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
             <a href="/analytics" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/analytics' %}text-primary{% endif %}">
@@ -77,21 +73,82 @@
     <a href="/chatbot"
         class="p-3 rounded-xl {% if request.path == '/chatbot' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Chatbot">
-        <span
-            class="material-symbols-outlined {% if request.path != '/chatbot' %}text-gray-500 dark:text-gray-400{% endif %}">smart_toy</span>
+        <span class="material-symbols-outlined {% if request.path != '/chatbot' %}text-gray-500 dark:text-gray-400{% endif %}">smart_toy</span>
     </a>
 
     <!-- Configuración -->
     <a href="/whatsapp-settings"
         class="p-3 rounded-xl mt-auto {% if request.path == '/whatsapp-settings' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Configuración">
-        <span
-            class="material-symbols-outlined {% if request.path != '/whatsapp-settings' %}text-gray-500 dark:text-gray-400{% endif %}">settings</span>
+        <span class="material-symbols-outlined {% if request.path != '/whatsapp-settings' %}text-gray-500 dark:text-gray-400{% endif %}">settings</span>
     </a>
 
     <!-- Logout -->
-    <a href="/logout" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        title="Cerrar sesión">
+    <a href="/logout" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Cerrar sesión">
         <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">logout</span>
     </a>
 </aside>
+
+<!-- BOTTOM NAV: visible solo en móvil (< md) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#152a17] border-t border-gray-200 dark:border-gray-800 flex items-center justify-around px-2 py-1 safe-area-pb">
+
+    <!-- Dashboard -->
+    <a href="/dashboard" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path == '/dashboard' %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+        <span class="material-symbols-outlined text-[22px]">chat</span>
+        <span class="text-[10px] font-medium">Inicio</span>
+    </a>
+
+    <!-- Contactos (agrupa contacts + tags) -->
+    <a href="/contacts" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path in ['/contacts', '/tags'] %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+        <span class="material-symbols-outlined text-[22px]">group</span>
+        <span class="text-[10px] font-medium">Contactos</span>
+    </a>
+
+    <!-- Campañas -->
+    <a href="/campaigns" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path.startswith('/campaigns') or request.path == '/failed-messages' %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+        <span class="material-symbols-outlined text-[22px]">send</span>
+        <span class="text-[10px] font-medium">Campañas</span>
+    </a>
+
+    <!-- Reportes (agrupa analytics + sessions + topics) -->
+    <a href="/analytics" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path in ['/analytics', '/sessions', '/topics'] %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+        <span class="material-symbols-outlined text-[22px]">analytics</span>
+        <span class="text-[10px] font-medium">Reportes</span>
+    </a>
+
+    <!-- Más (chatbot + settings + logout) -->
+    <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')"
+        class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path in ['/chatbot', '/whatsapp-settings'] %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+        <span class="material-symbols-outlined text-[22px]">more_horiz</span>
+        <span class="text-[10px] font-medium">Más</span>
+    </button>
+</nav>
+
+<!-- MOBILE MENU OVERLAY (para el botón "Más") -->
+<div id="mobile-menu" class="hidden md:hidden fixed bottom-14 right-2 z-50 bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 py-2 min-w-[180px]">
+    <a href="/chatbot" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/chatbot' %}text-primary{% endif %}">
+        <span class="material-symbols-outlined">smart_toy</span>
+        <span class="text-sm font-medium">Chatbot</span>
+    </a>
+    <a href="/whatsapp-settings" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/whatsapp-settings' %}text-primary{% endif %}">
+        <span class="material-symbols-outlined">settings</span>
+        <span class="text-sm font-medium">Configuración</span>
+    </a>
+    <div class="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+        <a href="/logout" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-500">
+            <span class="material-symbols-outlined">logout</span>
+            <span class="text-sm font-medium">Cerrar sesión</span>
+        </a>
+    </div>
+</div>
+
+<!-- Cerrar menu al tocar fuera -->
+<script>
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('mobile-menu');
+        if (menu && !menu.classList.contains('hidden')) {
+            const btn = e.target.closest('button[onclick]');
+            if (!btn) menu.classList.add('hidden');
+        }
+    });
+</script>

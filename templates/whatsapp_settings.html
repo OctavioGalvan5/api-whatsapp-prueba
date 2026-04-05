@@ -6,17 +6,17 @@
 <!-- Main Content -->
 <main class="flex-1 flex flex-col overflow-hidden">
     <!-- Header -->
-    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-4">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-xl font-bold text-[#111812] dark:text-white">Configuración</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Templates y envío de mensajes</p>
+                <p class="hidden sm:block text-sm text-gray-500 dark:text-gray-400">Templates y envío de mensajes</p>
             </div>
         </div>
     </header>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
 
         {% if not is_configured %}
         <!-- Not Configured State -->

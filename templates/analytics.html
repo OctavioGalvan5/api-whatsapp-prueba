@@ -11,22 +11,22 @@
 <!-- Main Content -->
 <main class="flex-1 flex flex-col overflow-hidden">
     <!-- Header -->
-    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
-        <div class="flex items-center justify-between">
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-4">
+        <div class="flex items-center justify-between gap-3">
             <div>
                 <h1 class="text-xl font-bold text-[#111812] dark:text-white">Analytics</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Estadísticas detalladas de mensajes</p>
+                <p class="hidden sm:block text-sm text-gray-500 dark:text-gray-400">Estadísticas detalladas de mensajes</p>
             </div>
             <!-- Selector de período -->
             <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-gray-500">calendar_month</span>
+                <span class="hidden sm:inline material-symbols-outlined text-gray-500">calendar_month</span>
                 <select id="periodSelect" onchange="changePeriod(this.value)"
                     class="bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                    <option value="7" {{ 'selected' if period == 7 else '' }}>Últimos 7 días</option>
-                    <option value="30" {{ 'selected' if period == 30 else '' }}>Últimos 30 días</option>
-                    <option value="90" {{ 'selected' if period == 90 else '' }}>Últimos 90 días</option>
-                    <option value="365" {{ 'selected' if period == 365 else '' }}>Último año</option>
-                    <option value="0" {{ 'selected' if period == 0 else '' }}>Todo el historial</option>
+                    <option value="7" {{ 'selected' if period == 7 else '' }}>7 días</option>
+                    <option value="30" {{ 'selected' if period == 30 else '' }}>30 días</option>
+                    <option value="90" {{ 'selected' if period == 90 else '' }}>90 días</option>
+                    <option value="365" {{ 'selected' if period == 365 else '' }}>1 año</option>
+                    <option value="0" {{ 'selected' if period == 0 else '' }}>Todo</option>
                 </select>
             </div>
         </div>
@@ -39,7 +39,7 @@
     </script>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
             <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">

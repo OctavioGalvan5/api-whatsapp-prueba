@@ -5,18 +5,26 @@
 {% block content %}
 <main class="flex-1 flex flex-col overflow-hidden">
     <!-- Header -->
-    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Sesiones de Conversación</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Conversaciones categorizadas automáticamente</p>
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-4">
+        <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-bold text-[#111812] dark:text-white">Sesiones</h1>
+                    <p class="hidden sm:block text-sm text-gray-500 dark:text-gray-400">Conversaciones categorizadas automáticamente</p>
+                </div>
+                <button id="force-categorize-btn" onclick="forceCategorization()"
+                    class="px-3 md:px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">sync</span>
+                    <span class="hidden sm:inline">Forzar Clasificación</span>
+                </button>
             </div>
-            <div class="flex gap-3">
-                <div class="relative">
-                    <input type="text" id="search-input" placeholder="Buscar por nombre, teléfono o resumen..."
-                        class="pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary w-80"
+            <!-- Filters row -->
+            <div class="flex flex-wrap gap-2">
+                <div class="relative flex-1 min-w-[180px]">
+                    <input type="text" id="search-input" placeholder="Buscar..."
+                        class="w-full pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary"
                         onkeyup="handleSearch(event)">
-                    <span class="material-symbols-outlined absolute left-3 top-2 text-gray-400 text-xl">search</span>
+                    <span class="material-symbols-outlined absolute left-2.5 top-2 text-gray-400 text-xl">search</span>
                 </div>
                 <select id="filter-topic" onchange="loadSessions(true)"
                     class="px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
@@ -35,41 +43,37 @@
                     <option value="unanswered">Sin respuesta</option>
                     <option value="escalated">Escalado a humano</option>
                 </select>
-                <button id="force-categorize-btn" onclick="forceCategorization()"
-                    class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-2">
-                    <span class="material-symbols-outlined text-lg">sync</span>
-                    Forzar Clasificación
-                </button>
             </div>
         </div>
     </header>
 
     <!-- Sessions Table -->
-    <div class="flex-1 overflow-auto p-6">
+    <div class="flex-1 overflow-auto p-4 md:p-6">
         <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <table class="w-full">
+            <div class="overflow-x-auto">
+            <table class="w-full min-w-[600px]">
                 <thead class="bg-gray-50 dark:bg-gray-800/50">
                     <tr>
                         <th
                             class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Contacto</th>
                         <th
-                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            class="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Tema</th>
                         <th
                             class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Calidad</th>
                         <th
-                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            class="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Estado</th>
                         <th
-                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            class="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Msjs</th>
                         <th
-                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            class="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Resumen</th>
                         <th
-                            class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            class="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Fecha</th>
                         <th
                             class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -80,6 +84,7 @@
                     <!-- Sessions loaded via JS -->
                 </tbody>
             </table>
+            </div><!-- end overflow-x-auto -->
         </div>
 
         <div id="empty-state" class="hidden text-center py-12">
@@ -225,22 +230,22 @@
                         <span class="text-xs text-gray-500">${escapeHtml(s.phone_number)}</span>
                     </a>
                 </td>
-                <td class="px-4 py-3">
+                <td class="hidden sm:table-cell px-4 py-3">
                     <span class="px-2 py-1 text-xs rounded-full ${s.topic ? 'bg-primary/10 text-primary' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}">
                         ${escapeHtml(s.topic_name || 'Sin categorizar')}
                     </span>
                 </td>
                 <td class="px-4 py-3 text-sm">${ratingLabels[s.rating] || s.rating || '-'}</td>
-                <td class="px-4 py-3">
+                <td class="hidden md:table-cell px-4 py-3">
                     <div class="flex gap-1 flex-wrap">
                         ${s.has_unanswered_questions ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 font-medium">Sin respuesta</span>' : ''}
                         ${s.escalated_to_human ? '<span class="px-2 py-0.5 text-[10px] rounded-full bg-red-500/10 text-red-500 font-medium">Escalado</span>' : ''}
                         ${!s.has_unanswered_questions && !s.escalated_to_human ? '<span class="text-xs text-gray-400">-</span>' : ''}
                     </div>
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-500">${s.message_count}</td>
-                <td class="px-4 py-3 text-sm text-gray-500 max-w-xs truncate" title="${escapeHtml(s.summary || '-')}">${escapeHtml(s.summary || '-')}</td>
-                <td class="px-4 py-3 text-sm text-gray-500">${formatDate(s.ended_at)}</td>
+                <td class="hidden md:table-cell px-4 py-3 text-sm text-gray-500">${s.message_count}</td>
+                <td class="hidden lg:table-cell px-4 py-3 text-sm text-gray-500 max-w-xs truncate" title="${escapeHtml(s.summary || '-')}">${escapeHtml(s.summary || '-')}</td>
+                <td class="hidden sm:table-cell px-4 py-3 text-sm text-gray-500">${formatDate(s.ended_at)}</td>
                 <td class="px-4 py-3 flex gap-1">
                     <a href="/dashboard?phone=${encodeURIComponent(s.phone_number)}"
                        class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg" title="Ver chat">

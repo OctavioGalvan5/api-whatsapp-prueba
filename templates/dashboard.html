@@ -49,8 +49,8 @@
 
 {% block content %}
 <!-- Left Sidebar (30%) -->
-<aside
-    class="w-[30%] min-w-[320px] max-w-[450px] border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-[#152a17]">
+<aside id="contacts-sidebar"
+    class="{% if selected_contact %}hidden md:flex{% else %}flex{% endif %} w-full md:w-[30%] md:min-w-[320px] md:max-w-[450px] border-r border-gray-200 dark:border-gray-800 flex-col bg-white dark:bg-[#152a17]">
     <!-- Sidebar Header -->
     <div class="p-4 flex flex-col gap-4">
         <div class="flex items-center justify-between">
@@ -151,12 +151,16 @@
 </aside>
 
 <!-- Main Chat Area (70%) -->
-<main class="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
+<main id="chat-area" class="{% if not selected_contact %}hidden md:flex{% else %}flex{% endif %} flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
     {% if selected_contact %}
     <!-- Chat Header -->
     <header
         class="min-h-[64px] py-2 bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 z-10">
         <div class="flex items-center gap-3 min-w-0 flex-1">
+            <!-- Botón volver (solo móvil) -->
+            <button onclick="backToContacts()" class="md:hidden p-1 -ml-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors shrink-0">
+                <span class="material-symbols-outlined text-gray-500">arrow_back</span>
+            </button>
             <div
                 class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-10 w-10 bg-gray-200 flex items-center justify-center text-gray-500 font-bold shrink-0">
                 {{ contact_details.name[0] if contact_details and contact_details.name else selected_contact[-2:] }}
@@ -181,7 +185,7 @@
             </div>
         </div>
         <!-- Header Actions -->
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-1 md:gap-2 shrink-0">
             <!-- Stats in header -->
             <div class="hidden md:flex gap-3 mr-4 text-xs text-gray-500">
                 <div class="chat-stat-sent flex items-center gap-1"><span
@@ -197,22 +201,22 @@
             <!-- Bot pausado: banner + botón reactivar -->
             <div id="bot-paused-banner" class="{% if not bot_paused %}hidden{% endif %} flex items-center gap-2">
                 <span
-                    class="flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-medium px-3 py-1.5 rounded-full">
+                    class="hidden sm:flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-medium px-3 py-1.5 rounded-full">
                     <span class="material-symbols-outlined text-sm">support_agent</span>
                     Bot pausado
                 </span>
                 <button onclick="resumeBot('{{ selected_contact }}')"
-                    class="flex items-center gap-1.5 bg-primary text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors">
+                    class="flex items-center gap-1.5 bg-primary text-white text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors">
                     <span class="material-symbols-outlined text-sm">smart_toy</span>
-                    Reactivar Bot
+                    <span class="hidden sm:inline">Reactivar Bot</span>
                 </button>
             </div>
             <!-- Bot activo: botón pausar -->
             <div id="bot-active-controls" class="{% if bot_paused %}hidden{% endif %}">
                 <button onclick="pauseBot('{{ selected_contact }}')"
-                    class="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors">
+                    class="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors">
                     <span class="material-symbols-outlined text-sm">pause</span>
-                    Pausar Bot
+                    <span class="hidden sm:inline">Pausar Bot</span>
                 </button>
             </div>
             <button onclick="exportPDF()"
@@ -552,6 +556,24 @@
 
     let currentPhone = "{{ selected_contact or '' }}";
     let currentContactName = ''; // Para evitar XSS en onclick
+
+    // En móvil: muestra el chat y oculta la lista
+    function showChatMobile() {
+        if (window.innerWidth < 768) {
+            const sidebar = document.getElementById('contacts-sidebar');
+            const chatArea = document.getElementById('chat-area');
+            if (sidebar) { sidebar.classList.add('hidden'); sidebar.classList.remove('flex'); }
+            if (chatArea) { chatArea.classList.remove('hidden'); chatArea.classList.add('flex'); }
+        }
+    }
+
+    // En móvil: volver a la lista de contactos
+    function backToContacts() {
+        const sidebar = document.getElementById('contacts-sidebar');
+        const chatArea = document.getElementById('chat-area');
+        if (sidebar) { sidebar.classList.remove('hidden'); sidebar.classList.add('flex'); }
+        if (chatArea) { chatArea.classList.add('hidden'); chatArea.classList.remove('flex'); }
+    }
     const templateVarCache = {}; // Preservar variables de plantilla por contacto
 
     // Helper para escapar HTML (previene XSS)
@@ -894,6 +916,7 @@
                 currentPhone = phone;
                 renderChat(data);
                 restoreTemplateVars(phone);
+                showChatMobile();
             } else {
                 fallbackToReload();
                 return;

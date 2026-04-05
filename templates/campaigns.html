@@ -6,29 +6,29 @@
 <!-- Main Content -->
 <main class="flex-1 flex flex-col overflow-hidden">
     <!-- Header -->
-    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
-        <div class="flex items-center justify-between">
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-4">
+        <div class="flex items-center justify-between gap-3">
             <div>
                 <h1 class="text-xl font-bold text-[#111812] dark:text-white">Campañas</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Envío masivo de templates por etiqueta</p>
+                <p class="hidden sm:block text-sm text-gray-500 dark:text-gray-400">Envío masivo de templates por etiqueta</p>
             </div>
             <div class="flex gap-2">
                 <a href="/campaigns/compare"
-                    class="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    class="flex items-center gap-2 px-3 md:px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     <span class="material-symbols-outlined text-lg">analytics</span>
-                    Comparar Campañas
+                    <span class="hidden sm:inline">Comparar</span>
                 </a>
                 <button onclick="openCreateModal()"
-                    class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                    class="flex items-center gap-2 px-3 md:px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
                     <span class="material-symbols-outlined text-lg">add</span>
-                    Nueva Campaña
+                    <span class="hidden sm:inline">Nueva Campaña</span>
                 </button>
             </div>
         </div>
     </header>
 
     <!-- Content -->
-    <div class="flex-1 overflow-auto p-6 custom-scrollbar">
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
         {% if campaigns %}
         <!-- KPI Cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

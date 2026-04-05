@@ -21,7 +21,8 @@
       "Bash(curl -s \"https://graph.facebook.com/v22.0/804834189385614/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical&access_token=EAFkkToDHDZAEBQq58D1yRKzS81T9cM38lj4dAEkIFjIh8JQVNU4FBM5LpLjDbLUQNhzjNojrUb3oHy1ldjjd5TAwbfPXfQcTpBDZAFyMfCcm05Q1H67F8aQUqo3j8qWrCXKhM4HHpf1CZCWY5eTxzuZC5TdRkT4ohDZBUIlNOF3lT5rOLW4pxqUdAFkgZDZD\")",
       "Bash(python -m json.tool)",
       "Bash(python check_whatsapp_token.py)",
-      "Bash(python -c \"from whatsapp_service import whatsapp_api; import json; result = whatsapp_api.get_business_profile(); print(json.dumps(result, indent=2))\")"
+      "Bash(PGPASSWORD=cqmafpecud2emlhyrtgd102gjvbneyod psql \"postgresql://postgres.your-tenant-id@62.72.11.137:6543/postgres\" -c \"ALTER TABLE n8n_chat_histories ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;\")",
+      "Bash(curl -s \"https://graph.facebook.com/v18.0/837745391956094/message_templates?fields=name,status,language&access_token=EAFkkToDHDZAEBQq58D1B2ziWrhyyJnB9TRY7e7kCoZCYnCPoLQBtLsjq81V76r2BAPm5eNNZARv4SsvKqpNaf2wqeePkM3ZC0RdaJcla62yr3sZAVILv5DZCpAM5HL7T5Tkby39isZCK1ZAYqwIYmMNSxuGHK3H6BJ2Ctm5CtCIl3sApELEjITIMeZAQSfBc4ZAwZDZD\")"
     ],
     "deny": [],
     "ask": []

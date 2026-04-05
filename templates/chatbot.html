@@ -5,16 +5,16 @@
 {% block content %}
 <main class="flex-1 flex flex-col overflow-hidden">
     <!-- Header -->
-    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-6 py-4">
-        <div class="flex items-center justify-between">
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-4">
+        <div class="flex items-center justify-between gap-3">
             <div>
-                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Gestión del Chatbot</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Administra documentos RAG y configuración del chatbot</p>
+                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Chatbot</h1>
+                <p class="hidden sm:block text-sm text-gray-500 dark:text-gray-400">Administra documentos RAG y configuración del chatbot</p>
             </div>
             <div class="flex items-center gap-4">
                 <!-- Toggle Chatbot -->
-                <div class="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Chatbot</span>
+                <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span class="hidden sm:inline text-sm font-medium text-gray-600 dark:text-gray-300">Chatbot</span>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="chatbot-toggle" class="sr-only peer" {% if chatbot_enabled %}checked{% endif %}>
                         <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
@@ -27,7 +27,7 @@
         </div>
     </header>
 
-    <div class="flex-1 overflow-auto p-6">
+    <div class="flex-1 overflow-auto p-4 md:p-6">
         <!-- Upload Section -->
         <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
             <h2 class="text-lg font-semibold mb-4">Subir Documentos</h2>
