@@ -1714,7 +1714,7 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         initializeDashboard();
     }
 
-    // Polling: actualiza chat cada 30s
+    // Polling: actualiza chat cada 5s
     setInterval(() => {
         if (currentPhone) {
             fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
@@ -1722,7 +1722,7 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                 .then(data => { if (data.success) renderChat(data); })
                 .catch(() => { });
         }
-    }, 30000);
+    }, 5000);
 
     // ========== BANNER ASISTENCIA HUMANA ==========
     async function updateHumanAssistanceBanner() {
