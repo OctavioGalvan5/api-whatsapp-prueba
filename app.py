@@ -655,6 +655,9 @@ def dashboard():
     if contact_details:
         bot_paused = any(t.name == 'Asistencia Humana' for t in contact_details.tags)
 
+    # Etiquetas activas para el filtro del sidebar
+    available_tags = Tag.query.filter_by(is_active=True).order_by(Tag.name).all()
+
     return render_template('dashboard.html',
                          stats=stats,
                          contacts=contacts,
@@ -668,7 +671,8 @@ def dashboard():
                          templates=templates,
                          whatsapp_configured=whatsapp_configured,
                          has_more_contacts=has_more_contacts,
-                         bot_paused=bot_paused)
+                         bot_paused=bot_paused,
+                         available_tags=available_tags)
 
 @app.route("/analytics")
 def analytics():
@@ -1108,8 +1112,9 @@ def register_contact_if_new(phone_number, name=None):
 
 @app.route("/api/dashboard/contacts", methods=["GET"])
 def api_dashboard_contacts():
-    """API para obtener contactos del dashboard con paginación y búsqueda."""
+    """API para obtener contactos del dashboard con paginación, búsqueda y filtro de etiqueta."""
     search = request.args.get('search', '').strip()
+    tag_filter = request.args.get('tag', '').strip()
     offset = request.args.get('offset', 0, type=int)
     limit = request.args.get('limit', 30, type=int)
 
@@ -1118,14 +1123,26 @@ def api_dashboard_contacts():
 
     from sqlalchemy import text
 
+    # Condición de filtro por etiqueta (se inyecta en ambas queries)
+    tag_join = ""
+    tag_params = {}
+    if tag_filter:
+        tag_join = """
+            JOIN whatsapp_contacts c_tag ON c_tag.phone_number = m.phone_number
+            JOIN whatsapp_contact_tags ct_tag ON ct_tag.contact_id = c_tag.id
+            JOIN whatsapp_tags t_tag ON t_tag.id = ct_tag.tag_id AND t_tag.name = :tag_filter
+        """
+        tag_params['tag_filter'] = tag_filter
+
     if search:
         # Búsqueda: filtrar por nombre, teléfono o contenido de mensaje
         # Las conversaciones con tag "Asistencia Humana" se muestran primero.
-        search_query = text("""
+        search_query = text(f"""
             SELECT sub.phone_number, sub.last_message, sub.last_timestamp
             FROM (
                 SELECT DISTINCT ON (m.phone_number) m.phone_number, m.content AS last_message, m.timestamp AS last_timestamp
                 FROM whatsapp_messages m
+                {tag_join}
                 WHERE m.phone_number NOT IN ('unknown', 'outbound', '')
                   AND (
                     -- Buscar por teléfono
@@ -1156,18 +1173,19 @@ def api_dashboard_contacts():
             OFFSET :off LIMIT :lim
         """)
         results = db.session.execute(search_query, {
-            'pattern': f'%{search}%', 'off': offset, 'lim': limit + 1
+            'pattern': f'%{search}%', 'off': offset, 'lim': limit + 1, **tag_params
         }).fetchall()
     else:
         # Sin búsqueda: DISTINCT ON puro, muy rápido
         # Las conversaciones con tag "Asistencia Humana" se muestran primero.
-        distinct_query = text("""
+        distinct_query = text(f"""
             SELECT sub.phone_number, sub.last_message, sub.last_timestamp
             FROM (
-                SELECT DISTINCT ON (phone_number) phone_number, content AS last_message, timestamp AS last_timestamp
-                FROM whatsapp_messages
-                WHERE phone_number NOT IN ('unknown', 'outbound', '')
-                ORDER BY phone_number, timestamp DESC
+                SELECT DISTINCT ON (m.phone_number) m.phone_number, m.content AS last_message, m.timestamp AS last_timestamp
+                FROM whatsapp_messages m
+                {tag_join}
+                WHERE m.phone_number NOT IN ('unknown', 'outbound', '')
+                ORDER BY m.phone_number, m.timestamp DESC
             ) sub
             LEFT JOIN whatsapp_contacts c ON c.phone_number = sub.phone_number
             LEFT JOIN LATERAL (
@@ -1181,7 +1199,7 @@ def api_dashboard_contacts():
             OFFSET :off LIMIT :lim
         """)
         results = db.session.execute(distinct_query, {
-            'off': offset, 'lim': limit + 1
+            'off': offset, 'lim': limit + 1, **tag_params
         }).fetchall()
 
     has_more = len(results) > limit

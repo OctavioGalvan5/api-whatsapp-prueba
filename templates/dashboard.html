@@ -109,6 +109,25 @@
                 </div>
             </label>
         </div>
+
+        <!-- Filtro por etiqueta -->
+        {% if available_tags %}
+        <div class="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar" id="tag-filter-bar" style="scrollbar-width: thin;">
+            <button onclick="setTagFilter('')"
+                id="tag-chip-all"
+                class="tag-chip shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors bg-primary/10 text-primary border border-primary/30">
+                Todos
+            </button>
+            {% for tag in available_tags %}
+            <button onclick="setTagFilter('{{ tag.name|e }}')"
+                id="tag-chip-{{ loop.index }}"
+                data-tag="{{ tag.name|e }}"
+                class="tag-chip shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
+                {{ tag.name }}
+            </button>
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
 
     <!-- Conversation List -->
@@ -559,6 +578,7 @@
 
     let currentPhone = "{{ selected_contact or '' }}";
     let currentContactName = ''; // Para evitar XSS en onclick
+    let currentTagFilter = ''; // Filtro activo de etiqueta
 
     // En desktop (md+), ambos paneles siempre visibles
     (function initLayout() {
@@ -569,6 +589,23 @@
             if (chatArea) chatArea.style.display = '';
         }
     })();
+
+    // Filtro por etiqueta en el sidebar de conversaciones
+    const CHIP_INACTIVE = ['bg-gray-100', 'text-gray-600', 'border-transparent'];
+    const CHIP_ACTIVE   = ['bg-primary/10', 'text-primary', 'border-primary/30'];
+
+    function setTagFilter(tag) {
+        currentTagFilter = tag;
+        // Actualizar estilo de chips
+        document.querySelectorAll('.tag-chip').forEach(chip => {
+            const chipTag = chip.dataset.tag || '';
+            const isActive = (tag === '' && chip.id === 'tag-chip-all') || (chipTag === tag && tag !== '');
+            chip.classList.remove(...CHIP_ACTIVE, ...CHIP_INACTIVE);
+            chip.classList.add(...(isActive ? CHIP_ACTIVE : CHIP_INACTIVE));
+        });
+        // Recargar lista con el nuevo filtro
+        searchContacts(currentSearch);
+    }
 
     // En móvil: muestra el chat y oculta la lista
     function showChatMobile() {
@@ -1382,7 +1419,7 @@
         document.getElementById('contacts-loading').classList.remove('hidden');
 
         try {
-            const url = `/api/dashboard/contacts?offset=${contactsOffset}&limit=30&search=${encodeURIComponent(currentSearch)}`;
+            const url = `/api/dashboard/contacts?offset=${contactsOffset}&limit=30&search=${encodeURIComponent(currentSearch)}&tag=${encodeURIComponent(currentTagFilter)}`;
             const resp = await fetch(url);
             const data = await resp.json();
 
@@ -1438,7 +1475,7 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         const container = document.getElementById('contacts-list');
 
         try {
-            const url = `/api/dashboard/contacts?offset=0&limit=50&search=${encodeURIComponent(query)}`;
+            const url = `/api/dashboard/contacts?offset=0&limit=50&search=${encodeURIComponent(query)}&tag=${encodeURIComponent(currentTagFilter)}`;
             const resp = await fetch(url);
             const data = await resp.json();
 
