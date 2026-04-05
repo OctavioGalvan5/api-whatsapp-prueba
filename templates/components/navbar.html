@@ -1,5 +1,5 @@
 <!-- SIDEBAR: visible en desktop (md+) -->
-<aside class="hidden md:flex w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex-col items-center py-4 gap-2 relative">
+<aside class="max-md:hidden flex w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex-col items-center py-4 gap-2 relative">
 
     <!-- Dashboard -->
     <a href="/dashboard"
@@ -90,7 +90,7 @@
 </aside>
 
 <!-- BOTTOM NAV: visible solo en móvil (< md) -->
-<nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#152a17] border-t border-gray-200 dark:border-gray-800 flex items-center justify-around px-2 py-1 safe-area-pb">
+<nav class="md:hidden max-md:flex fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#152a17] border-t border-gray-200 dark:border-gray-800 items-center justify-around px-2 py-1 safe-area-pb">
 
     <!-- Dashboard -->
     <a href="/dashboard" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path == '/dashboard' %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">

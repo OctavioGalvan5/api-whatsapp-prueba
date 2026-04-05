@@ -50,7 +50,9 @@
 {% block content %}
 <!-- Left Sidebar (30%) -->
 <aside id="contacts-sidebar"
-    class="{% if selected_contact %}hidden md:flex{% else %}flex{% endif %} w-full md:w-[30%] md:min-w-[320px] md:max-w-[450px] border-r border-gray-200 dark:border-gray-800 flex-col bg-white dark:bg-[#152a17]">
+    class="flex w-full md:w-[30%] md:min-w-[320px] md:max-w-[450px] border-r border-gray-200 dark:border-gray-800 flex-col bg-white dark:bg-[#152a17]"
+    {% if selected_contact %}style="display: none"{% endif %}
+    data-mobile-hidden="{% if selected_contact %}true{% else %}false{% endif %}">
     <!-- Sidebar Header -->
     <div class="p-4 flex flex-col gap-4">
         <div class="flex items-center justify-between">
@@ -151,7 +153,8 @@
 </aside>
 
 <!-- Main Chat Area (70%) -->
-<main id="chat-area" class="{% if not selected_contact %}hidden md:flex{% else %}flex{% endif %} flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
+<main id="chat-area" class="flex flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden"
+    {% if not selected_contact %}style="display: none"{% endif %}>
     {% if selected_contact %}
     <!-- Chat Header -->
     <header
@@ -557,13 +560,23 @@
     let currentPhone = "{{ selected_contact or '' }}";
     let currentContactName = ''; // Para evitar XSS en onclick
 
+    // En desktop (md+), ambos paneles siempre visibles
+    (function initLayout() {
+        if (window.innerWidth >= 768) {
+            const sidebar = document.getElementById('contacts-sidebar');
+            const chatArea = document.getElementById('chat-area');
+            if (sidebar) sidebar.style.display = '';
+            if (chatArea) chatArea.style.display = '';
+        }
+    })();
+
     // En móvil: muestra el chat y oculta la lista
     function showChatMobile() {
         if (window.innerWidth < 768) {
             const sidebar = document.getElementById('contacts-sidebar');
             const chatArea = document.getElementById('chat-area');
-            if (sidebar) { sidebar.classList.add('hidden'); sidebar.classList.remove('flex'); }
-            if (chatArea) { chatArea.classList.remove('hidden'); chatArea.classList.add('flex'); }
+            if (sidebar) sidebar.style.display = 'none';
+            if (chatArea) chatArea.style.display = 'flex';
         }
     }
 
@@ -571,8 +584,8 @@
     function backToContacts() {
         const sidebar = document.getElementById('contacts-sidebar');
         const chatArea = document.getElementById('chat-area');
-        if (sidebar) { sidebar.classList.remove('hidden'); sidebar.classList.add('flex'); }
-        if (chatArea) { chatArea.classList.add('hidden'); chatArea.classList.remove('flex'); }
+        if (sidebar) sidebar.style.display = 'flex';
+        if (chatArea) chatArea.style.display = 'none';
     }
     const templateVarCache = {}; // Preservar variables de plantilla por contacto
 
