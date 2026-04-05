@@ -1451,7 +1451,7 @@
                         let resolved = bodyComp.text;
                         const bodyInputs = document.querySelectorAll('#template-variables-container input[data-component="body"]');
                         bodyInputs.forEach((inp, i) => {
-                            resolved = resolved.replace(`{{${i+1}}}`, inp.value || '-');
+                            resolved = resolved.replace('{% raw %}{{{% endraw %}' + (i+1) + '{% raw %}}}{% endraw %}', inp.value || '-');
                         });
                         localPreview = resolved;
                     }
