@@ -257,12 +257,12 @@
                 <span
                     class="hidden sm:flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-medium px-3 py-1.5 rounded-full">
                     <span class="material-symbols-outlined text-sm">support_agent</span>
-                    Bot pausado
+                    Chatbot pausado
                 </span>
                 <button onclick="resumeBot('{{ selected_contact }}')"
                     class="flex items-center gap-1.5 bg-primary text-white text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors">
                     <span class="material-symbols-outlined text-sm">smart_toy</span>
-                    <span class="hidden sm:inline">Reactivar Bot</span>
+                    <span class="hidden sm:inline">Reactivar Chatbot</span>
                 </button>
             </div>
             <!-- Bot activo: botón pausar -->
@@ -270,7 +270,7 @@
                 <button onclick="pauseBot('{{ selected_contact }}')"
                     class="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors">
                     <span class="material-symbols-outlined text-sm">pause</span>
-                    <span class="hidden sm:inline">Pausar Bot</span>
+                    <span class="hidden sm:inline">Pausar Chatbot</span>
                 </button>
             </div>
             <button onclick="exportPDF()"
@@ -436,17 +436,14 @@
         <div class="max-w-4xl mx-auto flex flex-col gap-3">
             {% if whatsapp_configured %}
 
-            {% if not can_send_free_text %}
-            <div class="text-xs text-orange-500 font-medium px-1 flex items-center gap-1 composer-status template-only">
+            <div class="text-xs text-orange-500 font-medium px-1 flex items-center gap-1 composer-status template-only {% if can_send_free_text %}hidden{% endif %}">
                 <span class="material-symbols-outlined text-sm">warning</span>
                 Fuera de la ventana de 24h. Envía un template.
             </div>
-            {% else %}
-            <div class="text-xs text-green-500 font-medium px-1 flex items-center gap-1 composer-status can-text">
+            <div class="text-xs text-green-500 font-medium px-1 flex items-center gap-1 composer-status can-text {% if not can_send_free_text %}hidden{% endif %}">
                 <span class="material-symbols-outlined text-sm">check_circle</span>
                 Ventana de 24h activa.
             </div>
-            {% endif %}
 
             <!-- Composer Controls -->
             <div class="flex items-center justify-between">
@@ -722,7 +719,7 @@
     }
 
     async function pauseBot(phone) {
-        if (!confirm('¿Pausar el bot para este contacto? Se agregará la etiqueta "Asistencia Humana" y el bot dejará de responder automáticamente.')) return;
+        if (!confirm('¿Pausar el chatbot para este contacto? Se agregará la etiqueta "Asistencia Humana" y el chatbot dejará de responder automáticamente.')) return;
 
         try {
             const response = await fetch(`/api/contact/${encodeURIComponent(phone)}/pause-bot`, {
@@ -755,7 +752,7 @@
                 // Agregar badge e indicador visual al contacto en la lista
                 addHumanBadgeToContact(phone);
 
-                alert('Bot pausado exitosamente. Este contacto requiere asistencia humana.');
+                alert('Chatbot pausado exitosamente. Este contacto requiere asistencia humana.');
             } else {
                 alert('Error: ' + (data.error || 'Desconocido'));
             }
@@ -765,7 +762,7 @@
     }
 
     async function resumeBot(phone) {
-        if (!confirm('Reactivar el bot para este contacto? Se quitará la etiqueta "Asistencia Humana".')) return;
+        if (!confirm('¿Reactivar el chatbot para este contacto? Se quitará la etiqueta "Asistencia Humana".')) return;
 
         try {
             const response = await fetch(`/api/contact/${encodeURIComponent(phone)}/resume-bot`, {
@@ -795,7 +792,7 @@
                 // Quitar badge e indicador visual del contacto en la lista
                 removeHumanBadgeFromContact(phone);
 
-                alert('Bot reactivado exitosamente');
+                alert('Chatbot reactivado exitosamente');
             } else {
                 alert('Error: ' + (data.error || 'Desconocido'));
             }
@@ -1445,7 +1442,21 @@
             if (data.success) {
                 resDiv.innerHTML = 'Template enviado ✓';
                 resDiv.className = 'text-xs text-green-500 pt-1';
-                appendMessageLocally(`[Template: ${templateName}]`);
+                // Mostrar texto real del template en el chat local
+                let localPreview = `[Template: ${templateName}]`;
+                const selectedTemplate = allTemplates.find(t => t.name === templateName && t.language === lang);
+                if (selectedTemplate) {
+                    const bodyComp = (selectedTemplate.components || []).find(c => c.type === 'BODY');
+                    if (bodyComp && bodyComp.text) {
+                        let resolved = bodyComp.text;
+                        const bodyInputs = document.querySelectorAll('#template-variables-container input[data-component="body"]');
+                        bodyInputs.forEach((inp, i) => {
+                            resolved = resolved.replace(`{{${i+1}}}`, inp.value || '-');
+                        });
+                        localPreview = resolved;
+                    }
+                }
+                appendMessageLocally(localPreview);
                 select.value = '';
                 document.getElementById('template-variables-container').innerHTML = '';
                 setTimeout(() => { resDiv.innerHTML = ''; }, 2000);

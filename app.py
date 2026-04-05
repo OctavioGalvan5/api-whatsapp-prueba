@@ -2921,9 +2921,18 @@ def api_send_template():
                     text = comp.get("text", "")
                     # Intentar rellenar variables para el historial local
                     if variable_mapping and contact:
+                        # Caso 1: variable_mapping con campos del contacto
                         for i, field in enumerate(variable_mapping):
                             val = getattr(contact, field, "") or "-"
                             text = text.replace(f"{{{{{i+1}}}}}", str(val))
+                    elif components:
+                        # Caso 2: components enviados directamente desde el dashboard
+                        # Extraer los valores de los body parameters
+                        for c in components:
+                            if c.get("type") == "body":
+                                for i, param in enumerate(c.get("parameters", [])):
+                                    val = param.get("text", "-")
+                                    text = text.replace(f"{{{{{i+1}}}}}", str(val))
                     template_content = text
                     break
             break
