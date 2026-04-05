@@ -112,20 +112,52 @@
 
         <!-- Filtro por etiqueta -->
         {% if available_tags %}
-        <div class="flex gap-1.5 overflow-x-auto pb-1 custom-scrollbar" id="tag-filter-bar" style="scrollbar-width: thin;">
-            <button onclick="setTagFilter('')"
-                id="tag-chip-all"
-                class="tag-chip shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors bg-primary/10 text-primary border border-primary/30">
-                Todos
+        <div class="relative" id="tag-filter-wrapper">
+            <!-- Botón trigger -->
+            <button onclick="toggleTagDropdown()" id="tag-filter-btn"
+                class="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="material-symbols-outlined text-[18px] shrink-0">label</span>
+                    <span id="tag-filter-label" class="truncate">Todas las etiquetas</span>
+                </div>
+                <span class="material-symbols-outlined text-[18px] shrink-0 transition-transform" id="tag-filter-arrow">expand_more</span>
             </button>
-            {% for tag in available_tags %}
-            <button onclick="setTagFilter('{{ tag.name|e }}')"
-                id="tag-chip-{{ loop.index }}"
-                data-tag="{{ tag.name|e }}"
-                class="tag-chip shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-transparent hover:border-gray-300 dark:hover:border-gray-600">
-                {{ tag.name }}
-            </button>
-            {% endfor %}
+
+            <!-- Dropdown -->
+            <div id="tag-filter-dropdown"
+                class="absolute left-0 right-0 top-full mt-1 z-30 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+                style="display:none">
+                <!-- Buscador interno -->
+                <div class="p-2 border-b border-gray-100 dark:border-gray-700">
+                    <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-1.5">
+                        <span class="material-symbols-outlined text-gray-400 text-[16px]">search</span>
+                        <input id="tag-search-input" type="text" placeholder="Buscar etiqueta..."
+                            class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-gray-400"
+                            oninput="filterTagList(this.value)" />
+                    </div>
+                </div>
+                <!-- Lista de etiquetas -->
+                <ul class="max-h-52 overflow-y-auto custom-scrollbar py-1" id="tag-list">
+                    <li>
+                        <button onclick="setTagFilter('')"
+                            data-tag=""
+                            class="tag-list-item w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium text-primary">
+                            <span class="material-symbols-outlined text-[16px] text-primary">check</span>
+                            Todas las etiquetas
+                        </button>
+                    </li>
+                    {% for tag in available_tags %}
+                    <li>
+                        <button onclick="setTagFilter('{{ tag.name|e }}')"
+                            data-tag="{{ tag.name|e }}"
+                            class="tag-list-item w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-200">
+                            <span class="material-symbols-outlined text-[16px] text-transparent">check</span>
+                            {{ tag.name }}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -590,22 +622,78 @@
         }
     })();
 
-    // Filtro por etiqueta en el sidebar de conversaciones
-    const CHIP_INACTIVE = ['bg-gray-100', 'text-gray-600', 'border-transparent'];
-    const CHIP_ACTIVE   = ['bg-primary/10', 'text-primary', 'border-primary/30'];
+    // ── Filtro por etiqueta ──────────────────────────────────────────
+    function toggleTagDropdown() {
+        const dropdown = document.getElementById('tag-filter-dropdown');
+        const arrow = document.getElementById('tag-filter-arrow');
+        const isOpen = dropdown.style.display !== 'none';
+        if (isOpen) {
+            closeTagDropdown();
+        } else {
+            dropdown.style.display = 'block';
+            arrow.style.transform = 'rotate(180deg)';
+            document.getElementById('tag-search-input').focus();
+        }
+    }
+
+    function closeTagDropdown() {
+        const dropdown = document.getElementById('tag-filter-dropdown');
+        const arrow = document.getElementById('tag-filter-arrow');
+        if (dropdown) dropdown.style.display = 'none';
+        if (arrow) arrow.style.transform = '';
+        const tagSearchInput = document.getElementById('tag-search-input');
+        if (tagSearchInput) tagSearchInput.value = '';
+        filterTagList('');
+    }
+
+    function filterTagList(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('#tag-list li').forEach(li => {
+            const btn = li.querySelector('button');
+            const label = btn ? btn.textContent.trim().toLowerCase() : '';
+            li.style.display = (!q || label.includes(q)) ? '' : 'none';
+        });
+    }
 
     function setTagFilter(tag) {
         currentTagFilter = tag;
-        // Actualizar estilo de chips
-        document.querySelectorAll('.tag-chip').forEach(chip => {
-            const chipTag = chip.dataset.tag || '';
-            const isActive = (tag === '' && chip.id === 'tag-chip-all') || (chipTag === tag && tag !== '');
-            chip.classList.remove(...CHIP_ACTIVE, ...CHIP_INACTIVE);
-            chip.classList.add(...(isActive ? CHIP_ACTIVE : CHIP_INACTIVE));
+        closeTagDropdown();
+
+        // Actualizar label del botón
+        const label = document.getElementById('tag-filter-label');
+        if (label) label.textContent = tag || 'Todas las etiquetas';
+
+        // Actualizar estilo del botón trigger
+        const btn = document.getElementById('tag-filter-btn');
+        if (btn) {
+            if (tag) {
+                btn.classList.add('bg-primary/10', 'text-primary');
+                btn.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'text-gray-500', 'dark:text-gray-400');
+            } else {
+                btn.classList.remove('bg-primary/10', 'text-primary');
+                btn.classList.add('bg-gray-100', 'dark:bg-gray-800', 'text-gray-500', 'dark:text-gray-400');
+            }
+        }
+
+        // Actualizar check en la lista
+        document.querySelectorAll('.tag-list-item').forEach(item => {
+            const itemTag = item.dataset.tag || '';
+            const check = item.querySelector('.material-symbols-outlined');
+            if (check) {
+                check.classList.toggle('text-primary', itemTag === tag);
+                check.classList.toggle('text-transparent', itemTag !== tag);
+            }
         });
-        // Recargar lista con el nuevo filtro
+
+        // Recargar lista de conversaciones
         searchContacts(currentSearch);
     }
+
+    // Cerrar dropdown al clickear fuera
+    document.addEventListener('click', function(e) {
+        const wrapper = document.getElementById('tag-filter-wrapper');
+        if (wrapper && !wrapper.contains(e.target)) closeTagDropdown();
+    });
 
     // En móvil: muestra el chat y oculta la lista
     function showChatMobile() {
