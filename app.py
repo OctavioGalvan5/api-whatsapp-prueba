@@ -2989,9 +2989,9 @@ def api_send_text():
     if not data:
         return jsonify({"error": "No data provided"}), 400
     
-    to_phone = data.get("to")
+    to_phone = re.sub(r'[^\d]', '', str(data.get("to") or ""))
     text = data.get("text")
-    
+
     if not to_phone or not text:
         return jsonify({"error": "to y text son requeridos"}), 400
     
