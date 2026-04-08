@@ -8,28 +8,59 @@ from config import Config
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def forward_to_chatwoot(payload):
+def forward_to_n8n(user_number, user_message, msg_type, media_url=None, media_data=None):
     """
-    Reenvía el payload exacto a Chatwoot.
+    Envía el mensaje procesado directamente al webhook del chatbot en n8n.
     """
-    if not Config.CHATWOOT_WEBHOOK_URL:
-        logger.warning("CHATWOOT_WEBHOOK_URL no está configurada. No se reenviará el evento.")
+    if not Config.N8N_CHATBOT_WEBHOOK_URL:
+        logger.warning("N8N_CHATBOT_WEBHOOK_URL no está configurada. No se enviará el mensaje al chatbot.")
         return
 
+    MEDIA_TYPES = {'image', 'audio', 'video', 'document', 'sticker'}
+    has_attachments = msg_type in MEDIA_TYPES
+
+    # Mapeo de content-type y extensión según tipo
+    CONTENT_TYPE_MAP = {
+        'image': 'image/jpeg', 'audio': 'audio/ogg',
+        'video': 'video/mp4', 'document': 'application/octet-stream', 'sticker': 'image/webp'
+    }
+    EXT_MAP = {'image': 'jpg', 'audio': 'ogg', 'video': 'mp4', 'sticker': 'webp'}
+
+    attachment_content_type = CONTENT_TYPE_MAP.get(msg_type, '') if has_attachments else ''
+    attachment_extension = EXT_MAP.get(msg_type, '') if has_attachments else ''
+
+    # Para documentos intentar extraer extensión del filename
+    if msg_type == 'document' and media_data:
+        filename = media_data.get('filename', '')
+        if '.' in filename:
+            attachment_extension = filename.rsplit('.', 1)[-1].lower()
+            if attachment_extension == 'pdf':
+                attachment_content_type = 'application/pdf'
+
+    payload = {
+        "user_number": user_number,
+        "message_type": 0,
+        "user_message": user_message or "",
+        "has_attachments": has_attachments,
+        "attachment_type": msg_type if has_attachments else "none",
+        "attachment_url": media_url or "",
+        "attachment_content_type": attachment_content_type,
+        "attachment_extension": attachment_extension
+    }
+
     try:
-        # Reenviamos el payload tal cual a Chatwoot
         response = requests.post(
-            Config.CHATWOOT_WEBHOOK_URL,
+            Config.N8N_CHATBOT_WEBHOOK_URL,
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=10
         )
-        if response.status_code != 200:
-            logger.error(f"Error al reenviar a Chatwoot: {response.status_code} - {response.text}")
+        if response.status_code not in [200, 202]:
+            logger.error(f"Error al llamar n8n: {response.status_code} - {response.text}")
         else:
-            logger.info(f"Evento reenviado a Chatwoot exitosamente. Status: {response.status_code}")
+            logger.info(f"✅ Mensaje enviado a n8n para {user_number}")
     except Exception as e:
-        logger.error(f"Excepción al conectar con Chatwoot: {e}")
+        logger.error(f"Excepción al conectar con n8n: {e}")
 
 def save_message(wa_message_id, phone_number, direction, message_type, content, media_id=None, media_url=None, caption=None):
     """Guarda un mensaje en la base de datos y registra el contacto."""
@@ -221,11 +252,14 @@ def process_event(data):
                         content = f"[{msg_type or 'Desconocido'}]"
 
                     logger.info(f"NUEVO MENSAJE de {sender} tipo {msg_type}: {message}")
-                    
+
                     # Guardar mensaje en base de datos
-                    # save_message ahora acepta kwargs para media
-                    save_message(msg_id, sender, "inbound", msg_type, content, 
+                    save_message(msg_id, sender, "inbound", msg_type, content,
                                media_id=media_id, media_url=media_url, caption=caption)
+
+                    # Enviar mensaje al chatbot n8n
+                    media_data = message.get(msg_type, {}) if msg_type in {'image','audio','video','document','sticker'} else None
+                    forward_to_n8n(sender, content, msg_type, media_url=media_url, media_data=media_data)
 
             # --- MANEJO DE ESTADOS (SENT, DELIVERED, READ, FAILED) ---
             if "statuses" in value:
@@ -258,6 +292,4 @@ def process_event(data):
                     # Guardar estado en base de datos
                     save_status(msg_id, status_type, recipient, error_code, error_title, error_details)
 
-    # Finalmente, reenviar todo a Chatwoot para que su flujo no se rompa
-    forward_to_chatwoot(data)
 
