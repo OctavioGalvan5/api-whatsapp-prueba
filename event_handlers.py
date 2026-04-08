@@ -8,7 +8,7 @@ from config import Config
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def forward_to_n8n(user_number, user_message, msg_type, media_url=None, media_data=None):
+def forward_to_n8n(user_number, user_message, msg_type, media_url=None, media_data=None, message_id=None):
     """
     Envía el mensaje procesado directamente al webhook del chatbot en n8n.
     """
@@ -45,7 +45,9 @@ def forward_to_n8n(user_number, user_message, msg_type, media_url=None, media_da
         "attachment_type": msg_type if has_attachments else "none",
         "attachment_url": media_url or "",
         "attachment_content_type": attachment_content_type,
-        "attachment_extension": attachment_extension
+        "attachment_extension": attachment_extension,
+        "message_id": message_id or "",
+        "updated_at": datetime.utcnow().isoformat()
     }
 
     try:
@@ -259,7 +261,7 @@ def process_event(data):
 
                     # Enviar mensaje al chatbot n8n
                     media_data = message.get(msg_type, {}) if msg_type in {'image','audio','video','document','sticker'} else None
-                    forward_to_n8n(sender, content, msg_type, media_url=media_url, media_data=media_data)
+                    forward_to_n8n(sender, content, msg_type, media_url=media_url, media_data=media_data, message_id=msg_id)
 
             # --- MANEJO DE ESTADOS (SENT, DELIVERED, READ, FAILED) ---
             if "statuses" in value:
