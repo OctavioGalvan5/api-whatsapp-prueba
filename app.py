@@ -3,9 +3,8 @@ import json
 import requests
 import io
 import pandas as pd
-import hmac
 import re
-from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for, abort, g
 from config import Config
 from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote
 import threading
@@ -121,25 +120,80 @@ with app.app_context():
 # Rutas públicas que no requieren autenticación
 PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api/minio/diagnose', '/sw.js', '/static/manifest.json', '/api/whatsapp/send-text', '/api/whatsapp/send-media'}
 
+def ensure_admin_exists():
+    """Crea el usuario admin inicial desde .env si no hay usuarios en la BD."""
+    from models import CrmUser
+    try:
+        db.session.rollback()  # Limpiar cualquier transacción pendiente
+        if CrmUser.query.count() == 0:
+            admin = CrmUser(
+                username='admin',
+                display_name='Administrador',
+                is_admin=True,
+                is_active=True
+            )
+            admin.set_password(Config.LOGIN_PASSWORD or 'admin')
+            db.session.add(admin)
+            db.session.commit()
+            logger.info("✅ Usuario admin creado automáticamente desde .env")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creando admin inicial: {e}")
+
+# Mapa de permisos requeridos por ruta
+ROUTE_PERMISSIONS = {
+    '/dashboard': 'dashboard',
+    '/contacts': 'contacts',
+    '/tags': 'tags',
+    '/campaigns': 'campaigns',
+    '/failed-messages': 'failed_messages',
+    '/analytics': 'analytics',
+    '/sessions': 'sessions',
+    '/topics': 'topics',
+    '/chatbot': 'chatbot',
+    '/whatsapp-settings': 'settings',
+}
+
 @app.before_request
 def check_auth():
     if request.path in PUBLIC_PATHS or request.path.startswith('/static/'):
         return None
-    # Permitir callback de n8n para actualizar estado de documentos RAG
     if request.path.startswith('/api/rag/documents/') and request.path.endswith('/status'):
         return None
-    # Permitir extracción de DOCX desde n8n
     if request.path == '/api/extract-docx':
         return None
-    # Permitir n8n verificar bot-status y escalar a humano
     if request.path.startswith('/api/contact/') and request.path.endswith('/bot-status'):
         return None
     if request.path == '/api/escalate-to-human':
         return None
-    if not session.get('logged_in'):
+
+    if not session.get('user_id'):
         if request.path.startswith('/api/'):
             return jsonify({'error': 'Unauthorized'}), 401
         return redirect(url_for('login'))
+
+    # Verificar permiso para la ruta actual
+    from models import CrmUser
+    user = CrmUser.query.get(session['user_id'])
+    if not user or not user.is_active:
+        session.clear()
+        return redirect(url_for('login'))
+
+    # Admin panel solo para admins
+    if request.path.startswith('/admin') and not user.is_admin:
+        return jsonify({'error': 'Forbidden'}), 403 if request.path.startswith('/api/') else abort(403)
+
+    # Chequear permiso de sección
+    for route_prefix, permission in ROUTE_PERMISSIONS.items():
+        if request.path == route_prefix or request.path.startswith(route_prefix + '/'):
+            if not user.has_permission(permission):
+                if request.path.startswith('/api/'):
+                    return jsonify({'error': 'Forbidden'}), 403
+                return render_template('403.html'), 403
+            break
+
+    # Inyectar usuario en g para uso en templates y vistas
+    g.current_user = user
 
 @app.route("/sw.js")
 def service_worker():
@@ -150,23 +204,43 @@ def service_worker():
         mimetype='application/javascript'
     )
 
+@app.context_processor
+def inject_current_user():
+    """Inyecta el usuario actual en todos los templates."""
+    from models import CrmUser
+    user_id = session.get('user_id')
+    if user_id:
+        user = CrmUser.query.get(user_id)
+        if user:
+            return {'current_user': user}
+    return {'current_user': None}
+
 @app.route("/", methods=["GET"])
 def index():
     return redirect(url_for('dashboard'))
 
 @app.route("/login", methods=["GET"])
 def login():
-    if session.get('logged_in'):
+    if session.get('user_id'):
         return redirect(url_for('dashboard'))
-    return render_template('login.html', error=False)
+    return render_template('login.html', error=None)
 
 @app.route("/login", methods=["POST"])
 def login_post():
+    from models import CrmUser
+    username = request.form.get('username', '').strip()
     password = request.form.get('password', '')
-    if hmac.compare_digest(password.encode('utf-8'), Config.LOGIN_PASSWORD.encode('utf-8')):
-        session['logged_in'] = True
+
+    ensure_admin_exists()
+
+    user = CrmUser.query.filter_by(username=username, is_active=True).first()
+    if user and user.check_password(password):
+        session['user_id'] = user.id
+        session['username'] = user.username
+        session['display_name'] = user.display_name
+        session['is_admin'] = user.is_admin
         return redirect(url_for('dashboard'))
-    return render_template('login.html', error=True)
+    return render_template('login.html', error='Usuario o contraseña incorrectos.')
 
 @app.route("/logout")
 def logout():
@@ -1928,7 +2002,8 @@ def api_get_messages(phone):
                 'status': m.latest_status,
                 'message_type': m.message_type,
                 'media_url': m.media_url,
-                'caption': m.caption
+                'caption': m.caption,
+                'sent_by': m.sent_by
             })
 
         # Verificar si el bot está pausado para este contacto
@@ -2681,6 +2756,86 @@ def chatwoot_webhook():
         logger.error(traceback.format_exc())
         return "Internal Server Error", 500
 
+# ==================== Admin: Usuarios ====================
+
+AVAILABLE_PERMISSIONS = [
+    ('dashboard',      'Dashboard',          'chat'),
+    ('contacts',       'Contactos',          'group'),
+    ('tags',           'Etiquetas',          'label'),
+    ('campaigns',      'Campañas',           'campaign'),
+    ('failed_messages','Mensajes Fallidos',  'error'),
+    ('analytics',      'Analytics',          'bar_chart'),
+    ('sessions',       'Sesiones',           'forum'),
+    ('topics',         'Temas',              'category'),
+    ('chatbot',        'Chatbot',            'smart_toy'),
+    ('settings',       'Configuración',      'settings'),
+]
+
+@app.route("/admin/users")
+def admin_users():
+    from models import CrmUser
+    users = CrmUser.query.order_by(CrmUser.created_at).all()
+    return render_template('admin_users.html', users=users, available_permissions=AVAILABLE_PERMISSIONS)
+
+@app.route("/api/admin/users", methods=["POST"])
+def api_admin_create_user():
+    from models import CrmUser, CrmUserPermission
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No data'}), 400
+    username = data.get('username', '').strip()
+    display_name = data.get('display_name', '').strip()
+    password = data.get('password', '')
+    is_admin = data.get('is_admin', False)
+    permissions = data.get('permissions', [])
+
+    if not username or not display_name or not password:
+        return jsonify({'error': 'username, display_name y password son requeridos'}), 400
+    if CrmUser.query.filter_by(username=username).first():
+        return jsonify({'error': 'El usuario ya existe'}), 409
+
+    user = CrmUser(username=username, display_name=display_name, is_admin=is_admin, is_active=True)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.flush()
+    for perm in permissions:
+        db.session.add(CrmUserPermission(user_id=user.id, permission=perm))
+    db.session.commit()
+    return jsonify({'success': True, 'user': user.to_dict()})
+
+@app.route("/api/admin/users/<int:user_id>", methods=["PUT"])
+def api_admin_update_user(user_id):
+    from models import CrmUser, CrmUserPermission
+    user = CrmUser.query.get_or_404(user_id)
+    data = request.json or {}
+
+    if 'display_name' in data:
+        user.display_name = data['display_name'].strip()
+    if 'is_admin' in data:
+        user.is_admin = data['is_admin']
+    if 'is_active' in data:
+        user.is_active = data['is_active']
+    if 'password' in data and data['password']:
+        user.set_password(data['password'])
+    if 'permissions' in data:
+        CrmUserPermission.query.filter_by(user_id=user.id).delete()
+        for perm in data['permissions']:
+            db.session.add(CrmUserPermission(user_id=user.id, permission=perm))
+
+    db.session.commit()
+    return jsonify({'success': True, 'user': user.to_dict()})
+
+@app.route("/api/admin/users/<int:user_id>", methods=["DELETE"])
+def api_admin_delete_user(user_id):
+    from models import CrmUser
+    user = CrmUser.query.get_or_404(user_id)
+    # No borrar el último admin
+    if user.is_admin and CrmUser.query.filter_by(is_admin=True, is_active=True).count() <= 1:
+        return jsonify({'error': 'No podés eliminar el único administrador activo'}), 400
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'success': True})
+
 # ==================== WhatsApp Settings ====================
 
 @app.route("/whatsapp-settings")
@@ -2994,17 +3149,20 @@ def api_send_text():
 
     if not to_phone or not text:
         return jsonify({"error": "to y text son requeridos"}), 400
-    
+
+    # Determinar autor: si hay sesión es un agente, si no es el bot
+    sent_by = session.get('username', 'bot')
+
     result = whatsapp_api.send_text_message(to_phone, text)
-    
+
     if result.get("success"):
         wa_id = result.get("message_id")
         if wa_id:
-            # Verificar si ya existe (creado por save_status en event_handlers.py por ejemplo)
             existing = Message.query.filter_by(wa_message_id=wa_id).first()
             if existing:
                 existing.content = text
                 existing.phone_number = to_phone
+                existing.sent_by = sent_by
                 logger.info(f"✅ Mensaje existente actualizado con texto: {wa_id}")
             else:
                 new_msg = Message(
@@ -3013,6 +3171,7 @@ def api_send_text():
                     direction="outbound",
                     message_type="text",
                     content=text,
+                    sent_by=sent_by,
                     timestamp=datetime.utcnow()
                 )
                 db.session.add(new_msg)

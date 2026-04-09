@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}Administración de Usuarios{% endblock %}
+
+{% block content %}
+<div class="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-[#0b1a0d]">
+    <div class="max-w-4xl mx-auto">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Gestioná los accesos y permisos del equipo</p>
+            </div>
+            <button onclick="openModal()"
+                class="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">
+                <span class="material-symbols-outlined text-[18px]">person_add</span>
+                Nuevo usuario
+            </button>
+        </div>
+
+        <!-- Tabla de usuarios -->
+        <div class="bg-white dark:bg-[#152a17] rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-gray-100 dark:border-gray-800">
+                        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Usuario</th>
+                        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Permisos</th>
+                        <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">Estado</th>
+                        <th class="px-5 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody id="users-tbody">
+                    {% for user in users %}
+                    <tr class="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors" data-user-id="{{ user.id }}">
+                        <td class="px-5 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                                    {{ user.display_name[0].upper() }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ user.display_name }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">@{{ user.username }}</p>
+                                </div>
+                                {% if user.is_admin %}
+                                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary uppercase tracking-wide">Admin</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-5 py-4 hidden sm:table-cell">
+                            {% if user.is_admin %}
+                            <span class="text-xs text-gray-500 dark:text-gray-400 italic">Acceso total</span>
+                            {% else %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for perm in user.get_permissions() %}
+                                <span class="px-1.5 py-0.5 text-[10px] rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">{{ perm }}</span>
+                                {% else %}
+                                <span class="text-xs text-gray-400 italic">Sin permisos</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 hidden md:table-cell">
+                            {% if user.is_active %}
+                            <span class="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 font-medium">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Activo
+                            </span>
+                            {% else %}
+                            <span class="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
+                                <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Inactivo
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="flex items-center justify-end gap-1">
+                                <button onclick="editUser({{ user.to_dict()|tojson }})"
+                                    class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" title="Editar">
+                                    <span class="material-symbols-outlined text-[18px] text-gray-500">edit</span>
+                                </button>
+                                {% if not (user.is_admin and loop.first) %}
+                                <button onclick="deleteUser({{ user.id }}, '{{ user.display_name }}')"
+                                    class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
+                                    <span class="material-symbols-outlined text-[18px] text-red-400">delete</span>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear/Editar Usuario -->
+<div id="user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white dark:bg-[#152a17] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between mb-5">
+                <h2 id="modal-title" class="text-lg font-bold text-gray-900 dark:text-white">Nuevo usuario</h2>
+                <button onclick="closeModal()" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                    <span class="material-symbols-outlined text-gray-500">close</span>
+                </button>
+            </div>
+
+            <!-- Error -->
+            <div id="modal-error" class="hidden flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4">
+                <span class="material-symbols-outlined text-red-400 text-lg">error</span>
+                <p id="modal-error-text" class="text-red-400 text-sm"></p>
+            </div>
+
+            <form id="user-form" onsubmit="saveUser(event)">
+                <input type="hidden" id="edit-user-id" value="">
+
+                <!-- Nombre -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Nombre completo</label>
+                    <input type="text" id="field-display-name" placeholder="Juan Pérez"
+                        class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" required />
+                </div>
+
+                <!-- Username -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Usuario</label>
+                    <input type="text" id="field-username" placeholder="juan.perez"
+                        class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" required />
+                </div>
+
+                <!-- Contraseña -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Contraseña <span id="password-hint" class="text-gray-400 font-normal">(dejar vacío para no cambiar)</span>
+                    </label>
+                    <input type="password" id="field-password" placeholder="••••••••"
+                        class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
+                </div>
+
+                <!-- Admin -->
+                <div class="mb-5">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="field-is-admin" class="w-4 h-4 rounded accent-primary" onchange="toggleAdminMode(this.checked)">
+                        <div>
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Administrador</span>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Acceso total a todas las funciones</p>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Activo -->
+                <div class="mb-5">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="field-is-active" class="w-4 h-4 rounded accent-primary" checked>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Usuario activo</span>
+                    </label>
+                </div>
+
+                <!-- Permisos -->
+                <div id="permissions-section">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Permisos</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        {% for perm_key, perm_label, perm_icon in available_permissions %}
+                        <label class="flex items-center gap-2.5 p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary/50 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                            <input type="checkbox" name="permissions" value="{{ perm_key }}" class="w-4 h-4 rounded accent-primary">
+                            <span class="material-symbols-outlined text-[16px] text-gray-500 dark:text-gray-400">{{ perm_icon }}</span>
+                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ perm_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="closeModal()"
+                        class="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="save-btn"
+                        class="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">
+                        Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openModal(user = null) {
+        document.getElementById('user-modal').classList.remove('hidden');
+        document.getElementById('modal-error').classList.add('hidden');
+        document.getElementById('user-form').reset();
+        document.getElementById('edit-user-id').value = '';
+
+        const isEdit = !!user;
+        document.getElementById('modal-title').textContent = isEdit ? 'Editar usuario' : 'Nuevo usuario';
+        document.getElementById('password-hint').classList.toggle('hidden', !isEdit);
+        document.getElementById('field-password').required = !isEdit;
+
+        if (isEdit) {
+            document.getElementById('edit-user-id').value = user.id;
+            document.getElementById('field-display-name').value = user.display_name;
+            document.getElementById('field-username').value = user.username;
+            document.getElementById('field-is-admin').checked = user.is_admin;
+            document.getElementById('field-is-active').checked = user.is_active;
+            toggleAdminMode(user.is_admin);
+
+            document.querySelectorAll('input[name="permissions"]').forEach(cb => {
+                cb.checked = user.permissions.includes(cb.value);
+            });
+        } else {
+            document.getElementById('field-is-active').checked = true;
+            toggleAdminMode(false);
+        }
+    }
+
+    function editUser(user) { openModal(user); }
+
+    function closeModal() {
+        document.getElementById('user-modal').classList.add('hidden');
+    }
+
+    function toggleAdminMode(isAdmin) {
+        document.getElementById('permissions-section').style.opacity = isAdmin ? '0.4' : '1';
+        document.getElementById('permissions-section').style.pointerEvents = isAdmin ? 'none' : '';
+    }
+
+    async function saveUser(e) {
+        e.preventDefault();
+        const userId = document.getElementById('edit-user-id').value;
+        const permissions = Array.from(document.querySelectorAll('input[name="permissions"]:checked')).map(cb => cb.value);
+
+        const payload = {
+            display_name: document.getElementById('field-display-name').value.trim(),
+            username: document.getElementById('field-username').value.trim(),
+            password: document.getElementById('field-password').value,
+            is_admin: document.getElementById('field-is-admin').checked,
+            is_active: document.getElementById('field-is-active').checked,
+            permissions
+        };
+
+        const url = userId ? `/api/admin/users/${userId}` : '/api/admin/users';
+        const method = userId ? 'PUT' : 'POST';
+
+        const btn = document.getElementById('save-btn');
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+
+        try {
+            const resp = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                document.getElementById('modal-error-text').textContent = data.error || 'Error al guardar';
+                document.getElementById('modal-error').classList.remove('hidden');
+            } else {
+                closeModal();
+                location.reload();
+            }
+        } catch (err) {
+            document.getElementById('modal-error-text').textContent = 'Error de conexión';
+            document.getElementById('modal-error').classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Guardar';
+        }
+    }
+
+    async function deleteUser(userId, name) {
+        if (!confirm(`¿Eliminar al usuario "${name}"? Esta acción no se puede deshacer.`)) return;
+        try {
+            const resp = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (!resp.ok) {
+                alert(data.error || 'Error al eliminar');
+            } else {
+                location.reload();
+            }
+        } catch (err) {
+            alert('Error de conexión');
+        }
+    }
+
+    // Cerrar modal al click fuera
+    document.getElementById('user-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+</script>
+{% endblock %}

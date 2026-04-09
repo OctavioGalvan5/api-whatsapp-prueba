@@ -2,13 +2,18 @@
 <aside class="max-md:hidden flex w-16 bg-white dark:bg-[#152a17] border-r border-gray-200 dark:border-gray-800 flex-col items-center py-4 gap-2 relative">
 
     <!-- Dashboard -->
+    {% if not current_user or current_user.has_permission('dashboard') %}
     <a href="/dashboard"
         class="p-3 rounded-xl {% if request.path == '/dashboard' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Dashboard">
         <span class="material-symbols-outlined {% if request.path != '/dashboard' %}text-gray-500 dark:text-gray-400{% endif %}">chat</span>
     </a>
+    {% endif %}
 
     <!-- Gestión de Datos -->
+    {% set can_contacts = not current_user or current_user.has_permission('contacts') %}
+    {% set can_tags = not current_user or current_user.has_permission('tags') %}
+    {% if can_contacts or can_tags %}
     <div class="relative group">
         <button
             class="p-3 rounded-xl {% if request.path in ['/contacts', '/tags'] %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
@@ -16,18 +21,26 @@
             <span class="material-symbols-outlined {% if request.path not in ['/contacts', '/tags'] %}text-gray-500 dark:text-gray-400{% endif %}">folder_shared</span>
         </button>
         <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            {% if can_contacts %}
             <a href="/contacts" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/contacts' %}text-primary{% endif %}">
                 <span class="material-symbols-outlined text-xl">group</span>
                 <span class="text-sm font-medium">Contactos</span>
             </a>
+            {% endif %}
+            {% if can_tags %}
             <a href="/tags" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/tags' %}text-primary{% endif %}">
                 <span class="material-symbols-outlined text-xl">label</span>
                 <span class="text-sm font-medium">Etiquetas</span>
             </a>
+            {% endif %}
         </div>
     </div>
+    {% endif %}
 
     <!-- Mensajería -->
+    {% set can_campaigns = not current_user or current_user.has_permission('campaigns') %}
+    {% set can_failed = not current_user or current_user.has_permission('failed_messages') %}
+    {% if can_campaigns or can_failed %}
     <div class="relative group">
         <button
             class="p-3 rounded-xl {% if request.path.startswith('/campaigns') or request.path == '/failed-messages' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
@@ -35,18 +48,27 @@
             <span class="material-symbols-outlined {% if not (request.path.startswith('/campaigns') or request.path == '/failed-messages') %}text-gray-500 dark:text-gray-400{% endif %}">send</span>
         </button>
         <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            {% if can_campaigns %}
             <a href="/campaigns" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path.startswith('/campaigns') %}text-primary{% endif %}">
                 <span class="material-symbols-outlined text-xl">campaign</span>
                 <span class="text-sm font-medium">Campañas</span>
             </a>
+            {% endif %}
+            {% if can_failed %}
             <a href="/failed-messages" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/failed-messages' %}text-primary{% endif %}">
                 <span class="material-symbols-outlined text-xl">error</span>
                 <span class="text-sm font-medium">Fallidos</span>
             </a>
+            {% endif %}
         </div>
     </div>
+    {% endif %}
 
     <!-- Reportes -->
+    {% set can_analytics = not current_user or current_user.has_permission('analytics') %}
+    {% set can_sessions = not current_user or current_user.has_permission('sessions') %}
+    {% set can_topics = not current_user or current_user.has_permission('topics') %}
+    {% if can_analytics or can_sessions or can_topics %}
     <div class="relative group">
         <button
             class="p-3 rounded-xl {% if request.path in ['/analytics', '/sessions', '/topics'] %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
@@ -54,34 +76,56 @@
             <span class="material-symbols-outlined {% if request.path not in ['/analytics', '/sessions', '/topics'] %}text-gray-500 dark:text-gray-400{% endif %}">analytics</span>
         </button>
         <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            {% if can_analytics %}
             <a href="/analytics" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/analytics' %}text-primary{% endif %}">
                 <span class="material-symbols-outlined text-xl">bar_chart</span>
                 <span class="text-sm font-medium">Analytics</span>
             </a>
+            {% endif %}
+            {% if can_sessions %}
             <a href="/sessions" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/sessions' %}text-primary{% endif %}">
                 <span class="material-symbols-outlined text-xl">forum</span>
                 <span class="text-sm font-medium">Sesiones</span>
             </a>
+            {% endif %}
+            {% if can_topics %}
             <a href="/topics" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/topics' %}text-primary{% endif %}">
                 <span class="material-symbols-outlined text-xl">category</span>
                 <span class="text-sm font-medium">Temas</span>
             </a>
+            {% endif %}
         </div>
     </div>
+    {% endif %}
 
     <!-- Chatbot -->
+    {% if not current_user or current_user.has_permission('chatbot') %}
     <a href="/chatbot"
         class="p-3 rounded-xl {% if request.path == '/chatbot' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Chatbot">
         <span class="material-symbols-outlined {% if request.path != '/chatbot' %}text-gray-500 dark:text-gray-400{% endif %}">smart_toy</span>
     </a>
+    {% endif %}
+
+    <!-- Admin -->
+    {% if current_user and current_user.is_admin %}
+    <a href="/admin/users"
+        class="p-3 rounded-xl {% if request.path.startswith('/admin') %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+        title="Administración">
+        <span class="material-symbols-outlined {% if not request.path.startswith('/admin') %}text-gray-500 dark:text-gray-400{% endif %}">manage_accounts</span>
+    </a>
+    {% endif %}
 
     <!-- Configuración -->
+    {% if not current_user or current_user.has_permission('settings') %}
     <a href="/whatsapp-settings"
         class="p-3 rounded-xl mt-auto {% if request.path == '/whatsapp-settings' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
         title="Configuración">
         <span class="material-symbols-outlined {% if request.path != '/whatsapp-settings' %}text-gray-500 dark:text-gray-400{% endif %}">settings</span>
     </a>
+    {% else %}
+    <div class="mt-auto"></div>
+    {% endif %}
 
     <!-- Logout -->
     <a href="/logout" class="p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Cerrar sesión">
@@ -92,33 +136,36 @@
 <!-- BOTTOM NAV: visible solo en móvil (< md) -->
 <nav class="md:hidden max-md:flex fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#152a17] border-t border-gray-200 dark:border-gray-800 items-center justify-around px-2 py-1 safe-area-pb">
 
-    <!-- Dashboard -->
+    {% if not current_user or current_user.has_permission('dashboard') %}
     <a href="/dashboard" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path == '/dashboard' %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
         <span class="material-symbols-outlined text-[22px]">chat</span>
         <span class="text-[10px] font-medium">Inicio</span>
     </a>
+    {% endif %}
 
-    <!-- Contactos (agrupa contacts + tags) -->
+    {% if not current_user or current_user.has_permission('contacts') %}
     <a href="/contacts" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path in ['/contacts', '/tags'] %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
         <span class="material-symbols-outlined text-[22px]">group</span>
         <span class="text-[10px] font-medium">Contactos</span>
     </a>
+    {% endif %}
 
-    <!-- Campañas -->
+    {% if not current_user or current_user.has_permission('campaigns') %}
     <a href="/campaigns" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path.startswith('/campaigns') or request.path == '/failed-messages' %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
         <span class="material-symbols-outlined text-[22px]">send</span>
         <span class="text-[10px] font-medium">Campañas</span>
     </a>
+    {% endif %}
 
-    <!-- Reportes (agrupa analytics + sessions + topics) -->
+    {% if not current_user or current_user.has_permission('analytics') %}
     <a href="/analytics" class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path in ['/analytics', '/sessions', '/topics'] %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
         <span class="material-symbols-outlined text-[22px]">analytics</span>
         <span class="text-[10px] font-medium">Reportes</span>
     </a>
+    {% endif %}
 
-    <!-- Más (chatbot + settings + logout) -->
     <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')"
-        class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path in ['/chatbot', '/whatsapp-settings'] %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+        class="flex flex-col items-center gap-0.5 p-2 rounded-xl {% if request.path in ['/chatbot', '/whatsapp-settings', '/admin/users'] %}text-primary{% else %}text-gray-500 dark:text-gray-400{% endif %}">
         <span class="material-symbols-outlined text-[22px]">more_horiz</span>
         <span class="text-[10px] font-medium">Más</span>
     </button>
@@ -126,14 +173,24 @@
 
 <!-- MOBILE MENU OVERLAY (para el botón "Más") -->
 <div id="mobile-menu" class="hidden md:hidden fixed bottom-14 right-2 z-50 bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 py-2 min-w-[180px]">
+    {% if not current_user or current_user.has_permission('chatbot') %}
     <a href="/chatbot" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/chatbot' %}text-primary{% endif %}">
         <span class="material-symbols-outlined">smart_toy</span>
         <span class="text-sm font-medium">Chatbot</span>
     </a>
+    {% endif %}
+    {% if not current_user or current_user.has_permission('settings') %}
     <a href="/whatsapp-settings" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/whatsapp-settings' %}text-primary{% endif %}">
         <span class="material-symbols-outlined">settings</span>
         <span class="text-sm font-medium">Configuración</span>
     </a>
+    {% endif %}
+    {% if current_user and current_user.is_admin %}
+    <a href="/admin/users" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path.startswith('/admin') %}text-primary{% endif %}">
+        <span class="material-symbols-outlined">manage_accounts</span>
+        <span class="text-sm font-medium">Administración</span>
+    </a>
+    {% endif %}
     <div class="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
         <a href="/logout" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-red-500">
             <span class="material-symbols-outlined">logout</span>

@@ -1222,6 +1222,13 @@
                         if (msg.status === 'read') icon = 'done_all';
                         else if (msg.status === 'delivered') icon = 'done_all';
 
+                        let authorLabel = '';
+                        if (msg.sent_by === 'bot') {
+                            authorLabel = `<span class="text-[10px] text-white/60 mt-0.5 text-right flex items-center justify-end gap-0.5"><span class="material-symbols-outlined text-[11px]">smart_toy</span>Bot</span>`;
+                        } else if (msg.sent_by) {
+                            authorLabel = `<span class="text-[10px] text-white/60 mt-0.5 text-right">${escapeHtml(msg.sent_by)}</span>`;
+                        }
+
                         html += `
 <div class="flex flex-col items-end max-w-[80%] self-end">
     <div class="bg-primary/90 dark:bg-primary/80 p-3 rounded-lg rounded-tr-none text-sm message-shadow text-white">
@@ -1231,6 +1238,7 @@
             <span class="material-symbols-outlined text-[14px] text-white">${icon}</span>
         </div>
     </div>
+    ${authorLabel}
 </div>`;
                     }
                 });

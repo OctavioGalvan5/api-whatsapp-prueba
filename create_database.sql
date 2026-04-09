@@ -188,9 +188,10 @@ CREATE TABLE IF NOT EXISTS whatsapp_messages (
     message_type VARCHAR(20) NOT NULL,
     content TEXT,
     media_id VARCHAR(100),
-    media_url VARCHAR(255),
+    media_url TEXT,
     caption TEXT,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_by VARCHAR(100)
 );
 
 CREATE INDEX IF NOT EXISTS ix_messages_phone_ts ON whatsapp_messages(phone_number, timestamp);
@@ -261,6 +262,28 @@ CREATE TABLE IF NOT EXISTS conversation_notes (
 );
 
 CREATE INDEX IF NOT EXISTS ix_conversation_notes_phone ON conversation_notes(phone_number);
+
+-- ==========================================
+-- CRM USERS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS crm_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- CRM USER PERMISSIONS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS crm_user_permissions (
+    user_id INTEGER NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+    permission VARCHAR(50) NOT NULL,
+    PRIMARY KEY (user_id, permission)
+);
 
 -- ==========================================
 -- PERMISOS PUBLICOS (para cualquier usuario)

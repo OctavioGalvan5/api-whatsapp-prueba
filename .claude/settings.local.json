@@ -28,7 +28,9 @@
       "WebFetch(domain:www.ycloud.com)",
       "WebFetch(domain:www.twilio.com)",
       "Bash(git -C \"c:/Users/octav/OneDrive/Escritorio/chatbot caja de abogados/api de whatsapp\" diff 4e16ac6 HEAD --name-only)",
-      "Bash(bash -c 'cd \"/c/Users/octav/OneDrive/Escritorio/chatbot caja de abogados/api de whatsapp\" && git diff 4e16ac6 HEAD --name-only')"
+      "Bash(bash -c 'cd \"/c/Users/octav/OneDrive/Escritorio/chatbot caja de abogados/api de whatsapp\" && git diff 4e16ac6 HEAD --name-only')",
+      "Bash(python run_migration.py)",
+      "Bash(del \"c:\\\\Users\\\\octav\\\\OneDrive\\\\Escritorio\\\\chatbot caja de abogados\\\\api de whatsapp\\\\run_migration.py\")"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Sin acceso{% endblock %}
+{% block content %}
+<div class="flex-1 flex items-center justify-center bg-gray-50 dark:bg-[#0b1a0d]">
+    <div class="text-center">
+        <span class="material-symbols-outlined text-[64px] text-gray-300 dark:text-gray-700">lock</span>
+        <h1 class="text-xl font-bold text-gray-700 dark:text-gray-300 mt-4">Sin acceso</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">No tenés permisos para ver esta sección.</p>
+        <a href="/dashboard" class="inline-block mt-6 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
+            Volver al inicio
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,8 +1,61 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 import pytz
 
 db = SQLAlchemy()
+
+
+# ==========================================
+# CRM USERS
+# ==========================================
+
+class CrmUser(db.Model):
+    """Usuarios del CRM con permisos granulares."""
+    __tablename__ = 'crm_users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    display_name = db.Column(db.String(100), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    permissions = db.relationship('CrmUserPermission', backref='user', lazy='joined', cascade='all, delete-orphan')
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def has_permission(self, permission):
+        if self.is_admin:
+            return True
+        return any(p.permission == permission for p in self.permissions)
+
+    def get_permissions(self):
+        return [p.permission for p in self.permissions]
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'display_name': self.display_name,
+            'is_admin': self.is_admin,
+            'is_active': self.is_active,
+            'permissions': self.get_permissions(),
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class CrmUserPermission(db.Model):
+    """Permisos individuales por usuario."""
+    __tablename__ = 'crm_user_permissions'
+
+    user_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='CASCADE'), primary_key=True)
+    permission = db.Column(db.String(50), primary_key=True)
 
 class Message(db.Model):
     """Modelo para almacenar mensajes de WhatsApp."""
@@ -18,6 +71,7 @@ class Message(db.Model):
     media_url = db.Column(db.String(255), nullable=True)
     caption = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    sent_by = db.Column(db.String(100), nullable=True)  # NULL=entrante, 'bot'=chatbot, username=agente
     # Relación con estados — lazy='joined' carga statuses en un solo JOIN al traer mensajes
     statuses = db.relationship('MessageStatus', backref='message', lazy='joined', order_by='MessageStatus.timestamp')
 
@@ -45,7 +99,8 @@ class Message(db.Model):
             'media_url': self.media_url,
             'caption': self.caption,
             'timestamp': self.timestamp.isoformat() if self.timestamp else None,
-            'latest_status': self.statuses[-1].status if self.statuses else None
+            'latest_status': self.statuses[-1].status if self.statuses else None,
+            'sent_by': self.sent_by
         }
 
 
