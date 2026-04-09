@@ -1223,10 +1223,10 @@
                         else if (msg.status === 'delivered') icon = 'done_all';
 
                         let authorLabel = '';
-                        if (msg.sent_by === 'bot') {
-                            authorLabel = `<span class="text-[10px] text-white/60 mt-0.5 text-right flex items-center justify-end gap-0.5"><span class="material-symbols-outlined text-[11px]">smart_toy</span>Bot</span>`;
-                        } else if (msg.sent_by) {
-                            authorLabel = `<span class="text-[10px] text-white/60 mt-0.5 text-right">${escapeHtml(msg.sent_by)}</span>`;
+                        if (!msg.sent_by || msg.sent_by === 'bot') {
+                            authorLabel = `<span class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 text-right flex items-center justify-end gap-0.5"><span class="material-symbols-outlined text-[11px]">smart_toy</span>Chatbot</span>`;
+                        } else {
+                            authorLabel = `<span class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 text-right">${escapeHtml(msg.sent_by)}</span>`;
                         }
 
                         html += `

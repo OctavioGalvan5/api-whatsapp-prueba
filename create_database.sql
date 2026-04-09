@@ -230,7 +230,8 @@ CREATE TABLE IF NOT EXISTS whatsapp_campaigns (
     scheduled_at TIMESTAMP,
     started_at TIMESTAMP,
     completed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100)
 );
 
 -- ==========================================

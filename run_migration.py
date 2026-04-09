@@ -25,7 +25,11 @@ GRANT ALL PRIVILEGES ON TABLE crm_users TO postgres;
 GRANT ALL PRIVILEGES ON TABLE crm_user_permissions TO postgres;
 GRANT USAGE, SELECT ON SEQUENCE crm_users_id_seq TO postgres;
 
--- 2. Crear usuario admin inicial (contrasena desde .env LOGIN_PASSWORD)
+-- 2. Columnas nuevas (seguro correr aunque ya existan)
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS sent_by VARCHAR(100);
+ALTER TABLE whatsapp_campaigns ADD COLUMN IF NOT EXISTS created_by VARCHAR(100);
+
+-- 3. Crear usuario admin inicial (contrasena desde .env LOGIN_PASSWORD)
 INSERT INTO crm_users (username, display_name, password_hash, is_admin, is_active)
 VALUES ('admin', 'Administrador', '{password_hash}', true, true)
 ON CONFLICT (username) DO NOTHING;

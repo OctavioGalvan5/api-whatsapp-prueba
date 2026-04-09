@@ -135,6 +135,12 @@
                                 {{ (item.campaign.created_at|to_argentina).strftime('%d/%m/%Y %H:%M') }}
                                 {% endif %}
                             </span>
+                            {% if item.campaign.created_by %}
+                            <span class="flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">person</span>
+                                {{ item.campaign.created_by }}
+                            </span>
+                            {% endif %}
                         </div>
                         <!-- Progress bar (visible when not draft and not scheduled) -->
                         {% if item.campaign.status != 'draft' and item.campaign.status != 'scheduled' %}

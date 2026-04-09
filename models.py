@@ -215,6 +215,7 @@ class Campaign(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
     scheduled_at = db.Column(db.DateTime, nullable=True)
     variables = db.Column(db.JSON, nullable=True)  # Mapping {"1": "first_name", "2": "custom_field_1"}
+    created_by = db.Column(db.String(100), nullable=True)
 
     tag = db.relationship('Tag', backref='campaigns')
     logs = db.relationship('CampaignLog', backref='campaign', lazy='select')

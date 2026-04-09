@@ -3379,7 +3379,8 @@ def api_list_campaigns():
             'failed': failed,
             'created_at': format_utc_iso(c.created_at),
             'started_at': format_utc_iso(c.started_at),
-            'completed_at': format_utc_iso(c.completed_at)
+            'completed_at': format_utc_iso(c.completed_at),
+            'created_by': c.created_by
         })
     return jsonify(result)
 
@@ -3434,7 +3435,8 @@ def api_create_campaign():
         tag_id=tag_id,
         status=status,
         scheduled_at=scheduled_at,
-        variables=variables
+        variables=variables,
+        created_by=session.get('username')
     )
     try:
         db.session.add(campaign)
