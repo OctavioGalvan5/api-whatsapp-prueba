@@ -287,6 +287,21 @@ CREATE TABLE IF NOT EXISTS crm_user_permissions (
 );
 
 -- ==========================================
+-- ADMIN INICIAL
+-- Contraseña por defecto: admin
+-- Cambiala desde el panel en /admin/users
+-- ==========================================
+INSERT INTO crm_users (username, display_name, password_hash, is_admin, is_active)
+VALUES (
+    'admin',
+    'Administrador',
+    'scrypt:32768:8:1$M0LKNtMlGBOEpxOn$4c16c86a951505402d90d8914433b28fb64299e19b92b9468dfdd54cafb2f6a0499b5a897614a0c91606482f3cfb373cfeb21d52bc8105ca7069ea0935a815af',
+    true,
+    true
+)
+ON CONFLICT (username) DO NOTHING;
+
+-- ==========================================
 -- PERMISOS PUBLICOS (para cualquier usuario)
 -- ==========================================
 

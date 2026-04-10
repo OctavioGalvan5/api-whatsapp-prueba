@@ -12,6 +12,9 @@
         width: 4px;
     }
 
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
     /* Estilo especial para contactos con etiqueta Asistencia Humana */
     .contact-item.needs-human {
         background: linear-gradient(90deg, rgba(249, 115, 22, 0.07) 0%, transparent 100%);
@@ -219,19 +222,18 @@
                 class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-10 w-10 bg-gray-200 flex items-center justify-center text-gray-500 font-bold shrink-0">
                 {{ contact_details.name[0] if contact_details and contact_details.name else selected_contact[-2:] }}
             </div>
-            <div class="flex flex-col min-w-0">
-                <div class="flex items-center gap-2">
+            <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                <div class="flex items-center gap-2 min-w-0">
                     <h2 class="chat-user-name text-[#111812] dark:text-white text-base font-semibold truncate">
                         {{ contact_details.name if contact_details and contact_details.name else selected_contact }}
                     </h2>
-                    <p class="chat-user-phone text-xs text-gray-500 dark:text-gray-400 shrink-0">{{ selected_contact }}
-                    </p>
+                    <p class="chat-user-phone text-xs text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{{ selected_contact }}</p>
                 </div>
-                <div class="flex gap-1 flex-wrap chat-tags-container">
+                <div class="flex gap-1 chat-tags-container overflow-x-auto flex-nowrap md:flex-wrap scrollbar-hide">
                     {% if contact_details and contact_details.tags %}
                     {% for tag in contact_details.tags %}
                     <span
-                        class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider whitespace-nowrap">{{
+                        class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider whitespace-nowrap shrink-0">{{
                         tag }}</span>
                     {% endfor %}
                     {% endif %}
