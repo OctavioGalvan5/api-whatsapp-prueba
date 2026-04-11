@@ -156,7 +156,7 @@ ROUTE_PERMISSIONS = {
 
 @app.before_request
 def check_auth():
-    if request.path in PUBLIC_PATHS or request.path.startswith('/static/'):
+    if request.path in PUBLIC_PATHS or request.path.startswith('/static/') or request.path.startswith('/media/'):
         return None
     if request.path.startswith('/api/rag/documents/') and request.path.endswith('/status'):
         return None
