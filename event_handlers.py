@@ -43,7 +43,7 @@ def forward_to_n8n(user_number, user_message, msg_type, media_url=None, media_da
         "user_message": user_message or "",
         "has_attachments": has_attachments,
         "attachment_type": msg_type if has_attachments else "none",
-        "attachment_url": media_url or "",
+        "attachment_url": (Config.FLASK_BASE_URL.rstrip('/') + media_url if media_url and media_url.startswith('/') else media_url or ""),
         "attachment_content_type": attachment_content_type,
         "attachment_extension": attachment_extension,
         "message_id": message_id or "",
