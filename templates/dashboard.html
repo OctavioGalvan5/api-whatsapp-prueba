@@ -275,6 +275,11 @@
                     <span class="hidden sm:inline">Pausar Chatbot</span>
                 </button>
             </div>
+            <button onclick="toggleTagsPanel()"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                title="Gestionar etiquetas" id="tags-toggle-btn">
+                <span class="material-symbols-outlined text-gray-500">label</span>
+            </button>
             <button onclick="exportPDF()"
                 class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                 title="Exportar a PDF">
@@ -551,6 +556,23 @@
         <p class="text-sm mt-2">Selecciona una conversación para comenzar</p>
     </div>
     {% endif %}
+
+    <!-- Tags Side Panel -->
+    <div id="tags-panel"
+        class="hidden absolute top-0 right-0 w-72 h-full bg-white dark:bg-[#152a17] border-l border-gray-200 dark:border-gray-800 flex flex-col z-20 shadow-xl">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">label</span>
+                <h3 class="font-semibold text-sm">Etiquetas</h3>
+            </div>
+            <button onclick="toggleTagsPanel()" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                <span class="material-symbols-outlined text-gray-500 text-lg">close</span>
+            </button>
+        </div>
+        <div id="tags-panel-list" class="flex-1 overflow-y-auto p-3 flex flex-col gap-1">
+            <p class="text-xs text-gray-400 text-center py-4">Cargando etiquetas...</p>
+        </div>
+    </div>
 
     <!-- Notes Side Panel -->
     <div id="notes-panel"
@@ -1836,12 +1858,101 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         window.open(`/api/conversations/${encodeURIComponent(currentPhone)}/export-pdf`, '_blank');
     }
 
+    // ========== PANEL DE TAGS ==========
+    let tagsOpen = false;
+    let allTags = [];
+    let contactTags = new Set();
+
+    async function toggleTagsPanel() {
+        const panel = document.getElementById('tags-panel');
+        if (!panel) return;
+        tagsOpen = !tagsOpen;
+        // Cerrar notas si estaba abierto
+        if (tagsOpen) {
+            notesOpen = false;
+            document.getElementById('notes-panel')?.classList.add('hidden');
+        }
+        panel.classList.toggle('hidden', !tagsOpen);
+        if (tagsOpen) await loadTagsPanel();
+    }
+
+    async function loadTagsPanel() {
+        if (!currentPhone) return;
+        const list = document.getElementById('tags-panel-list');
+        list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Cargando...</p>';
+
+        try {
+            const [tagsRes, contactRes] = await Promise.all([
+                fetch('/api/tags/active'),
+                fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
+            ]);
+            allTags = await tagsRes.json();
+            const contactData = await contactRes.json();
+            contactTags = new Set((contactData.contact?.tags || []).map(t => t.toLowerCase ? t : t));
+
+            renderTagsPanel();
+        } catch (e) {
+            list.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Error cargando etiquetas</p>';
+        }
+    }
+
+    function renderTagsPanel() {
+        const list = document.getElementById('tags-panel-list');
+        if (!allTags.length) {
+            list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">No hay etiquetas disponibles</p>';
+            return;
+        }
+
+        const colorMap = { green: '#22c55e', red: '#ef4444', blue: '#3b82f6', yellow: '#eab308', purple: '#a855f7', orange: '#f97316', pink: '#ec4899', gray: '#6b7280' };
+
+        list.innerHTML = allTags.map(tag => {
+            const assigned = contactTags.has(tag.name);
+            const color = colorMap[tag.color] || '#22c55e';
+            return `
+            <button onclick="toggleContactTag(${tag.id}, '${escapeHtml(tag.name)}')"
+                class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left w-full ${assigned ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}"
+                id="tag-btn-${tag.id}">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${color}"></span>
+                <span class="text-sm flex-1 ${assigned ? 'font-semibold text-primary' : 'text-gray-700 dark:text-gray-300'}">${escapeHtml(tag.name)}</span>
+                <span class="material-symbols-outlined text-[18px] ${assigned ? 'text-primary' : 'text-gray-300 dark:text-gray-600'}">${assigned ? 'check_circle' : 'radio_button_unchecked'}</span>
+            </button>`;
+        }).join('');
+    }
+
+    async function toggleContactTag(tagId, tagName) {
+        if (!currentPhone) return;
+        try {
+            const res = await fetch(`/api/contacts/${encodeURIComponent(currentPhone)}/toggle-tag`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag_id: tagId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                if (data.assigned) contactTags.add(tagName);
+                else contactTags.delete(tagName);
+                renderTagsPanel();
+                // Actualizar tags en el header del chat
+                fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
+                    .then(r => r.json())
+                    .then(d => { if (d.success) renderChat(d); });
+            }
+        } catch (e) {
+            console.error('Error toggling tag:', e);
+        }
+    }
+
     let notesOpen = false;
 
     function toggleNotesPanel() {
         const panel = document.getElementById('notes-panel');
         if (!panel) return;
         notesOpen = !notesOpen;
+        // Cerrar tags si estaba abierto
+        if (notesOpen) {
+            tagsOpen = false;
+            document.getElementById('tags-panel')?.classList.add('hidden');
+        }
         panel.classList.toggle('hidden', !notesOpen);
         if (notesOpen) loadNotes();
     }

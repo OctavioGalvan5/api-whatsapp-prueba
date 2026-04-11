@@ -2,6 +2,7 @@ import logging
 import json
 import requests
 import io
+import os
 import pandas as pd
 import re
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for, abort, g
@@ -2281,6 +2282,51 @@ def api_assign_tag():
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error asignando tag: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/contacts/<phone>/toggle-tag", methods=["POST"])
+def api_chat_toggle_tag(phone):
+    """Agrega o quita un tag de un contacto desde el chat. Retorna el estado nuevo."""
+    try:
+        data = request.get_json() or {}
+        tag_id = data.get('tag_id')
+        if not tag_id:
+            return jsonify({'error': 'tag_id requerido'}), 400
+
+        phone_normalized = normalize_phone(phone)
+        contact = find_contact_by_phone(phone_normalized)
+        if not contact:
+            contact = Contact(phone_number=phone_normalized)
+            db.session.add(contact)
+            db.session.flush()
+
+        tag = Tag.query.get(tag_id)
+        if not tag:
+            return jsonify({'error': 'Tag no encontrado'}), 404
+
+        if tag in contact.tags:
+            contact.tags.remove(tag)
+            assigned = False
+        else:
+            contact.tags.append(tag)
+            assigned = True
+
+        db.session.commit()
+        return jsonify({'success': True, 'assigned': assigned, 'tag_id': tag_id, 'tag_name': tag.name})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error toggling tag en chat: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/tags/active", methods=["GET"])
+def api_tags_active():
+    """Lista todos los tags activos. Usado por el panel de tags del chat."""
+    try:
+        tags = Tag.query.filter_by(is_active=True, is_system=False).order_by(Tag.name).all()
+        return jsonify([{'id': t.id, 'name': t.name, 'color': t.color} for t in tags])
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
