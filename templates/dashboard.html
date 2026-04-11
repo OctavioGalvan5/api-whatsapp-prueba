@@ -1244,8 +1244,16 @@
 </div>`;
                     }
                 });
+                // Solo hacer scroll al fondo si el usuario ya estaba cerca del fondo
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+                const prevScrollHeight = container.scrollHeight;
                 container.innerHTML = html;
-                container.scrollTop = container.scrollHeight;
+                if (isNearBottom) {
+                    container.scrollTop = container.scrollHeight;
+                } else {
+                    // Mantener la posición relativa (compensa el nuevo contenido)
+                    container.scrollTop = container.scrollHeight - prevScrollHeight + container.scrollTop;
+                }
             }
         }
 
