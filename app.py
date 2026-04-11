@@ -166,6 +166,8 @@ def check_auth():
         return None
     if request.path == '/api/escalate-to-human':
         return None
+    if request.path == '/api/contacts/assign-tag':
+        return None
 
     if not session.get('user_id'):
         if request.path.startswith('/api/'):
@@ -2243,6 +2245,42 @@ def api_escalate_to_human():
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error escalating to human: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route("/api/contacts/assign-tag", methods=["POST"])
+def api_assign_tag():
+    """Asigna un tag a un contacto por número de teléfono. Llamado por el bot de n8n."""
+    try:
+        data = request.get_json() or {}
+        phone = (data.get('phone_number') or '').strip()
+        tag_name = (data.get('tag_name') or '').strip()
+
+        if not phone or not tag_name:
+            return jsonify({'error': 'phone_number y tag_name son requeridos'}), 400
+
+        phone_normalized = normalize_phone(phone)
+        contact = find_contact_by_phone(phone_normalized)
+        if not contact:
+            contact = Contact(phone_number=phone_normalized)
+            db.session.add(contact)
+            db.session.flush()
+
+        tag = Tag.query.filter_by(name=tag_name).first()
+        if not tag:
+            tag = Tag(name=tag_name, color='blue', is_active=True)
+            db.session.add(tag)
+            db.session.flush()
+
+        if tag not in contact.tags:
+            contact.tags.append(tag)
+
+        db.session.commit()
+        logger.info(f"Tag '{tag_name}' asignado a {phone_normalized}")
+        return jsonify({'success': True, 'phone': phone_normalized, 'tag': tag_name})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error asignando tag: {e}")
         return jsonify({'error': str(e)}), 500
 
 
