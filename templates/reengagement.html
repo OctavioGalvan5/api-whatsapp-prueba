@@ -1,0 +1,1053 @@
+{% extends "base.html" %}
+{% block title %}Re-engagement - WhatsApp CRM{% endblock %}
+{% block content %}
+
+<main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="bg-white dark:bg-[#152a17] border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-4">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h1 class="text-xl font-bold text-[#111812] dark:text-white">Re-engagement Automático</h1>
+                <p class="hidden sm:block text-sm text-gray-500 dark:text-gray-400">Etiquetado automático y secuencias de seguimiento</p>
+            </div>
+            <!-- Correr manualmente -->
+            <button onclick="runAutoTagger()" id="run-tagger-btn"
+                class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <span class="material-symbols-outlined text-lg">play_arrow</span>
+                <span class="hidden sm:inline">Correr ahora</span>
+            </button>
+            <!-- Toggle Auto-Tagger -->
+            <button onclick="toggleAutoTagger()" id="auto-tagger-btn"
+                class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors
+                    {% if auto_tagger_enabled %}bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400
+                    {% else %}bg-gray-100 border-gray-200 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400{% endif %}"
+                data-enabled="{{ 'true' if auto_tagger_enabled else 'false' }}">
+                <span class="material-symbols-outlined text-lg" id="auto-tagger-icon">
+                    {% if auto_tagger_enabled %}autorenew{% else %}pause_circle{% endif %}
+                </span>
+                <span id="auto-tagger-label">Auto-Tagger: {% if auto_tagger_enabled %}Activo{% else %}Inactivo{% endif %}</span>
+            </button>
+        </div>
+        <!-- Tabs -->
+        <div class="flex gap-1 mt-4 flex-wrap">
+            <button onclick="showTab('rules')" id="tab-rules"
+                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-white">
+                Reglas de Etiquetado
+            </button>
+            <button onclick="showTab('sequences')" id="tab-sequences"
+                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                Secuencias de Follow-up
+            </button>
+            <button onclick="showTab('enrollments')" id="tab-enrollments"
+                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                Contactos Activos
+            </button>
+            <button onclick="showTab('stats')" id="tab-stats"
+                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                Estadísticas
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
+
+        <!-- ==================== TAB: REGLAS ==================== -->
+        <div id="panel-rules">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white">Reglas de Etiquetado Automático</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">La IA analiza conversaciones inactivas y asigna etiquetas según la condición configurada.</p>
+                </div>
+                <button onclick="openRuleModal()"
+                    class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                    <span class="material-symbols-outlined text-lg">add</span>
+                    Nueva Regla
+                </button>
+            </div>
+
+            <div id="rules-list" class="grid gap-4">
+                <div class="text-center py-12 text-gray-400">
+                    <span class="material-symbols-outlined text-4xl mb-2 block">rule</span>
+                    Cargando reglas...
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB: SECUENCIAS ==================== -->
+        <div id="panel-sequences" class="hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white">Secuencias de Follow-up</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Mensajes automáticos que se envían cuando un contacto recibe una etiqueta.</p>
+                </div>
+                <button onclick="openSequenceModal()"
+                    class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+                    <span class="material-symbols-outlined text-lg">add</span>
+                    Nueva Secuencia
+                </button>
+            </div>
+
+            <div id="sequences-list" class="grid gap-4">
+                <div class="text-center py-12 text-gray-400">
+                    <span class="material-symbols-outlined text-4xl mb-2 block">schedule_send</span>
+                    Cargando secuencias...
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB: ENROLLMENTS ==================== -->
+        <div id="panel-enrollments" class="hidden">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white">Contactos en Secuencias</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Estado actual de los contactos enrollados.</p>
+                </div>
+                <div class="flex gap-2">
+                    <select id="enrollment-filter" onchange="loadEnrollments()"
+                        class="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#1a3a1d] text-gray-700 dark:text-gray-200">
+                        <option value="">Todos</option>
+                        <option value="pending">Pendientes</option>
+                        <option value="finished">Finalizados</option>
+                        <option value="cancelled">Cancelados</option>
+                    </select>
+                    <button onclick="loadEnrollments()"
+                        class="p-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <span class="material-symbols-outlined text-gray-500 text-lg">refresh</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 dark:bg-[#1a3a1d] border-b border-gray-200 dark:border-gray-700">
+                        <tr>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Contacto</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Secuencia</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Paso</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Próximo envío</th>
+                        </tr>
+                    </thead>
+                    <tbody id="enrollments-tbody">
+                        <tr><td colspan="5" class="text-center py-8 text-gray-400">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ==================== TAB: STATS ==================== -->
+        <div id="panel-stats" class="hidden">
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Taggeados (7 días)</p>
+                    <p class="text-2xl font-bold text-primary" id="stat-tagged">—</p>
+                    <p class="text-xs text-gray-400 mt-1">conversaciones etiquetadas</p>
+                </div>
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">En seguimiento</p>
+                    <p class="text-2xl font-bold text-yellow-500" id="stat-active">—</p>
+                    <p class="text-xs text-gray-400 mt-1">contactos activos</p>
+                </div>
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Tasa de respuesta</p>
+                    <p class="text-2xl font-bold text-green-500" id="stat-rate">—</p>
+                    <p class="text-xs text-gray-400 mt-1">respondieron al follow-up</p>
+                </div>
+                <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Errores IA (7 días)</p>
+                    <p class="text-2xl font-bold text-red-400" id="stat-errors">—</p>
+                    <p class="text-xs text-gray-400 mt-1">fallos de análisis</p>
+                </div>
+            </div>
+
+            <!-- Log de actividad -->
+            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white">Log de actividad</h3>
+                    <div class="flex gap-2">
+                        <select id="log-filter" onchange="loadLogs()"
+                            class="px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#1a3a1d] text-gray-700 dark:text-gray-200">
+                            <option value="">Todos</option>
+                            <option value="tagged">Taggeados</option>
+                            <option value="skipped">Omitidos</option>
+                            <option value="error">Errores</option>
+                        </select>
+                        <button onclick="loadStats(); loadLogs()"
+                            class="p-1.5 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <span class="material-symbols-outlined text-gray-500 text-lg">refresh</span>
+                        </button>
+                    </div>
+                </div>
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 dark:bg-[#1a3a1d]">
+                        <tr>
+                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Contacto</th>
+                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Etiqueta</th>
+                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Resultado</th>
+                            <th class="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-tbody">
+                        <tr><td colspan="4" class="text-center py-8 text-gray-400">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<!-- ==================== MODAL: ENROLL MANUAL ==================== -->
+<div id="enroll-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40" onclick="closeEnrollModal()"></div>
+    <div class="relative bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-base font-bold text-gray-800 dark:text-white">Enrollar contacto manualmente</h3>
+            <button onclick="closeEnrollModal()" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                <span class="material-symbols-outlined text-gray-500">close</span>
+            </button>
+        </div>
+        <div class="px-6 py-4 space-y-4">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                Secuencia: <strong id="enroll-seq-name" class="text-gray-800 dark:text-white"></strong>
+            </p>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Buscar contacto</label>
+                <input type="text" id="enroll-search" placeholder="Nombre o teléfono..." oninput="searchEnrollContact()"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                <div id="enroll-results" class="mt-1 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hidden"></div>
+            </div>
+            <div id="enroll-selected" class="hidden p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <p class="text-xs font-medium text-green-700 dark:text-green-300">Contacto seleccionado:</p>
+                <p id="enroll-selected-label" class="text-sm text-green-800 dark:text-green-200 font-semibold mt-0.5"></p>
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            <button onclick="closeEnrollModal()" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">Cancelar</button>
+            <button onclick="confirmEnroll()" id="enroll-confirm-btn" disabled
+                class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors">
+                Enrollar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL: REGLA ==================== -->
+<div id="rule-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40" onclick="closeRuleModal()"></div>
+    <div class="relative bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-2xl w-full max-w-lg">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-base font-bold text-gray-800 dark:text-white" id="rule-modal-title">Nueva Regla</h3>
+            <button onclick="closeRuleModal()" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                <span class="material-symbols-outlined text-gray-500">close</span>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <input type="hidden" id="rule-id">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiqueta a asignar</label>
+                <select id="rule-tag" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                    <option value="">Seleccionar etiqueta...</option>
+                    {% for tag in tags %}
+                    <option value="{{ tag.id }}">{{ tag.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Condición (pregunta SÍ/NO para la IA)</label>
+                <textarea id="rule-prompt" rows="4" placeholder="Ej: ¿El cliente mostró interés en algún producto (preguntó precio, características, comparó opciones) pero la conversación terminó sin que se lo derivara a un humano?"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"></textarea>
+                <p class="text-xs text-gray-400 mt-1">La IA responderá SÍ o NO. Si es SÍ, se asigna la etiqueta.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Minutos de inactividad antes de analizar</label>
+                <input type="number" id="rule-inactivity" value="30" min="5"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                <p class="text-xs text-gray-400 mt-1">La conversación debe llevar al menos este tiempo sin actividad para ser analizada.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="rule-active" checked class="w-4 h-4 rounded accent-primary">
+                <label for="rule-active" class="text-sm text-gray-700 dark:text-gray-300">Regla activa</label>
+            </div>
+        </div>
+        <div class="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            <button onclick="closeRuleModal()" class="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancelar</button>
+            <button onclick="saveRule()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL: SECUENCIA ==================== -->
+<div id="sequence-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40" onclick="closeSequenceModal()"></div>
+    <div class="relative bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <h3 class="text-base font-bold text-gray-800 dark:text-white" id="seq-modal-title">Nueva Secuencia</h3>
+            <button onclick="closeSequenceModal()" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                <span class="material-symbols-outlined text-gray-500">close</span>
+            </button>
+        </div>
+        <div class="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+            <input type="hidden" id="seq-id">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
+                    <input type="text" id="seq-name" placeholder="Ej: Seguimiento interesados"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiqueta que la dispara</label>
+                    <select id="seq-tag" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                        <option value="">Seleccionar...</option>
+                        {% for tag in tags %}
+                        <option value="{{ tag.id }}">{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="seq-active" checked class="w-4 h-4 rounded accent-primary">
+                <label for="seq-active" class="text-sm text-gray-700 dark:text-gray-300">Secuencia activa</label>
+            </div>
+
+            <!-- Ventana horaria por secuencia -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-gray-400 text-base">schedule</span>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Ventana de envío</span>
+                    <span class="text-xs text-gray-400">(opcional — si no configurás, se envía en cualquier momento)</span>
+                </div>
+                <div class="flex flex-wrap gap-2" id="seq-weekdays">
+                    {% for day, label in [('0','Lu'),('1','Ma'),('2','Mi'),('3','Ju'),('4','Vi'),('5','Sa'),('6','Do')] %}
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" name="seq-weekday" value="{{ day }}" checked
+                            class="w-3.5 h-3.5 accent-primary">
+                        <span class="text-xs font-medium text-gray-600 dark:text-gray-400">{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500">Desde</span>
+                        <input type="time" id="seq-window-start" value="09:00"
+                            class="px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-xs">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500">Hasta</span>
+                        <input type="time" id="seq-window-end" value="20:00"
+                            class="px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-xs">
+                    </div>
+                    <label class="flex items-center gap-1.5 cursor-pointer ml-2">
+                        <input type="checkbox" id="seq-window-enabled" onchange="toggleWindowConfig()"
+                            class="w-4 h-4 accent-primary">
+                        <span class="text-xs text-gray-600 dark:text-gray-400">Activar ventana</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Pasos -->
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">Pasos</label>
+                    <button onclick="addStep()"
+                        class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors">
+                        <span class="material-symbols-outlined text-sm">add</span>
+                        Agregar paso
+                    </button>
+                </div>
+                <div id="steps-container" class="space-y-3"></div>
+                <p class="text-xs text-gray-400 mt-2">El tiempo de espera de cada paso es desde el envío del paso anterior (o desde que se asigna la etiqueta para el paso 1).</p>
+            </div>
+        </div>
+        <div class="flex gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <button onclick="closeSequenceModal()" class="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancelar</button>
+            <button onclick="saveSequence()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== TABS ====================
+function showTab(tab) {
+    ['rules','sequences','enrollments','stats'].forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-${t}`);
+        btn.className = t === tab
+            ? 'px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-white'
+            : 'px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800';
+    });
+    if (tab === 'rules') loadRules();
+    if (tab === 'sequences') loadSequences();
+    if (tab === 'enrollments') loadEnrollments();
+    if (tab === 'stats') { loadStats(); loadLogs(); }
+}
+
+// ==================== RULES ====================
+async function loadRules() {
+    const res = await fetch('/api/auto-tag-rules');
+    const rules = await res.json();
+    const container = document.getElementById('rules-list');
+    if (!rules.length) {
+        container.innerHTML = `<div class="text-center py-12 text-gray-400">
+            <span class="material-symbols-outlined text-4xl mb-2 block">rule</span>
+            No hay reglas configuradas. Creá una para empezar.
+        </div>`;
+        return;
+    }
+    container.innerHTML = rules.map(r => `
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                            <span class="material-symbols-outlined text-sm">label</span>
+                            ${r.tag_name || 'Sin etiqueta'}
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${r.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+                            <span class="material-symbols-outlined text-sm">${r.is_active ? 'check_circle' : 'cancel'}</span>
+                            ${r.is_active ? 'Activa' : 'Inactiva'}
+                        </span>
+                        <span class="text-xs text-gray-400">
+                            <span class="material-symbols-outlined text-sm align-middle">timer</span>
+                            ${r.inactivity_minutes} min de inactividad
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">${r.prompt_condition}</p>
+                </div>
+                <div class="flex gap-1 flex-shrink-0">
+                    <button onclick="editRule(${r.id})" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" title="Editar">
+                        <span class="material-symbols-outlined text-gray-500 text-lg">edit</span>
+                    </button>
+                    <button onclick="toggleRule(${r.id}, ${!r.is_active})" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" title="${r.is_active ? 'Desactivar' : 'Activar'}">
+                        <span class="material-symbols-outlined text-gray-500 text-lg">${r.is_active ? 'toggle_on' : 'toggle_off'}</span>
+                    </button>
+                    <button onclick="deleteRule(${r.id})" class="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
+                        <span class="material-symbols-outlined text-red-400 text-lg">delete</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function openRuleModal(rule = null) {
+    document.getElementById('rule-id').value = rule ? rule.id : '';
+    document.getElementById('rule-modal-title').textContent = rule ? 'Editar Regla' : 'Nueva Regla';
+    document.getElementById('rule-tag').value = rule ? rule.tag_id : '';
+    document.getElementById('rule-prompt').value = rule ? rule.prompt_condition : '';
+    document.getElementById('rule-inactivity').value = rule ? rule.inactivity_minutes : 30;
+    document.getElementById('rule-active').checked = rule ? rule.is_active : true;
+    document.getElementById('rule-modal').classList.remove('hidden');
+}
+
+function closeRuleModal() {
+    document.getElementById('rule-modal').classList.add('hidden');
+}
+
+async function editRule(id) {
+    const res = await fetch('/api/auto-tag-rules');
+    const rules = await res.json();
+    const rule = rules.find(r => r.id === id);
+    if (rule) openRuleModal(rule);
+}
+
+async function saveRule() {
+    const id = document.getElementById('rule-id').value;
+    const payload = {
+        tag_id: parseInt(document.getElementById('rule-tag').value),
+        prompt_condition: document.getElementById('rule-prompt').value.trim(),
+        inactivity_minutes: parseInt(document.getElementById('rule-inactivity').value),
+        is_active: document.getElementById('rule-active').checked
+    };
+    if (!payload.tag_id || !payload.prompt_condition) {
+        alert('Completá todos los campos requeridos.');
+        return;
+    }
+    const url = id ? `/api/auto-tag-rules/${id}` : '/api/auto-tag-rules';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+    if (res.ok) { closeRuleModal(); loadRules(); }
+    else { const e = await res.json(); alert(e.error || 'Error al guardar'); }
+}
+
+async function toggleRule(id, active) {
+    await fetch(`/api/auto-tag-rules/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ is_active: active })
+    });
+    loadRules();
+}
+
+async function deleteRule(id) {
+    if (!confirm('¿Eliminar esta regla?')) return;
+    await fetch(`/api/auto-tag-rules/${id}`, { method: 'DELETE' });
+    loadRules();
+}
+
+// ==================== SEQUENCES ====================
+let stepCount = 0;
+
+async function loadSequences() {
+    const res = await fetch('/api/followup-sequences');
+    const seqs = await res.json();
+    const container = document.getElementById('sequences-list');
+    if (!seqs.length) {
+        container.innerHTML = `<div class="text-center py-12 text-gray-400">
+            <span class="material-symbols-outlined text-4xl mb-2 block">schedule_send</span>
+            No hay secuencias configuradas.
+        </div>`;
+        return;
+    }
+    container.innerHTML = seqs.map(s => `
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+            <div class="flex items-start justify-between gap-3 mb-3">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-semibold text-gray-800 dark:text-white">${s.name}</h3>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+                            ${s.is_active ? 'Activa' : 'Inactiva'}
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        <span class="material-symbols-outlined text-sm align-middle">label</span>
+                        Se activa con: <strong>${s.tag_name}</strong>
+                        &nbsp;·&nbsp; ${s.steps.length} paso(s)
+                    </p>
+                </div>
+                <div class="flex gap-1 flex-shrink-0">
+                    <button onclick="openEnrollModal(${s.id}, '${s.name.replace(/'/g, "\\'")}')" title="Enrollar contacto manualmente" class="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+                        <span class="material-symbols-outlined text-blue-400 text-lg">person_add</span>
+                    </button>
+                    <button onclick="editSequence(${s.id})" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                        <span class="material-symbols-outlined text-gray-500 text-lg">edit</span>
+                    </button>
+                    <button onclick="toggleSequence(${s.id}, ${!s.is_active})" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                        <span class="material-symbols-outlined text-gray-500 text-lg">${s.is_active ? 'toggle_on' : 'toggle_off'}</span>
+                    </button>
+                    <button onclick="deleteSequence(${s.id})" class="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                        <span class="material-symbols-outlined text-red-400 text-lg">delete</span>
+                    </button>
+                </div>
+            </div>
+            ${s.steps.length ? `
+            <div class="flex flex-wrap gap-2">
+                ${s.steps.map(st => `
+                <div class="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg text-xs">
+                    <span class="material-symbols-outlined text-orange-500 text-sm">schedule_send</span>
+                    <span class="font-medium text-orange-700 dark:text-orange-300">Paso ${st.order}</span>
+                    <span class="text-orange-500">·</span>
+                    <span class="text-orange-600 dark:text-orange-400">${st.delay_hours < 1 ? Math.round(st.delay_hours * 60) + 'min' : st.delay_hours + 'h'} · ${st.template_name}</span>
+                </div>`).join('')}
+            </div>` : ''}
+        </div>
+    `).join('');
+}
+
+async function openSequenceModal(seq = null) {
+    // Cargar templates si no están cacheados
+    if (!window._waTemplates) {
+        try {
+            const res = await fetch('/api/whatsapp/templates');
+            const data = await res.json();
+            window._waTemplates = data.templates || [];
+        } catch(e) {
+            window._waTemplates = [];
+        }
+    }
+
+    stepCount = 0;
+    document.getElementById('seq-id').value = seq ? seq.id : '';
+    document.getElementById('seq-modal-title').textContent = seq ? 'Editar Secuencia' : 'Nueva Secuencia';
+    document.getElementById('seq-name').value = seq ? seq.name : '';
+    document.getElementById('seq-tag').value = seq ? seq.tag_id : '';
+    document.getElementById('seq-active').checked = seq ? seq.is_active : true;
+
+    // Ventana horaria
+    const hasWindow = seq && (seq.send_window_start || seq.send_weekdays);
+    document.getElementById('seq-window-enabled').checked = !!hasWindow;
+    document.getElementById('seq-window-start').value = (seq && seq.send_window_start) ? seq.send_window_start : '09:00';
+    document.getElementById('seq-window-end').value = (seq && seq.send_window_end) ? seq.send_window_end : '20:00';
+    // Días de la semana
+    const activeWeekdays = (seq && seq.send_weekdays) ? seq.send_weekdays : [0,1,2,3,4,5,6];
+    document.querySelectorAll('input[name="seq-weekday"]').forEach(cb => {
+        cb.checked = activeWeekdays.includes(parseInt(cb.value));
+    });
+    toggleWindowConfig();
+
+    document.getElementById('steps-container').innerHTML = '';
+    if (seq && seq.steps) {
+        seq.steps.forEach(s => addStep(s));
+    } else {
+        addStep();
+    }
+    document.getElementById('sequence-modal').classList.remove('hidden');
+}
+
+function toggleWindowConfig() {
+    const enabled = document.getElementById('seq-window-enabled').checked;
+    const opacity = enabled ? '' : 'opacity-40 pointer-events-none';
+    document.getElementById('seq-weekdays').className = `flex flex-wrap gap-2 ${opacity}`;
+    document.getElementById('seq-window-start').disabled = !enabled;
+    document.getElementById('seq-window-end').disabled = !enabled;
+}
+
+function closeSequenceModal() {
+    document.getElementById('sequence-modal').classList.add('hidden');
+}
+
+function addStep(data = null) {
+    stepCount++;
+    const idx = stepCount;
+    const container = document.getElementById('steps-container');
+
+    // Convertir delay_hours a valor + unidad para mostrar
+    let delayVal = 24, delayUnit = 'hours';
+    if (data) {
+        const h = data.delay_hours;
+        if (h < 1 && h > 0) {
+            delayVal = Math.round(h * 60);
+            delayUnit = 'minutes';
+        } else {
+            delayVal = h;
+            delayUnit = 'hours';
+        }
+    }
+
+    // Opciones de templates cargadas previamente
+    const templateOptions = (window._waTemplates || []).map(t =>
+        `<option value="${t.name}" ${data && data.template_name === t.name ? 'selected' : ''}>${t.name}</option>`
+    ).join('');
+
+    const div = document.createElement('div');
+    div.id = `step-${idx}`;
+    div.className = 'bg-gray-50 dark:bg-[#111f13] border border-gray-200 dark:border-gray-700 rounded-xl p-4';
+    div.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Paso ${idx}</span>
+            <button onclick="removeStep(${idx})" class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <span class="material-symbols-outlined text-gray-400 text-lg">close</span>
+            </button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de programación</label>
+                <select id="step-sched-type-${idx}" onchange="onSchedTypeChange(${idx})"
+                    class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                    <option value="delay" ${!data || (data.schedule_type || 'delay') === 'delay' ? 'selected' : ''}>Delay (X horas/minutos)</option>
+                    <option value="fixed_time" ${data && data.schedule_type === 'fixed_time' ? 'selected' : ''}>Día y hora fija</option>
+                </select>
+            </div>
+            <div id="step-delay-wrap-${idx}">
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Esperar</label>
+                <div class="flex gap-2">
+                    <input type="number" id="step-delay-${idx}" value="${delayVal}" min="1" step="1"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                    <select id="step-unit-${idx}"
+                        class="px-2 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                        <option value="hours" ${delayUnit === 'hours' ? 'selected' : ''}>Horas</option>
+                        <option value="minutes" ${delayUnit === 'minutes' ? 'selected' : ''}>Minutos</option>
+                    </select>
+                </div>
+            </div>
+            <div id="step-fixed-wrap-${idx}" class="hidden col-span-1">
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Día y hora</label>
+                <div class="flex gap-2">
+                    <select id="step-weekday-${idx}"
+                        class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                        <option value="0" ${data && data.scheduled_weekday === 0 ? 'selected' : ''}>Lunes</option>
+                        <option value="1" ${data && data.scheduled_weekday === 1 ? 'selected' : ''}>Martes</option>
+                        <option value="2" ${data && data.scheduled_weekday === 2 ? 'selected' : ''}>Miércoles</option>
+                        <option value="3" ${data && data.scheduled_weekday === 3 ? 'selected' : ''}>Jueves</option>
+                        <option value="4" ${data && data.scheduled_weekday === 4 ? 'selected' : ''}>Viernes</option>
+                        <option value="5" ${data && data.scheduled_weekday === 5 ? 'selected' : ''}>Sábado</option>
+                        <option value="6" ${data && data.scheduled_weekday === 6 ? 'selected' : ''}>Domingo</option>
+                    </select>
+                    <input type="time" id="step-time-${idx}" value="${data && data.scheduled_time ? data.scheduled_time : '09:00'}"
+                        class="w-24 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Template de WhatsApp</label>
+                ${templateOptions
+                    ? `<select id="step-template-${idx}" onchange="onStepTemplateChange(${idx})"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                        <option value="">Seleccionar template...</option>
+                        ${templateOptions}
+                       </select>`
+                    : `<input type="text" id="step-template-${idx}" value="${data ? data.template_name : ''}" placeholder="nombre_del_template"
+                        class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">`
+                }
+            </div>
+        </div>
+        <div id="step-vars-${idx}" class="mt-3 hidden">
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Variables del template</p>
+            <div id="step-vars-inputs-${idx}" class="space-y-2"></div>
+        </div>
+        <div class="mt-3 flex items-center gap-2">
+            <input type="checkbox" id="step-remove-tag-${idx}" ${data && data.remove_tag_on_execute ? 'checked' : ''}
+                class="w-4 h-4 accent-green-600 cursor-pointer">
+            <label for="step-remove-tag-${idx}" class="text-xs text-gray-600 dark:text-gray-400 cursor-pointer select-none">
+                Quitar etiqueta al ejecutar este paso (y finalizar la secuencia)
+            </label>
+        </div>
+    `;
+    container.appendChild(div);
+    // Inicializar visibilidad según tipo de programación
+    onSchedTypeChange(idx);
+    // Si tiene template guardado, cargar variables
+    if (data && data.template_name && window._waTemplates) {
+        const sel = document.getElementById(`step-template-${idx}`);
+        if (sel) { sel.value = data.template_name; onStepTemplateChange(idx); }
+    }
+}
+
+function removeStep(idx) {
+    const el = document.getElementById(`step-${idx}`);
+    if (el) el.remove();
+}
+
+function onSchedTypeChange(idx) {
+    const type = document.getElementById(`step-sched-type-${idx}`)?.value;
+    document.getElementById(`step-delay-wrap-${idx}`)?.classList.toggle('hidden', type === 'fixed_time');
+    document.getElementById(`step-fixed-wrap-${idx}`)?.classList.toggle('hidden', type !== 'fixed_time');
+}
+
+function onStepTemplateChange(idx) {
+    const select = document.getElementById(`step-template-${idx}`);
+    const varsContainer = document.getElementById(`step-vars-${idx}`);
+    const varsInputs = document.getElementById(`step-vars-inputs-${idx}`);
+    if (!select || !varsContainer || !varsInputs) return;
+
+    const tplName = select.value;
+    const tpl = (window._waTemplates || []).find(t => t.name === tplName);
+    const components = tpl ? (tpl.components || []) : [];
+
+    // Extraer variables de HEADER y BODY
+    const allVars = [];
+    components.forEach(c => {
+        if ((c.type === 'HEADER' && c.format === 'TEXT' && c.text) || (c.type === 'BODY' && c.text)) {
+            const compType = c.type.toLowerCase();
+            const regex = /\{\{(\w+)\}\}/g;
+            let match, idx2 = 0;
+            while ((match = regex.exec(c.text)) !== null) {
+                idx2++;
+                allVars.push({ component: compType, idx: String(idx2), label: match[0] });
+            }
+        }
+    });
+
+    varsInputs.innerHTML = '';
+    if (allVars.length === 0) {
+        varsContainer.classList.add('hidden');
+        return;
+    }
+
+    varsContainer.classList.remove('hidden');
+    const fieldOptions = `
+        <option value="first_name">Nombre</option>
+        <option value="last_name">Apellido</option>
+        <option value="name">Nombre Completo</option>
+        <option value="phone_number">Teléfono</option>
+        <option value="custom_field_1">Campo 1</option>
+        <option value="custom_field_2">Campo 2</option>
+        <option value="custom_field_3">Campo 3</option>
+        <option value="custom_field_4">Campo 4</option>
+        <option value="custom_field_5">Campo 5</option>
+        <option value="custom_field_6">Campo 6</option>
+        <option value="custom_field_7">Campo 7</option>
+    `;
+    allVars.forEach(v => {
+        const key = `${v.component}-${v.idx}`;
+        const compLabel = v.component === 'header' ? '🔖 Header' : '📝 Body';
+        varsInputs.innerHTML += `
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-mono text-gray-500 shrink-0 min-w-[110px]">${compLabel}: ${v.label}</span>
+                <select id="step-var-${idx}-${key}"
+                    class="flex-1 px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
+                    ${fieldOptions}
+                </select>
+            </div>`;
+    });
+}
+
+async function editSequence(id) {
+    const res = await fetch('/api/followup-sequences');
+    const seqs = await res.json();
+    const seq = seqs.find(s => s.id === id);
+    if (seq) openSequenceModal(seq);
+}
+
+async function saveSequence() {
+    const id = document.getElementById('seq-id').value;
+    const steps = [];
+    document.querySelectorAll('[id^="step-delay-"]').forEach(el => {
+        const idx = el.id.replace('step-delay-', '');
+        const template = document.getElementById(`step-template-${idx}`)?.value?.trim();
+        if (template) {
+            const unit = document.getElementById(`step-unit-${idx}`)?.value || 'hours';
+            const rawVal = parseFloat(el.value);
+            const delayHours = unit === 'minutes' ? rawVal / 60 : rawVal;
+            const tpl = (window._waTemplates || []).find(t => t.name === template);
+
+            // Recoger variables del paso
+            const params = {};
+            document.querySelectorAll(`[id^="step-var-${idx}-"]`).forEach(sel => {
+                const key = sel.id.replace(`step-var-${idx}-`, '');
+                params[key] = sel.value;
+            });
+
+            const removeTag = document.getElementById(`step-remove-tag-${idx}`)?.checked || false;
+            const schedType = document.getElementById(`step-sched-type-${idx}`)?.value || 'delay';
+            const weekday = schedType === 'fixed_time' ? parseInt(document.getElementById(`step-weekday-${idx}`)?.value) : null;
+            const schedTime = schedType === 'fixed_time' ? (document.getElementById(`step-time-${idx}`)?.value || '09:00') : null;
+
+            steps.push({
+                delay_hours: delayHours,
+                template_name: template,
+                template_language: tpl ? tpl.language : 'es_AR',
+                template_params: Object.keys(params).length ? params : null,
+                remove_tag_on_execute: removeTag,
+                schedule_type: schedType,
+                scheduled_weekday: weekday,
+                scheduled_time: schedTime
+            });
+        }
+    });
+
+    const windowEnabled = document.getElementById('seq-window-enabled').checked;
+    const selectedWeekdays = windowEnabled
+        ? Array.from(document.querySelectorAll('input[name="seq-weekday"]:checked')).map(cb => parseInt(cb.value))
+        : null;
+
+    const payload = {
+        name: document.getElementById('seq-name').value.trim(),
+        tag_id: parseInt(document.getElementById('seq-tag').value),
+        is_active: document.getElementById('seq-active').checked,
+        send_window_start: windowEnabled ? document.getElementById('seq-window-start').value : null,
+        send_window_end: windowEnabled ? document.getElementById('seq-window-end').value : null,
+        send_weekdays: selectedWeekdays,
+        steps
+    };
+    if (!payload.name || !payload.tag_id) {
+        alert('Completá el nombre y la etiqueta.');
+        return;
+    }
+    if (!steps.length) {
+        alert('Agregá al menos un paso.');
+        return;
+    }
+    const url = id ? `/api/followup-sequences/${id}` : '/api/followup-sequences';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+    if (res.ok) { closeSequenceModal(); loadSequences(); }
+    else { const e = await res.json(); alert(e.error || 'Error al guardar'); }
+}
+
+async function toggleSequence(id, active) {
+    await fetch(`/api/followup-sequences/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ is_active: active })
+    });
+    loadSequences();
+}
+
+async function deleteSequence(id) {
+    if (!confirm('¿Eliminar esta secuencia y todos sus enrollments?')) return;
+    await fetch(`/api/followup-sequences/${id}`, { method: 'DELETE' });
+    loadSequences();
+}
+
+// ==================== ENROLL MANUAL ====================
+let _enrollSeqId = null;
+let _enrollContactPhone = null;
+
+function openEnrollModal(seqId, seqName) {
+    _enrollSeqId = seqId;
+    _enrollContactPhone = null;
+    document.getElementById('enroll-seq-name').textContent = seqName;
+    document.getElementById('enroll-search').value = '';
+    document.getElementById('enroll-results').classList.add('hidden');
+    document.getElementById('enroll-results').innerHTML = '';
+    document.getElementById('enroll-selected').classList.add('hidden');
+    document.getElementById('enroll-confirm-btn').disabled = true;
+    document.getElementById('enroll-modal').classList.remove('hidden');
+}
+
+function closeEnrollModal() {
+    document.getElementById('enroll-modal').classList.add('hidden');
+}
+
+let _enrollSearchTimer = null;
+function searchEnrollContact() {
+    clearTimeout(_enrollSearchTimer);
+    _enrollSearchTimer = setTimeout(async () => {
+        const q = document.getElementById('enroll-search').value.trim();
+        const resultsEl = document.getElementById('enroll-results');
+        if (q.length < 2) { resultsEl.classList.add('hidden'); return; }
+
+        const res = await fetch(`/api/contacts/search?q=${encodeURIComponent(q)}`);
+        const contacts = await res.json();
+
+        if (!contacts.length) {
+            resultsEl.innerHTML = '<p class="px-3 py-2 text-xs text-gray-400">Sin resultados</p>';
+        } else {
+            resultsEl.innerHTML = contacts.map(c => `
+                <button onclick="selectEnrollContact('${c.phone_number}', '${(c.name || c.phone_number).replace(/'/g, "\\'")}')"
+                    class="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm flex items-center gap-2 transition-colors">
+                    <span class="material-symbols-outlined text-gray-400 text-base">person</span>
+                    <span class="text-gray-800 dark:text-white font-medium">${c.name || '—'}</span>
+                    <span class="text-gray-400 text-xs">${c.phone_number}</span>
+                </button>`).join('');
+        }
+        resultsEl.classList.remove('hidden');
+    }, 300);
+}
+
+function selectEnrollContact(phone, name) {
+    _enrollContactPhone = phone;
+    document.getElementById('enroll-selected-label').textContent = `${name} · ${phone}`;
+    document.getElementById('enroll-selected').classList.remove('hidden');
+    document.getElementById('enroll-results').classList.add('hidden');
+    document.getElementById('enroll-confirm-btn').disabled = false;
+}
+
+async function confirmEnroll() {
+    if (!_enrollSeqId || !_enrollContactPhone) return;
+    const btn = document.getElementById('enroll-confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'Enrollando...';
+
+    const res = await fetch(`/api/followup-sequences/${_enrollSeqId}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: _enrollContactPhone })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+        closeEnrollModal();
+        loadEnrollments();
+        alert(`✅ Contacto enrollado correctamente en la secuencia.`);
+    } else {
+        alert(`Error: ${data.error || 'No se pudo enrollar el contacto'}`);
+        btn.disabled = false;
+        btn.textContent = 'Enrollar';
+    }
+}
+
+// ==================== ENROLLMENTS ====================
+async function loadEnrollments() {
+    const status = document.getElementById('enrollment-filter')?.value || '';
+    const url = `/api/followup-enrollments${status ? '?status=' + status : ''}`;
+    const res = await fetch(url);
+    const enrollments = await res.json();
+    const tbody = document.getElementById('enrollments-tbody');
+    if (!enrollments.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">No hay contactos enrollados.</td></tr>';
+        return;
+    }
+    const statusBadge = {
+        pending: '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Pendiente</span>',
+        finished: '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Finalizado</span>',
+        cancelled: '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Cancelado</span>'
+    };
+    tbody.innerHTML = enrollments.map(e => `
+        <tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+            <td class="px-4 py-3">
+                <div class="font-medium text-sm text-gray-800 dark:text-white">${e.contact_name || e.contact_phone || '-'}</div>
+                <div class="text-xs text-gray-400">${e.contact_phone || ''}</div>
+            </td>
+            <td class="px-4 py-3 hidden sm:table-cell text-sm text-gray-600 dark:text-gray-300">${e.sequence_name || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">Paso ${e.current_step}</td>
+            <td class="px-4 py-3">${statusBadge[e.status] || e.status}</td>
+            <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
+                ${e.next_send_at ? new Date(e.next_send_at).toLocaleString('es-AR') : '-'}
+            </td>
+        </tr>
+    `).join('');
+}
+
+// ==================== STATS & LOGS ====================
+async function loadStats() {
+    const res = await fetch('/api/auto-tagger/stats');
+    const s = await res.json();
+    document.getElementById('stat-tagged').textContent  = s.tagged_7d ?? '—';
+    document.getElementById('stat-active').textContent  = s.active_enrollments ?? '—';
+    document.getElementById('stat-rate').textContent    = s.response_rate != null ? s.response_rate + '%' : '—';
+    document.getElementById('stat-errors').textContent  = s.error_7d ?? '—';
+}
+
+async function loadLogs() {
+    const filter = document.getElementById('log-filter')?.value || '';
+    const url = `/api/auto-tagger/logs?limit=50${filter ? '&result=' + filter : ''}`;
+    const res = await fetch(url);
+    const logs = await res.json();
+    const tbody = document.getElementById('logs-tbody');
+    if (!logs.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-400">Sin registros.</td></tr>';
+        return;
+    }
+    const badge = {
+        tagged:  '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">Taggeado</span>',
+        skipped: '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800">Omitido</span>',
+        error:   '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">Error</span>',
+    };
+    tbody.innerHTML = logs.map(l => `
+        <tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30">
+            <td class="px-4 py-2">
+                <div class="text-sm font-medium text-gray-800 dark:text-white">${l.contact_name || l.phone_number}</div>
+                ${l.contact_name ? `<div class="text-xs text-gray-400">${l.phone_number}</div>` : ''}
+            </td>
+            <td class="px-4 py-2 hidden sm:table-cell text-xs text-gray-500">${l.tag_name || '—'}</td>
+            <td class="px-4 py-2">${badge[l.result] || l.result}</td>
+            <td class="px-4 py-2 hidden md:table-cell text-xs text-gray-400">${new Date(l.created_at).toLocaleString('es-AR')}</td>
+        </tr>
+    `).join('');
+}
+
+// ==================== AUTO TAGGER MANUAL RUN ====================
+async function runAutoTagger() {
+    const btn = document.getElementById('run-tagger-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined text-lg animate-spin">autorenew</span><span class="hidden sm:inline">Corriendo...</span>';
+    try {
+        const res = await fetch('/api/auto-tagger/run', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            btn.innerHTML = '<span class="material-symbols-outlined text-lg text-green-500">check_circle</span><span class="hidden sm:inline">Iniciado</span>';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined text-lg">play_arrow</span><span class="hidden sm:inline">Correr ahora</span>';
+            }, 3000);
+        }
+    } catch(e) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined text-lg">play_arrow</span><span class="hidden sm:inline">Correr ahora</span>';
+    }
+}
+
+// ==================== AUTO TAGGER TOGGLE ====================
+async function toggleAutoTagger() {
+    const btn = document.getElementById('auto-tagger-btn');
+    const res = await fetch('/api/auto-tagger/toggle', { method: 'POST' });
+    const data = await res.json();
+    if (!data.success) { alert('Error al cambiar estado'); return; }
+
+    const enabled = data.enabled;
+    btn.dataset.enabled = enabled ? 'true' : 'false';
+    btn.className = `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+        enabled
+        ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
+        : 'bg-gray-100 border-gray-200 text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
+    }`;
+    document.getElementById('auto-tagger-icon').textContent = enabled ? 'autorenew' : 'pause_circle';
+    document.getElementById('auto-tagger-label').textContent = `Auto-Tagger: ${enabled ? 'Activo' : 'Inactivo'}`;
+}
+
+// Cargar tab inicial
+loadRules();
+</script>
+{% endblock %}

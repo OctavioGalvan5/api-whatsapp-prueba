@@ -259,6 +259,14 @@ def process_event(data):
                     save_message(msg_id, sender, "inbound", msg_type, content,
                                media_id=media_id, media_url=media_url, caption=caption)
 
+                    # Cancelar follow-ups activos si el cliente responde
+                    try:
+                        from followup_sender import cancel_enrollment_on_reply
+                        from app import app
+                        cancel_enrollment_on_reply(sender, app.app_context())
+                    except Exception as e:
+                        logger.warning(f"No se pudo cancelar follow-up para {sender}: {e}")
+
                     # Enviar mensaje al chatbot n8n
                     media_data = message.get(msg_type, {}) if msg_type in {'image','audio','video','document','sticker'} else None
                     forward_to_n8n(sender, content, msg_type, media_url=media_url, media_data=media_data, message_id=msg_id)

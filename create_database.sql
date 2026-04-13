@@ -287,6 +287,83 @@ CREATE TABLE IF NOT EXISTS crm_user_permissions (
 );
 
 -- ==========================================
+-- AUTO TAG RULES
+-- ==========================================
+CREATE TABLE IF NOT EXISTS auto_tag_rules (
+    id SERIAL PRIMARY KEY,
+    tag_id INTEGER NOT NULL REFERENCES whatsapp_tags(id) ON DELETE CASCADE,
+    prompt_condition TEXT NOT NULL,
+    inactivity_minutes INTEGER DEFAULT 30,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    activated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- AUTO TAG LOGS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS auto_tag_logs (
+    id SERIAL PRIMARY KEY,
+    rule_id INTEGER REFERENCES auto_tag_rules(id) ON DELETE SET NULL,
+    contact_id INTEGER REFERENCES whatsapp_contacts(id) ON DELETE SET NULL,
+    phone_number VARCHAR(20) NOT NULL,
+    tag_id INTEGER REFERENCES whatsapp_tags(id) ON DELETE SET NULL,
+    result VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_auto_tag_logs_created ON auto_tag_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_auto_tag_logs_result ON auto_tag_logs(result);
+
+-- ==========================================
+-- FOLLOW-UP SEQUENCES
+-- ==========================================
+CREATE TABLE IF NOT EXISTS followup_sequences (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    tag_id INTEGER NOT NULL REFERENCES whatsapp_tags(id) ON DELETE CASCADE,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    send_window_start VARCHAR(5),
+    send_window_end VARCHAR(5),
+    send_weekdays JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- FOLLOW-UP STEPS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS followup_steps (
+    id SERIAL PRIMARY KEY,
+    sequence_id INTEGER NOT NULL REFERENCES followup_sequences(id) ON DELETE CASCADE,
+    "order" INTEGER NOT NULL,
+    delay_hours FLOAT NOT NULL,
+    template_name VARCHAR(100) NOT NULL,
+    template_language VARCHAR(10) DEFAULT 'es_AR',
+    template_params JSON,
+    remove_tag_on_execute BOOLEAN DEFAULT FALSE,
+    schedule_type VARCHAR(20) DEFAULT 'delay',
+    scheduled_weekday INTEGER,
+    scheduled_time VARCHAR(5)
+);
+
+-- ==========================================
+-- FOLLOW-UP ENROLLMENTS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS followup_enrollments (
+    id SERIAL PRIMARY KEY,
+    contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+    sequence_id INTEGER NOT NULL REFERENCES followup_sequences(id) ON DELETE CASCADE,
+    current_step INTEGER DEFAULT 1,
+    status VARCHAR(20) DEFAULT 'pending',
+    next_send_at TIMESTAMP,
+    enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    cancelled_at TIMESTAMP,
+    CONSTRAINT uq_enrollment_contact_sequence UNIQUE (contact_id, sequence_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_enrollments_status_next ON followup_enrollments(status, next_send_at);
+
+-- ==========================================
 -- ADMIN INICIAL
 -- Contraseña por defecto: admin
 -- Cambiala desde el panel en /admin/users

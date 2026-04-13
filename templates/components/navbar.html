@@ -40,18 +40,25 @@
     <!-- Mensajería -->
     {% set can_campaigns = not current_user or current_user.has_permission('campaigns') %}
     {% set can_failed = not current_user or current_user.has_permission('failed_messages') %}
-    {% if can_campaigns or can_failed %}
+    {% set can_reengagement = not current_user or current_user.has_permission('reengagement') %}
+    {% if can_campaigns or can_failed or can_reengagement %}
     <div class="relative group">
         <button
-            class="p-3 rounded-xl {% if request.path.startswith('/campaigns') or request.path == '/failed-messages' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+            class="p-3 rounded-xl {% if request.path.startswith('/campaigns') or request.path == '/failed-messages' or request.path == '/reengagement' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
             title="Mensajería">
-            <span class="material-symbols-outlined {% if not (request.path.startswith('/campaigns') or request.path == '/failed-messages') %}text-gray-500 dark:text-gray-400{% endif %}">send</span>
+            <span class="material-symbols-outlined {% if not (request.path.startswith('/campaigns') or request.path == '/failed-messages' or request.path == '/reengagement') %}text-gray-500 dark:text-gray-400{% endif %}">send</span>
         </button>
         <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
             {% if can_campaigns %}
             <a href="/campaigns" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path.startswith('/campaigns') %}text-primary{% endif %}">
                 <span class="material-symbols-outlined text-xl">campaign</span>
                 <span class="text-sm font-medium">Campañas</span>
+            </a>
+            {% endif %}
+            {% if can_reengagement %}
+            <a href="/reengagement" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/reengagement' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">autorenew</span>
+                <span class="text-sm font-medium">Re-engagement</span>
             </a>
             {% endif %}
             {% if can_failed %}
@@ -191,6 +198,12 @@
 
 <!-- MOBILE MENU OVERLAY (para el botón "Más") -->
 <div id="mobile-menu" class="hidden md:hidden fixed bottom-14 right-2 z-50 bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 py-2 min-w-[180px]">
+    {% if not current_user or current_user.has_permission('reengagement') %}
+    <a href="/reengagement" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/reengagement' %}text-primary{% endif %}">
+        <span class="material-symbols-outlined">autorenew</span>
+        <span class="text-sm font-medium">Re-engagement</span>
+    </a>
+    {% endif %}
     {% if not current_user or current_user.has_permission('chatbot') %}
     <a href="/chatbot" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/chatbot' %}text-primary{% endif %}">
         <span class="material-symbols-outlined">smart_toy</span>

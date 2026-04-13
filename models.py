@@ -411,6 +411,182 @@ class RagDocument(db.Model):
 
 
 # ==========================================
+# AUTO TAG RULES
+# ==========================================
+
+class AutoTagRule(db.Model):
+    """Reglas para etiquetar contactos automáticamente basándose en la conversación."""
+    __tablename__ = 'auto_tag_rules'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id'), nullable=False)
+    prompt_condition = db.Column(db.Text, nullable=False)  # Pregunta SÍ/NO para la IA
+    inactivity_minutes = db.Column(db.Integer, default=30)  # Esperar X min antes de analizar
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    activated_at = db.Column(db.DateTime, default=datetime.utcnow)  # Última vez que se activó — filtra mensajes anteriores
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    tag = db.relationship('Tag', backref='auto_tag_rules')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'tag_id': self.tag_id,
+            'tag_name': self.tag.name if self.tag else None,
+            'tag_color': self.tag.color if self.tag else None,
+            'prompt_condition': self.prompt_condition,
+            'inactivity_minutes': self.inactivity_minutes,
+            'is_active': self.is_active,
+            'activated_at': self.activated_at.isoformat() if self.activated_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+# ==========================================
+# AUTO TAG LOG
+# ==========================================
+
+class AutoTagLog(db.Model):
+    """Log de cada análisis del auto-tagger."""
+    __tablename__ = 'auto_tag_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    rule_id = db.Column(db.Integer, db.ForeignKey('auto_tag_rules.id', ondelete='SET NULL'), nullable=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('whatsapp_contacts.id', ondelete='SET NULL'), nullable=True)
+    phone_number = db.Column(db.String(20), nullable=False)
+    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id', ondelete='SET NULL'), nullable=True)
+    result = db.Column(db.String(20), nullable=False)  # 'tagged', 'skipped', 'already_tagged', 'error'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    rule = db.relationship('AutoTagRule', backref='logs')
+    contact = db.relationship('Contact', backref='auto_tag_logs')
+    tag = db.relationship('Tag', backref='auto_tag_logs')
+
+    __table_args__ = (
+        db.Index('idx_auto_tag_logs_created', 'created_at'),
+        db.Index('idx_auto_tag_logs_result', 'result'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'rule_id': self.rule_id,
+            'phone_number': self.phone_number,
+            'contact_name': self.contact.name if self.contact else None,
+            'tag_name': self.tag.name if self.tag else None,
+            'result': self.result,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+# ==========================================
+# FOLLOW-UP SEQUENCES
+# ==========================================
+
+class FollowUpSequence(db.Model):
+    """Secuencias de mensajes de seguimiento automático."""
+    __tablename__ = 'followup_sequences'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id'), nullable=False)  # Tag que dispara la secuencia
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Ventana horaria de envío (por secuencia)
+    send_window_start = db.Column(db.String(5), nullable=True)   # "09:00", None = sin restricción
+    send_window_end   = db.Column(db.String(5), nullable=True)   # "20:00"
+    send_weekdays     = db.Column(db.JSON, nullable=True)        # [0,1,2,3,4] = Lu-Vi, None = todos
+
+    tag = db.relationship('Tag', backref='followup_sequences')
+    steps = db.relationship('FollowUpStep', backref='sequence', lazy='select', order_by='FollowUpStep.order', cascade='all, delete-orphan')
+    enrollments = db.relationship('FollowUpEnrollment', backref='sequence', lazy='select', cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'tag_id': self.tag_id,
+            'tag_name': self.tag.name if self.tag else None,
+            'is_active': self.is_active,
+            'send_window_start': self.send_window_start,
+            'send_window_end': self.send_window_end,
+            'send_weekdays': self.send_weekdays,
+            'steps': [s.to_dict() for s in self.steps],
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class FollowUpStep(db.Model):
+    """Pasos individuales dentro de una secuencia de seguimiento."""
+    __tablename__ = 'followup_steps'
+
+    id = db.Column(db.Integer, primary_key=True)
+    sequence_id = db.Column(db.Integer, db.ForeignKey('followup_sequences.id', ondelete='CASCADE'), nullable=False)
+    order = db.Column(db.Integer, nullable=False)  # 1, 2, 3...
+    delay_hours = db.Column(db.Float, nullable=False)  # Horas a esperar desde el paso anterior (o desde el tag)
+    template_name = db.Column(db.String(100), nullable=False)
+    template_language = db.Column(db.String(10), default='es_AR')
+    template_params = db.Column(db.JSON, nullable=True)  # Parámetros variables del template
+    remove_tag_on_execute = db.Column(db.Boolean, default=False)  # Quitar la etiqueta disparadora al ejecutar este paso
+    # Programación fija: 'delay' (X horas desde el paso anterior) o 'fixed_time' (próximo día/hora específico)
+    schedule_type = db.Column(db.String(20), default='delay')  # 'delay' | 'fixed_time'
+    scheduled_weekday = db.Column(db.Integer, nullable=True)   # 0=Lunes … 6=Domingo
+    scheduled_time = db.Column(db.String(5), nullable=True)    # "HH:MM" en hora local
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'sequence_id': self.sequence_id,
+            'order': self.order,
+            'delay_hours': self.delay_hours,
+            'template_name': self.template_name,
+            'template_language': self.template_language,
+            'template_params': self.template_params,
+            'remove_tag_on_execute': self.remove_tag_on_execute or False,
+            'schedule_type': self.schedule_type or 'delay',
+            'scheduled_weekday': self.scheduled_weekday,
+            'scheduled_time': self.scheduled_time
+        }
+
+
+class FollowUpEnrollment(db.Model):
+    """Registro de un contacto enrollado en una secuencia de follow-up."""
+    __tablename__ = 'followup_enrollments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('whatsapp_contacts.id', ondelete='CASCADE'), nullable=False)
+    sequence_id = db.Column(db.Integer, db.ForeignKey('followup_sequences.id', ondelete='CASCADE'), nullable=False)
+    current_step = db.Column(db.Integer, default=1)  # Paso actual (1-based)
+    status = db.Column(db.String(20), default='pending')  # pending, cancelled, finished
+    next_send_at = db.Column(db.DateTime, nullable=True)  # Cuándo enviar el próximo mensaje
+    enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
+    cancelled_at = db.Column(db.DateTime, nullable=True)
+
+    contact = db.relationship('Contact', backref='followup_enrollments')
+
+    __table_args__ = (
+        db.UniqueConstraint('contact_id', 'sequence_id', name='uq_enrollment_contact_sequence'),
+        db.Index('idx_enrollments_status_next', 'status', 'next_send_at'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'contact_id': self.contact_id,
+            'contact_phone': self.contact.phone_number if self.contact else None,
+            'contact_name': self.contact.name if self.contact else None,
+            'sequence_id': self.sequence_id,
+            'sequence_name': self.sequence.name if self.sequence else None,
+            'current_step': self.current_step,
+            'status': self.status,
+            'next_send_at': self.next_send_at.isoformat() if self.next_send_at else None,
+            'enrolled_at': self.enrolled_at.isoformat() if self.enrolled_at else None,
+            'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None
+        }
+
+
+# ==========================================
 # CHATBOT CONFIG
 # ==========================================
 

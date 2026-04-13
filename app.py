@@ -7,7 +7,7 @@ import pandas as pd
 import re
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for, abort, g
 from config import Config
-from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote
+from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpStep, FollowUpEnrollment
 import threading
 import time as time_module
 from event_handlers import process_event
@@ -1472,6 +1472,7 @@ def api_contact_detail(identifier):
             if field in data:
                 setattr(contact, field, data[field])
 
+        newly_added_tag_ids = []
         if 'tags' in data:
             new_tag_names = set(data['tags'])
             current_tag_names = {t.name for t in contact.tags}
@@ -1483,6 +1484,7 @@ def api_contact_detail(identifier):
                     db.session.add(tag)
                     db.session.flush()
                 contact.tags.append(tag)
+                newly_added_tag_ids.append(tag.id)
             # Tags a eliminar
             to_remove = current_tag_names - new_tag_names
             contact.tags = [t for t in contact.tags if t.name not in to_remove]
@@ -1491,6 +1493,11 @@ def api_contact_detail(identifier):
             db.session.commit()
             action = "creado" if is_new else "actualizado"
             logger.info(f"✅ Contacto {action}: ID={contact.id}, Tel={contact.phone_number}")
+            # Enrollar en secuencias para cada tag nuevo asignado manualmente
+            if newly_added_tag_ids:
+                from auto_tagger import enroll_in_sequences
+                for tid in newly_added_tag_ids:
+                    enroll_in_sequences(db, contact, tid, FollowUpSequence, FollowUpEnrollment)
             return jsonify({'success': True, 'contact': contact.to_dict()})
         except Exception as e:
             db.session.rollback()
@@ -2313,6 +2320,12 @@ def api_chat_toggle_tag(phone):
             assigned = True
 
         db.session.commit()
+
+        # Si se asignó la etiqueta manualmente, enrollar en secuencias activas
+        if assigned:
+            from auto_tagger import enroll_in_sequences
+            enroll_in_sequences(db, contact, tag_id, FollowUpSequence, FollowUpEnrollment)
+
         return jsonify({'success': True, 'assigned': assigned, 'tag_id': tag_id, 'tag_name': tag.name})
     except Exception as e:
         db.session.rollback()
@@ -2852,6 +2865,7 @@ AVAILABLE_PERMISSIONS = [
     ('sessions',       'Sesiones',           'forum'),
     ('topics',         'Temas',              'category'),
     ('chatbot',        'Chatbot',            'smart_toy'),
+    ('reengagement',   'Re-engagement',      'autorenew'),
     ('settings',       'Configuración',      'settings'),
 ]
 
@@ -3419,6 +3433,251 @@ def campaigns_compare_page():
     """Página de comparación de campañas."""
     return render_template('campaign_compare.html')
 
+# ==========================================
+# AUTO TAG RULES API
+# ==========================================
+
+@app.route("/api/auto-tag-rules", methods=["GET"])
+def api_auto_tag_rules_list():
+    rules = AutoTagRule.query.order_by(AutoTagRule.id).all()
+    return jsonify([r.to_dict() for r in rules])
+
+@app.route("/api/auto-tag-rules", methods=["POST"])
+def api_auto_tag_rules_create():
+    data = request.get_json() or {}
+    tag_id = data.get('tag_id')
+    prompt_condition = (data.get('prompt_condition') or '').strip()
+    inactivity_minutes = data.get('inactivity_minutes', 30)
+
+    if not tag_id or not prompt_condition:
+        return jsonify({'error': 'tag_id y prompt_condition son requeridos'}), 400
+
+    tag = Tag.query.get(tag_id)
+    if not tag:
+        return jsonify({'error': 'Tag no encontrado'}), 404
+
+    rule = AutoTagRule(
+        tag_id=tag_id,
+        prompt_condition=prompt_condition,
+        inactivity_minutes=inactivity_minutes,
+        is_active=True
+    )
+    db.session.add(rule)
+    db.session.commit()
+    return jsonify(rule.to_dict()), 201
+
+@app.route("/api/auto-tag-rules/<int:rule_id>", methods=["PUT"])
+def api_auto_tag_rules_update(rule_id):
+    rule = AutoTagRule.query.get_or_404(rule_id)
+    data = request.get_json() or {}
+    if 'tag_id' in data:
+        rule.tag_id = data['tag_id']
+    if 'prompt_condition' in data:
+        rule.prompt_condition = data['prompt_condition'].strip()
+    if 'inactivity_minutes' in data:
+        rule.inactivity_minutes = data['inactivity_minutes']
+    if 'is_active' in data:
+        was_active = rule.is_active
+        rule.is_active = bool(data['is_active'])
+        # Si se está reactivando, actualizar activated_at para ignorar mensajes del período apagado
+        if rule.is_active and not was_active:
+            from datetime import datetime as _dt
+            rule.activated_at = _dt.utcnow()
+    db.session.commit()
+    return jsonify(rule.to_dict())
+
+@app.route("/api/auto-tag-rules/<int:rule_id>", methods=["DELETE"])
+def api_auto_tag_rules_delete(rule_id):
+    rule = AutoTagRule.query.get_or_404(rule_id)
+    db.session.delete(rule)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+# ==========================================
+# FOLLOW-UP SEQUENCES API
+# ==========================================
+
+@app.route("/api/followup-sequences", methods=["GET"])
+def api_followup_sequences_list():
+    sequences = FollowUpSequence.query.order_by(FollowUpSequence.id).all()
+    return jsonify([s.to_dict() for s in sequences])
+
+@app.route("/api/followup-sequences", methods=["POST"])
+def api_followup_sequences_create():
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    tag_id = data.get('tag_id')
+    steps_data = data.get('steps', [])
+
+    if not name or not tag_id:
+        return jsonify({'error': 'name y tag_id son requeridos'}), 400
+
+    tag = Tag.query.get(tag_id)
+    if not tag:
+        return jsonify({'error': 'Tag no encontrado'}), 404
+
+    seq = FollowUpSequence(
+        name=name,
+        tag_id=tag_id,
+        is_active=True,
+        send_window_start=data.get('send_window_start') or None,
+        send_window_end=data.get('send_window_end') or None,
+        send_weekdays=data.get('send_weekdays') or None
+    )
+    db.session.add(seq)
+    db.session.flush()
+
+    for i, step in enumerate(steps_data, start=1):
+        s = FollowUpStep(
+            sequence_id=seq.id,
+            order=i,
+            delay_hours=float(step.get('delay_hours', 24)),
+            template_name=step.get('template_name', ''),
+            template_language=step.get('template_language', 'es_AR'),
+            template_params=step.get('template_params'),
+            remove_tag_on_execute=bool(step.get('remove_tag_on_execute', False)),
+            schedule_type=step.get('schedule_type', 'delay'),
+            scheduled_weekday=step.get('scheduled_weekday'),
+            scheduled_time=step.get('scheduled_time')
+        )
+        db.session.add(s)
+
+    db.session.commit()
+    return jsonify(seq.to_dict()), 201
+
+@app.route("/api/followup-sequences/<int:seq_id>", methods=["PUT"])
+def api_followup_sequences_update(seq_id):
+    seq = FollowUpSequence.query.get_or_404(seq_id)
+    data = request.get_json() or {}
+
+    if 'name' in data:
+        seq.name = data['name'].strip()
+    if 'tag_id' in data:
+        seq.tag_id = data['tag_id']
+    if 'is_active' in data:
+        seq.is_active = bool(data['is_active'])
+    if 'send_window_start' in data:
+        seq.send_window_start = data['send_window_start'] or None
+    if 'send_window_end' in data:
+        seq.send_window_end = data['send_window_end'] or None
+    if 'send_weekdays' in data:
+        seq.send_weekdays = data['send_weekdays'] or None
+
+    if 'steps' in data:
+        # Reemplazar pasos completamente
+        FollowUpStep.query.filter_by(sequence_id=seq.id).delete()
+        for i, step in enumerate(data['steps'], start=1):
+            s = FollowUpStep(
+                sequence_id=seq.id,
+                order=i,
+                delay_hours=float(step.get('delay_hours', 24)),
+                template_name=step.get('template_name', ''),
+                template_language=step.get('template_language', 'es_AR'),
+                template_params=step.get('template_params'),
+                remove_tag_on_execute=bool(step.get('remove_tag_on_execute', False)),
+                schedule_type=step.get('schedule_type', 'delay'),
+                scheduled_weekday=step.get('scheduled_weekday'),
+                scheduled_time=step.get('scheduled_time')
+            )
+            db.session.add(s)
+
+    db.session.commit()
+    return jsonify(seq.to_dict())
+
+@app.route("/api/followup-sequences/<int:seq_id>", methods=["DELETE"])
+def api_followup_sequences_delete(seq_id):
+    seq = FollowUpSequence.query.get_or_404(seq_id)
+    db.session.delete(seq)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route("/api/followup-sequences/<int:seq_id>/enrollments", methods=["GET"])
+def api_followup_enrollments_list(seq_id):
+    FollowUpSequence.query.get_or_404(seq_id)
+    enrollments = FollowUpEnrollment.query.filter_by(sequence_id=seq_id)\
+        .order_by(FollowUpEnrollment.enrolled_at.desc()).all()
+    return jsonify([e.to_dict() for e in enrollments])
+
+@app.route("/api/followup-enrollments", methods=["GET"])
+def api_all_enrollments():
+    """Todos los enrollments activos para el dashboard."""
+    status_filter = request.args.get('status')
+    q = FollowUpEnrollment.query
+    if status_filter:
+        q = q.filter_by(status=status_filter)
+    enrollments = q.order_by(FollowUpEnrollment.enrolled_at.desc()).limit(200).all()
+    return jsonify([e.to_dict() for e in enrollments])
+
+
+@app.route("/api/followup-sequences/<int:seq_id>/enroll", methods=["POST"])
+def api_followup_enroll_manual(seq_id):
+    """Enrollar manualmente un contacto en una secuencia (re-enrollment o testing)."""
+    seq = FollowUpSequence.query.get_or_404(seq_id)
+    data = request.get_json() or {}
+
+    phone = (data.get('phone_number') or '').strip()
+    if not phone:
+        return jsonify({'error': 'phone_number requerido'}), 400
+
+    phone_normalized = normalize_phone(phone)
+    contact = find_contact_by_phone(phone_normalized)
+    if not contact:
+        return jsonify({'error': 'Contacto no encontrado'}), 404
+
+    if not seq.steps:
+        return jsonify({'error': 'La secuencia no tiene pasos'}), 400
+
+    # Si ya existe un enrollment, cancelarlo y crear uno nuevo (re-enrollment)
+    existing = FollowUpEnrollment.query.filter_by(
+        contact_id=contact.id,
+        sequence_id=seq.id
+    ).first()
+    if existing:
+        existing.status = 'cancelled'
+        existing.cancelled_at = datetime.utcnow()
+        db.session.flush()
+        # Eliminar para poder crear uno nuevo (unique constraint)
+        db.session.delete(existing)
+        db.session.flush()
+
+    first_step = seq.steps[0]
+    _now = datetime.utcnow()
+    if (first_step.schedule_type or 'delay') == 'fixed_time' and first_step.scheduled_weekday is not None and first_step.scheduled_time:
+        from followup_sender import _next_fixed_time
+        _next_send = _next_fixed_time(_now, first_step.scheduled_weekday, first_step.scheduled_time)
+    else:
+        _next_send = _now + timedelta(hours=first_step.delay_hours)
+    enrollment = FollowUpEnrollment(
+        contact_id=contact.id,
+        sequence_id=seq.id,
+        current_step=1,
+        status='pending',
+        next_send_at=_next_send
+    )
+    db.session.add(enrollment)
+    db.session.commit()
+    logger.info(f"📋 [MANUAL] {contact.phone_number} enrollado en '{seq.name}' (paso 1)")
+    return jsonify({'success': True, 'enrollment': enrollment.to_dict()})
+
+
+@app.route("/api/contacts/search", methods=["GET"])
+def api_contacts_search():
+    """Búsqueda rápida de contactos por nombre o teléfono (para modales)."""
+    q = (request.args.get('q') or '').strip()
+    if len(q) < 2:
+        return jsonify([])
+    results = Contact.query.filter(
+        db.or_(
+            Contact.phone_number.ilike(f'%{q}%'),
+            Contact.name.ilike(f'%{q}%'),
+            Contact.first_name.ilike(f'%{q}%'),
+            Contact.last_name.ilike(f'%{q}%'),
+        )
+    ).limit(20).all()
+    return jsonify([{'id': c.id, 'name': c.name or c.phone_number, 'phone_number': c.phone_number} for c in results])
+
+
 @app.route("/api/campaigns", methods=["GET"])
 def api_list_campaigns():
     """Lista campañas."""
@@ -3789,10 +4048,12 @@ def send_campaign_bg(app_context, cid):
         logger.info(f"✅ Campaña {cid} completada. Total enviados: {total_sent}, fallidos: {total_failed}")
 
 def run_scheduler():
-    """Scheduler para verificar campañas programadas y categorizar conversaciones."""
+    """Scheduler para verificar campañas programadas, categorizar conversaciones, auto-taggear y enviar follow-ups."""
     from conversation_categorizer import run_categorization
+    from auto_tagger import run_auto_tagger
+    from followup_sender import run_followup_sender
     categorize_counter = 0
-    
+
     while True:
         try:
             with app.app_context():
@@ -3868,7 +4129,17 @@ def run_scheduler():
                 run_categorization(app.app_context())
             except Exception as e:
                 logger.error(f"Error en categorización: {e}")
-            
+            try:
+                run_auto_tagger(app.app_context())
+            except Exception as e:
+                logger.error(f"Error en auto tagger: {e}")
+
+        # Follow-up sender: corre cada minuto
+        try:
+            run_followup_sender(app.app_context())
+        except Exception as e:
+            logger.error(f"Error en follow-up sender: {e}")
+
         time_module.sleep(60) # Revisar cada minuto
 
 # Iniciar scheduler
@@ -4578,6 +4849,85 @@ def chatbot_page():
     documents = RagDocument.query.order_by(RagDocument.created_at.desc()).all()
     chatbot_enabled = ChatbotConfig.get('enabled', 'true') == 'true'
     return render_template('chatbot.html', documents=documents, chatbot_enabled=chatbot_enabled)
+
+
+@app.route("/reengagement")
+def reengagement_page():
+    """Página de re-engagement automático."""
+    tags = Tag.query.filter_by(is_active=True).order_by(Tag.name).all()
+    auto_tagger_enabled = ChatbotConfig.get('auto_tagger_enabled', 'true') == 'true'
+    return render_template('reengagement.html', tags=tags, auto_tagger_enabled=auto_tagger_enabled)
+
+@app.route("/api/auto-tagger/stats", methods=["GET"])
+def api_auto_tagger_stats():
+    """Stats del sistema de re-engagement para el dashboard."""
+    from sqlalchemy import func
+    now = datetime.utcnow()
+    last_7d = now - timedelta(days=7)
+
+    # Logs últimos 7 días
+    logs_7d = AutoTagLog.query.filter(AutoTagLog.created_at >= last_7d).all()
+    tagged_7d  = sum(1 for l in logs_7d if l.result == 'tagged')
+    skipped_7d = sum(1 for l in logs_7d if l.result == 'skipped')
+    error_7d   = sum(1 for l in logs_7d if l.result == 'error')
+
+    # Enrollments
+    total_enrollments  = FollowUpEnrollment.query.count()
+    active_enrollments = FollowUpEnrollment.query.filter_by(status='pending').count()
+    finished           = FollowUpEnrollment.query.filter_by(status='finished').count()
+    cancelled          = FollowUpEnrollment.query.filter_by(status='cancelled').count()
+
+    # Tasa de respuesta: cancelados (respondieron) / (cancelados + finalizados)
+    responded = cancelled
+    total_closed = cancelled + finished
+    response_rate = round((responded / total_closed * 100), 1) if total_closed > 0 else 0
+
+    return jsonify({
+        'tagged_7d': tagged_7d,
+        'skipped_7d': skipped_7d,
+        'error_7d': error_7d,
+        'total_enrollments': total_enrollments,
+        'active_enrollments': active_enrollments,
+        'finished_enrollments': finished,
+        'cancelled_enrollments': cancelled,
+        'response_rate': response_rate
+    })
+
+@app.route("/api/auto-tagger/logs", methods=["GET"])
+def api_auto_tagger_logs():
+    """Log de actividad del auto-tagger."""
+    limit = min(int(request.args.get('limit', 50)), 200)
+    result_filter = request.args.get('result')
+    q = AutoTagLog.query
+    if result_filter:
+        q = q.filter_by(result=result_filter)
+    logs = q.order_by(AutoTagLog.created_at.desc()).limit(limit).all()
+    return jsonify([l.to_dict() for l in logs])
+
+@app.route("/api/auto-tagger/run", methods=["POST"])
+def api_run_auto_tagger():
+    """Corre el auto-tagger manualmente de forma asíncrona."""
+    import threading
+    from auto_tagger import run_auto_tagger
+    ctx = app.app_context()
+    t = threading.Thread(target=run_auto_tagger, args=(ctx,))
+    t.daemon = True
+    t.start()
+    return jsonify({'success': True, 'message': 'Auto-tagger iniciado'})
+
+
+@app.route("/api/auto-tagger/toggle", methods=["POST"])
+def api_toggle_auto_tagger():
+    """Enciende/apaga el auto tagger."""
+    try:
+        db.session.rollback()
+        current = ChatbotConfig.get('auto_tagger_enabled', 'true')
+        new_value = 'false' if current == 'true' else 'true'
+        ChatbotConfig.set('auto_tagger_enabled', new_value)
+        return jsonify({'success': True, 'enabled': new_value == 'true'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route("/api/rag/documents", methods=["GET"])
