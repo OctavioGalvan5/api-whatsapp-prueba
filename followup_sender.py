@@ -178,7 +178,7 @@ def _resolve_components(template_params, contact):
 
 def _process_enrollment(db, enrollment, whatsapp_api, now):
     """Procesa un enrollment individual: envía el mensaje del paso actual."""
-    from models import FollowUpStep, FollowUpSequence
+    from models import db, FollowUpStep, FollowUpSequence
 
     sequence = enrollment.sequence
     if not sequence or not sequence.is_active:
@@ -227,7 +227,8 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
         components=components
     )
 
-    if result and result.get('messages'):
+    sent_ok = result and (result.get('messages') or result.get('message_id') or result.get('success'))
+    if sent_ok:
         logger.info(f"✅ [FOLLOWUP] Paso {step.order} enviado a {contact.phone_number} (secuencia: {sequence.name})")
     else:
         logger.warning(f"⚠️ [FOLLOWUP] Fallo enviando paso {step.order} a {contact.phone_number}: {result}")
@@ -235,8 +236,16 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
     # Si el paso tiene remove_tag_on_execute, quitar la etiqueta y finalizar
     if step.remove_tag_on_execute:
         tag = sequence.tag
-        if tag and tag in contact.tags:
-            contact.tags.remove(tag)
+        if tag:
+            from models import contact_tags
+            db.session.execute(
+                contact_tags.delete().where(
+                    db.and_(
+                        contact_tags.c.contact_id == contact.id,
+                        contact_tags.c.tag_id == tag.id
+                    )
+                )
+            )
             logger.info(f"🏷️ [FOLLOWUP] Etiqueta '{tag.name}' quitada de {contact.phone_number}")
         enrollment.status = 'finished'
         logger.info(f"✅ [FOLLOWUP] Secuencia '{sequence.name}' finalizada (remove_tag) para {contact.phone_number}")
