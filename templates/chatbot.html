@@ -357,7 +357,12 @@
         });
 
         if (hasProcessing) {
-            setTimeout(() => location.reload(), 10000);
+            setTimeout(() => {
+                // No recargar si el usuario está editando el prompt
+                const promptInput = document.getElementById('system-prompt-input');
+                if (document.activeElement === promptInput) return;
+                location.reload();
+            }, 10000);
         }
     }
 
