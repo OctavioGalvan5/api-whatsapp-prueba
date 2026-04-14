@@ -64,7 +64,7 @@ def forward_to_n8n(user_number, user_message, msg_type, media_url=None, media_da
     except Exception as e:
         logger.error(f"Excepción al conectar con n8n: {e}")
 
-def save_message(wa_message_id, phone_number, direction, message_type, content, media_id=None, media_url=None, caption=None):
+def save_message(wa_message_id, phone_number, direction, message_type, content, media_id=None, media_url=None, caption=None, wa_name=None):
     """Guarda un mensaje en la base de datos y registra el contacto."""
     from app import app
     from models import db, Message, Contact
@@ -85,17 +85,24 @@ def save_message(wa_message_id, phone_number, direction, message_type, content, 
                 contact = Contact.query.filter_by(phone_number=phone_number).first()
                 if not contact:
                     try:
-                        # Intentar crear y commitear inmediatamente solo el contacto
-                        new_contact = Contact(phone_number=phone_number)
+                        new_contact = Contact(phone_number=phone_number, name=wa_name)
                         db.session.add(new_contact)
                         db.session.commit()
-                        logger.info(f"🆕 Contacto auto-registrado: {phone_number}")
+                        logger.info(f"🆕 Contacto auto-registrado: {phone_number} ({wa_name or 'sin nombre'})")
                     except IntegrityError:
                         db.session.rollback()
                         logger.info(f"Contacto {phone_number} ya fue creado concurrentemente.")
                     except Exception as e:
                         db.session.rollback()
                         logger.error(f"Error creando contacto {phone_number}: {e}")
+                elif wa_name and not contact.name:
+                    try:
+                        contact.name = wa_name
+                        db.session.commit()
+                        logger.info(f"📝 Nombre actualizado: {phone_number} → {wa_name}")
+                    except Exception as e:
+                        db.session.rollback()
+                        logger.error(f"Error actualizando nombre {phone_number}: {e}")
 
             # Manejo de tipos interactivos si el contenido es nulo
             if not content and message_type == "interactive":
@@ -186,6 +193,10 @@ def process_event(data):
             
             # --- MANEJO DE MENSAJES ---
             if "messages" in value:
+                # Extraer nombre del perfil de WhatsApp (viene en value["contacts"])
+                wa_contacts = value.get("contacts", [])
+                wa_names = {c.get("wa_id"): c.get("profile", {}).get("name") for c in wa_contacts}
+
                 for message in value["messages"]:
                     sender = message.get("from")
                     msg_type = message.get("type")
@@ -257,7 +268,8 @@ def process_event(data):
 
                     # Guardar mensaje en base de datos
                     save_message(msg_id, sender, "inbound", msg_type, content,
-                               media_id=media_id, media_url=media_url, caption=caption)
+                               media_id=media_id, media_url=media_url, caption=caption,
+                               wa_name=wa_names.get(sender))
 
                     # Cancelar follow-ups activos si el cliente responde
                     try:

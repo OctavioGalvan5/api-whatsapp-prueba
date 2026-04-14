@@ -575,7 +575,7 @@ class FollowUpEnrollment(db.Model):
     enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
     cancelled_at = db.Column(db.DateTime, nullable=True)
 
-    contact = db.relationship('Contact', backref='followup_enrollments')
+    contact = db.relationship('Contact', backref=db.backref('followup_enrollments', passive_deletes=True))
 
     __table_args__ = (
         db.UniqueConstraint('contact_id', 'sequence_id', name='uq_enrollment_contact_sequence'),
