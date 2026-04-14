@@ -176,7 +176,15 @@ def enroll_in_sequences(db, contact, tag_id, FollowUpSequence, FollowUpEnrollmen
             sequence_id=seq.id
         ).first()
         if existing:
-            continue
+            if existing.status == 'pending':
+                continue  # Ya tiene un enrollment activo, no duplicar
+            # Eliminar enrollment finalizado/cancelado para permitir re-enrollment
+            db.session.delete(existing)
+            try:
+                db.session.flush()
+            except Exception:
+                db.session.rollback()
+                continue
 
         first_step = seq.steps[0]
         now = datetime.utcnow()
