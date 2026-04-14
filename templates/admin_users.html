@@ -169,6 +169,28 @@
                     </div>
                 </div>
 
+                <!-- Visibilidad de etiquetas (solo para no-admins) -->
+                <div id="visibility-section" class="mb-5">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiquetas visibles</p>
+                    <p class="text-xs text-gray-400 mb-2">El usuario solo verá conversaciones con al menos una de estas etiquetas.</p>
+
+                    <!-- Buscador rápido -->
+                    <input type="text" id="tag-search" placeholder="Filtrar etiquetas..."
+                        oninput="filterTagList()"
+                        class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary mb-2">
+
+                    <!-- Lista de etiquetas -->
+                    <div id="tag-list" class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-y-auto max-h-48 divide-y divide-gray-100 dark:divide-gray-700/50">
+                        <p class="px-3 py-2 text-xs text-gray-400 italic" id="tag-list-loading">Cargando etiquetas...</p>
+                    </div>
+
+                    <!-- Checkbox sin etiqueta -->
+                    <label class="flex items-center gap-2 mt-3 cursor-pointer">
+                        <input type="checkbox" id="field-can-see-untagged" class="w-4 h-4 rounded accent-primary">
+                        <span class="text-sm text-gray-700 dark:text-gray-300">Ver contactos sin etiqueta</span>
+                    </label>
+                </div>
+
                 <!-- Botones -->
                 <div class="flex gap-3 mt-6">
                     <button type="button" onclick="closeModal()"
@@ -186,11 +208,16 @@
 </div>
 
 <script>
+    // IDs de etiquetas seleccionadas para el usuario actual
+    let selectedTags = [];
+
     function openModal(user = null) {
         document.getElementById('user-modal').classList.remove('hidden');
         document.getElementById('modal-error').classList.add('hidden');
         document.getElementById('user-form').reset();
         document.getElementById('edit-user-id').value = '';
+        document.getElementById('tag-search').value = '';
+        selectedTags = [];
 
         const isEdit = !!user;
         document.getElementById('modal-title').textContent = isEdit ? 'Editar usuario' : 'Nuevo usuario';
@@ -203,15 +230,72 @@
             document.getElementById('field-username').value = user.username;
             document.getElementById('field-is-admin').checked = user.is_admin;
             document.getElementById('field-is-active').checked = user.is_active;
+            document.getElementById('field-can-see-untagged').checked = user.can_see_untagged || false;
             toggleAdminMode(user.is_admin);
 
             document.querySelectorAll('input[name="permissions"]').forEach(cb => {
                 cb.checked = user.permissions.includes(cb.value);
             });
+
+            // Cargar lista con etiquetas del usuario pre-seleccionadas
+            loadUserTagVisibility(user.tag_visibility || []);
         } else {
             document.getElementById('field-is-active').checked = true;
+            document.getElementById('field-can-see-untagged').checked = false;
             toggleAdminMode(false);
+            // Cargar lista vacía (sin selección)
+            loadAllTags().then(() => renderTagList());
         }
+    }
+
+    let allTags = [];  // Cache de todas las etiquetas activas
+
+    async function loadAllTags() {
+        if (allTags.length) return;
+        const res = await fetch('/api/tags/active?include_system=true');
+        if (!res.ok) return;
+        allTags = await res.json();
+    }
+
+    async function loadUserTagVisibility(tagIds) {
+        await loadAllTags();
+        // Marcar como seleccionadas las del usuario
+        selectedTags = allTags.filter(t => tagIds.includes(t.id)).map(t => t.id);
+        renderTagList();
+    }
+
+    function renderTagList(filter = '') {
+        const container = document.getElementById('tag-list');
+        const visible = allTags.filter(t =>
+            !filter || t.name.toLowerCase().includes(filter.toLowerCase())
+        );
+        if (!visible.length) {
+            container.innerHTML = '<p class="px-3 py-2 text-xs text-gray-400 italic">Sin etiquetas</p>';
+            return;
+        }
+        container.innerHTML = visible.map(t => {
+            const checked = selectedTags.includes(t.id);
+            return `
+            <label class="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
+                <input type="checkbox" value="${t.id}" ${checked ? 'checked' : ''}
+                    onchange="toggleTagSelection(${t.id}, this.checked)"
+                    class="w-4 h-4 accent-primary rounded shrink-0">
+                <span class="text-sm text-gray-800 dark:text-white">${t.name}</span>
+            </label>`;
+        }).join('');
+    }
+
+    function toggleTagSelection(id, checked) {
+        if (checked && !selectedTags.includes(id)) {
+            selectedTags.push(id);
+        } else if (!checked) {
+            selectedTags = selectedTags.filter(tid => tid !== id);
+        }
+    }
+
+    function filterTagList() {
+        const q = document.getElementById('tag-search').value.trim();
+        renderTagList(q);
     }
 
     function editUser(user) { openModal(user); }
@@ -223,6 +307,8 @@
     function toggleAdminMode(isAdmin) {
         document.getElementById('permissions-section').style.opacity = isAdmin ? '0.4' : '1';
         document.getElementById('permissions-section').style.pointerEvents = isAdmin ? 'none' : '';
+        document.getElementById('visibility-section').style.opacity = isAdmin ? '0.4' : '1';
+        document.getElementById('visibility-section').style.pointerEvents = isAdmin ? 'none' : '';
     }
 
     async function saveUser(e) {
@@ -236,6 +322,8 @@
             password: document.getElementById('field-password').value,
             is_admin: document.getElementById('field-is-admin').checked,
             is_active: document.getElementById('field-is-active').checked,
+            can_see_untagged: document.getElementById('field-can-see-untagged').checked,
+            tag_visibility: selectedTags.map(t => t.id),
             permissions
         };
 

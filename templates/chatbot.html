@@ -28,6 +28,37 @@
     </header>
 
     <div class="flex-1 overflow-auto p-4 md:p-6">
+
+        <!-- System Prompt Section -->
+        <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-lg font-semibold">System Prompt</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Instrucciones base que definen el comportamiento del chatbot</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="prompt-saved-indicator" class="hidden text-xs text-green-500 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                        Guardado
+                    </span>
+                    <button onclick="saveSystemPrompt()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
+                        <span class="material-symbols-outlined text-[16px]">save</span>
+                        Guardar
+                    </button>
+                </div>
+            </div>
+            <textarea
+                id="system-prompt-input"
+                rows="10"
+                placeholder="Ej: Eres un asistente virtual de Caja de Abogados. Respondés de manera formal y concisa. Solo respondés preguntas relacionadas con servicios legales y prestaciones de la caja..."
+                class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y font-mono"
+            >{{ system_prompt }}</textarea>
+            <p class="text-xs text-gray-400 mt-2">
+                <span class="material-symbols-outlined text-[13px] align-middle">info</span>
+                Este prompt se carga dinámicamente desde la base de datos en cada consulta al modelo de IA.
+            </p>
+        </div>
+
         <!-- Upload Section -->
         <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
             <h2 class="text-lg font-semibold mb-4">Subir Documentos</h2>
@@ -241,6 +272,37 @@
             document.getElementById('empty-state').classList.remove('hidden');
         }
     }
+
+    // System prompt
+    async function saveSystemPrompt() {
+        const prompt = document.getElementById('system-prompt-input').value;
+        try {
+            const resp = await fetch('/api/chatbot/system-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system_prompt: prompt })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                const indicator = document.getElementById('prompt-saved-indicator');
+                indicator.classList.remove('hidden');
+                setTimeout(() => indicator.classList.add('hidden'), 3000);
+                showToast('System prompt guardado', 'success');
+            } else {
+                showToast('Error al guardar', 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    // Ctrl+S para guardar el prompt
+    document.getElementById('system-prompt-input').addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            saveSystemPrompt();
+        }
+    });
 
     // Chatbot toggle
     document.getElementById('chatbot-toggle').addEventListener('change', async function() {

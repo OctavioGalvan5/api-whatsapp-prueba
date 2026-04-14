@@ -20,9 +20,11 @@ class CrmUser(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    can_see_untagged = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    permissions = db.relationship('CrmUserPermission', backref='user', lazy='joined', cascade='all, delete-orphan')
+    permissions   = db.relationship('CrmUserPermission',    backref='user',     lazy='joined', cascade='all, delete-orphan')
+    tag_visibility = db.relationship('CrmUserTagVisibility', backref='user_vis', lazy='joined', cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -45,7 +47,9 @@ class CrmUser(db.Model):
             'display_name': self.display_name,
             'is_admin': self.is_admin,
             'is_active': self.is_active,
+            'can_see_untagged': self.can_see_untagged,
             'permissions': self.get_permissions(),
+            'tag_visibility': [v.tag_id for v in self.tag_visibility],
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
@@ -56,6 +60,14 @@ class CrmUserPermission(db.Model):
 
     user_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='CASCADE'), primary_key=True)
     permission = db.Column(db.String(50), primary_key=True)
+
+
+class CrmUserTagVisibility(db.Model):
+    """Etiquetas visibles por usuario. Si no tiene filas → no ve nada (salvo admin)."""
+    __tablename__ = 'crm_user_tag_visibility'
+
+    user_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='CASCADE'), primary_key=True)
+    tag_id  = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id', ondelete='CASCADE'), primary_key=True)
 
 class Message(db.Model):
     """Modelo para almacenar mensajes de WhatsApp."""

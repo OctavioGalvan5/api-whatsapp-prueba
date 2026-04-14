@@ -274,6 +274,7 @@ CREATE TABLE IF NOT EXISTS crm_users (
     password_hash VARCHAR(255) NOT NULL,
     is_admin BOOLEAN DEFAULT FALSE NOT NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    can_see_untagged BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -284,6 +285,15 @@ CREATE TABLE IF NOT EXISTS crm_user_permissions (
     user_id INTEGER NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
     permission VARCHAR(50) NOT NULL,
     PRIMARY KEY (user_id, permission)
+);
+
+-- ==========================================
+-- CRM USER TAG VISIBILITY
+-- ==========================================
+CREATE TABLE IF NOT EXISTS crm_user_tag_visibility (
+    user_id INTEGER NOT NULL REFERENCES crm_users(id) ON DELETE CASCADE,
+    tag_id  INTEGER NOT NULL REFERENCES whatsapp_tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, tag_id)
 );
 
 -- ==========================================

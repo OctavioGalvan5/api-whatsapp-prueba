@@ -166,6 +166,13 @@
 
     <!-- Conversation List -->
     <div class="flex-1 overflow-y-auto custom-scrollbar" id="contacts-list">
+        {% if has_no_visibility %}
+        <div class="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
+            <span class="material-symbols-outlined text-4xl text-gray-300 dark:text-gray-600 mb-3">label_off</span>
+            <p class="text-sm font-semibold text-gray-500 dark:text-gray-400">Sin acceso a conversaciones</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Tu usuario no tiene etiquetas asignadas. Contactá al administrador para configurar tu acceso.</p>
+        </div>
+        {% else %}
         {% for contact in contacts %}
         {% set is_human = contact.has_human_assistance %}
         <div onclick="selectContact('{{ contact.phone_number }}')" data-phone="{{ contact.phone_number }}"
@@ -196,6 +203,7 @@
         {% else %}
         <div id="empty-contacts" class="p-8 text-center text-gray-400 text-sm">No hay conversaciones</div>
         {% endfor %}
+        {% endif %}
     </div>
     <!-- Loading indicator para scroll infinito -->
     <div id="contacts-loading" class="hidden p-4 text-center">

@@ -7,7 +7,7 @@ import pandas as pd
 import re
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for, abort, g
 from config import Config
-from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpStep, FollowUpEnrollment
+from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpStep, FollowUpEnrollment, CrmUserTagVisibility
 import threading
 import time as time_module
 from event_handlers import process_event
@@ -566,18 +566,21 @@ def dashboard():
     """Dashboard para visualizar conversaciones tipo WhatsApp - OPTIMIZADO."""
     selected_phone = request.args.get('phone')
 
-    # Si no hay phone seleccionado, redirigir al primer contacto disponible
+    # Si no hay phone seleccionado, redirigir al primer contacto visible para el usuario
     if not selected_phone:
-        from sqlalchemy import text
-        first_contact_query = text("""
-            SELECT phone_number
-            FROM whatsapp_messages
-            WHERE phone_number NOT IN ('unknown', 'outbound', '')
-            ORDER BY timestamp DESC
+        from sqlalchemy import text as _text
+        _vis_sql, _vis_params = build_visibility_sql(g.current_user)
+        first_contact_query = _text(f"""
+            SELECT m.phone_number
+            FROM whatsapp_messages m
+            LEFT JOIN whatsapp_contacts c ON c.phone_number = m.phone_number
+            WHERE m.phone_number NOT IN ('unknown', 'outbound', '')
+            {_vis_sql}
+            ORDER BY m.timestamp DESC
             LIMIT 1
         """)
         try:
-            result = db.session.execute(first_contact_query).fetchone()
+            result = db.session.execute(first_contact_query, _vis_params).fetchone()
             if result:
                 return redirect(url_for('dashboard', phone=result.phone_number))
         except Exception as e:
@@ -595,7 +598,8 @@ def dashboard():
     # Usa lateral join para obtener el último mensaje por teléfono sin doble sort.
     # El índice ix_messages_phone_ts (phone_number, timestamp) hace esto muy rápido.
     # Las conversaciones con tag "Asistencia Humana" se muestran primero.
-    combined_query = text("""
+    vis_sql, vis_params = build_visibility_sql(g.current_user)
+    combined_query = text(f"""
         SELECT
             m.phone_number,
             m.content        AS last_message,
@@ -617,11 +621,12 @@ def dashboard():
             WHERE ct.contact_id = c.id AND t.name = 'Asistencia Humana'
             LIMIT 1
         ) ha ON true
+        WHERE 1=1 {vis_sql}
         ORDER BY has_human DESC, m.timestamp DESC
         LIMIT :lim
     """)
 
-    rows = db.session.execute(combined_query, {'lim': CONTACTS_LIMIT + 1}).fetchall()
+    rows = db.session.execute(combined_query, {'lim': CONTACTS_LIMIT + 1, **vis_params}).fetchall()
 
     has_more_contacts = len(rows) > CONTACTS_LIMIT
     rows = rows[:CONTACTS_LIMIT]
@@ -665,6 +670,9 @@ def dashboard():
     # Límite de mensajes para mostrar en el chat
     MESSAGE_LIMIT = 60
     from sqlalchemy.orm import joinedload as _jl
+
+    if selected_phone and not user_can_access_phone(g.current_user, selected_phone):
+        return redirect(url_for('dashboard'))
 
     if selected_phone:
         selected_contact = selected_phone
@@ -744,6 +752,11 @@ def dashboard():
     # Etiquetas activas para el filtro del sidebar
     available_tags = Tag.query.filter_by(is_active=True).order_by(Tag.name).all()
 
+    # Detectar si el usuario no tiene etiquetas asignadas (y no es admin)
+    user = g.current_user
+    _vis_ids = get_visible_tag_ids(user)
+    has_no_visibility = _vis_ids is not None and len(_vis_ids) == 0 and not user.can_see_untagged
+
     return render_template('dashboard.html',
                          stats=stats,
                          contacts=contacts,
@@ -758,7 +771,8 @@ def dashboard():
                          whatsapp_configured=whatsapp_configured,
                          has_more_contacts=has_more_contacts,
                          bot_paused=bot_paused,
-                         available_tags=available_tags)
+                         available_tags=available_tags,
+                         has_no_visibility=has_no_visibility)
 
 @app.route("/analytics")
 def analytics():
@@ -1139,6 +1153,70 @@ def api_stats():
         'success_rate': success_rate
     })
 
+def get_visible_tag_ids(user):
+    """
+    Retorna la lista de tag_ids visibles para el usuario, o None si no hay restricción (admin).
+    Lista vacía significa que no ve ninguna conversación.
+    """
+    if user.is_admin:
+        return None
+    return [v.tag_id for v in user.tag_visibility]
+
+
+def user_can_access_phone(user, phone):
+    """
+    Verifica si el usuario tiene acceso a un contacto por su número de teléfono.
+    Retorna True si tiene acceso, False si no.
+    """
+    vis_tag_ids = get_visible_tag_ids(user)
+    if vis_tag_ids is None:
+        return True  # admin → acceso total
+    contact = Contact.query.filter_by(phone_number=phone).first()
+    if contact:
+        contact_tag_ids = {t.id for t in contact.tags}
+        if contact_tag_ids & set(vis_tag_ids):
+            return True
+        if user.can_see_untagged and not contact_tag_ids:
+            return True
+        return False
+    else:
+        return bool(user.can_see_untagged)
+
+
+def build_visibility_sql(user, phone_alias='m.phone_number'):
+    """
+    Retorna (sql_fragment, params) para filtrar conversaciones por visibilidad de etiquetas.
+    sql_fragment empieza con AND y se puede concatenar directamente al WHERE.
+    """
+    if user.is_admin:
+        return '', {}
+
+    tag_ids = get_visible_tag_ids(user)
+
+    if not tag_ids:
+        return 'AND 1=0', {}  # Sin etiquetas → no ve nada
+
+    conditions = [f"""
+        EXISTS (
+            SELECT 1 FROM whatsapp_contacts _vc
+            JOIN whatsapp_contact_tags _vct ON _vct.contact_id = _vc.id
+            WHERE _vc.phone_number = {phone_alias} AND _vct.tag_id = ANY(:_vis_ids)
+        )
+    """]
+
+    if user.can_see_untagged:
+        conditions.append(f"""(
+            NOT EXISTS (SELECT 1 FROM whatsapp_contacts _vc2 WHERE _vc2.phone_number = {phone_alias})
+            OR EXISTS (
+                SELECT 1 FROM whatsapp_contacts _vc3
+                WHERE _vc3.phone_number = {phone_alias}
+                AND NOT EXISTS (SELECT 1 FROM whatsapp_contact_tags _vct3 WHERE _vct3.contact_id = _vc3.id)
+            )
+        )""")
+
+    return f'AND ({" OR ".join(conditions)})', {'_vis_ids': tag_ids}
+
+
 def format_utc_iso(dt):
     """Convierte datetime a string ISO 8601 con sufijo Z para UTC."""
     if not dt:
@@ -1209,7 +1287,7 @@ def api_dashboard_contacts():
 
     from sqlalchemy import text
 
-    # Condición de filtro por etiqueta (se inyecta en ambas queries)
+    # Filtro de etiqueta explícito (barra lateral)
     tag_join = ""
     tag_params = {}
     if tag_filter:
@@ -1220,9 +1298,10 @@ def api_dashboard_contacts():
         """
         tag_params['tag_filter'] = tag_filter
 
+    # Filtro de visibilidad por usuario
+    vis_sql, vis_params = build_visibility_sql(g.current_user)
+
     if search:
-        # Búsqueda: filtrar por nombre, teléfono o contenido de mensaje
-        # Las conversaciones con tag "Asistencia Humana" se muestran primero.
         search_query = text(f"""
             SELECT sub.phone_number, sub.last_message, sub.last_timestamp
             FROM (
@@ -1231,39 +1310,33 @@ def api_dashboard_contacts():
                 {tag_join}
                 WHERE m.phone_number NOT IN ('unknown', 'outbound', '')
                   AND (
-                    -- Buscar por teléfono
                     m.phone_number ILIKE :pattern
-                    -- Buscar por nombre de contacto
                     OR m.phone_number IN (
                         SELECT c.phone_number FROM whatsapp_contacts c
                         WHERE c.name ILIKE :pattern OR c.phone_number ILIKE :pattern
                     )
-                    -- Buscar por contenido de mensaje
                     OR m.phone_number IN (
                         SELECT DISTINCT m2.phone_number FROM whatsapp_messages m2
                         WHERE m2.content ILIKE :pattern
                           AND m2.phone_number NOT IN ('unknown', 'outbound', '')
                     )
                   )
+                  {vis_sql}
                 ORDER BY m.phone_number, m.timestamp DESC
             ) sub
             LEFT JOIN whatsapp_contacts c2 ON c2.phone_number = sub.phone_number
             LEFT JOIN LATERAL (
-                SELECT ct.contact_id
-                FROM whatsapp_contact_tags ct
+                SELECT ct.contact_id FROM whatsapp_contact_tags ct
                 JOIN whatsapp_tags t ON t.id = ct.tag_id
-                WHERE ct.contact_id = c2.id AND t.name = 'Asistencia Humana'
-                LIMIT 1
+                WHERE ct.contact_id = c2.id AND t.name = 'Asistencia Humana' LIMIT 1
             ) ha ON true
             ORDER BY CASE WHEN ha.contact_id IS NOT NULL THEN 1 ELSE 0 END DESC, sub.last_timestamp DESC
             OFFSET :off LIMIT :lim
         """)
         results = db.session.execute(search_query, {
-            'pattern': f'%{search}%', 'off': offset, 'lim': limit + 1, **tag_params
+            'pattern': f'%{search}%', 'off': offset, 'lim': limit + 1, **tag_params, **vis_params
         }).fetchall()
     else:
-        # Sin búsqueda: DISTINCT ON puro, muy rápido
-        # Las conversaciones con tag "Asistencia Humana" se muestran primero.
         distinct_query = text(f"""
             SELECT sub.phone_number, sub.last_message, sub.last_timestamp
             FROM (
@@ -1271,21 +1344,20 @@ def api_dashboard_contacts():
                 FROM whatsapp_messages m
                 {tag_join}
                 WHERE m.phone_number NOT IN ('unknown', 'outbound', '')
+                {vis_sql}
                 ORDER BY m.phone_number, m.timestamp DESC
             ) sub
             LEFT JOIN whatsapp_contacts c ON c.phone_number = sub.phone_number
             LEFT JOIN LATERAL (
-                SELECT ct.contact_id
-                FROM whatsapp_contact_tags ct
+                SELECT ct.contact_id FROM whatsapp_contact_tags ct
                 JOIN whatsapp_tags t ON t.id = ct.tag_id
-                WHERE ct.contact_id = c.id AND t.name = 'Asistencia Humana'
-                LIMIT 1
+                WHERE ct.contact_id = c.id AND t.name = 'Asistencia Humana' LIMIT 1
             ) ha ON true
             ORDER BY CASE WHEN ha.contact_id IS NOT NULL THEN 1 ELSE 0 END DESC, sub.last_timestamp DESC
             OFFSET :off LIMIT :lim
         """)
         results = db.session.execute(distinct_query, {
-            'off': offset, 'lim': limit + 1, **tag_params
+            'off': offset, 'lim': limit + 1, **tag_params, **vis_params
         }).fetchall()
 
     has_more = len(results) > limit
@@ -1942,9 +2014,13 @@ def api_contacts_template():
 def api_get_messages(phone):
     """API para obtener mensajes de un contacto (optimizado para AJAX)."""
     try:
+        # Validar visibilidad
+        if not user_can_access_phone(g.current_user, phone):
+            return jsonify({'error': 'Sin acceso'}), 403
+
         # Límite de mensajes
         MESSAGE_LIMIT = 100
-        
+
         # Obtener mensajes recientes
         recent_messages = Message.query.filter_by(phone_number=phone)\
             .order_by(Message.timestamp.desc())\
@@ -2048,6 +2124,20 @@ def contacts_page():
 
     # Base query con joinedload para evitar N+1 en tags
     query = Contact.query.options(joinedload(Contact.tags))
+
+    # Filtro de visibilidad por usuario
+    user = g.current_user
+    vis_tag_ids = get_visible_tag_ids(user)
+    if vis_tag_ids is not None:
+        vis_conditions = []
+        if vis_tag_ids:
+            vis_conditions.append(Contact.tags.any(Tag.id.in_(vis_tag_ids)))
+        if user.can_see_untagged:
+            vis_conditions.append(~Contact.tags.any())
+        if vis_conditions:
+            query = query.filter(or_(*vis_conditions))
+        else:
+            query = query.filter(False)
 
     # Apply tag filter (Include)
     if tag_filter:
@@ -2337,7 +2427,11 @@ def api_chat_toggle_tag(phone):
 def api_tags_active():
     """Lista todos los tags activos. Usado por el panel de tags del chat."""
     try:
-        tags = Tag.query.filter_by(is_active=True, is_system=False).order_by(Tag.name).all()
+        include_system = request.args.get('include_system', 'false').lower() == 'true'
+        q = Tag.query.filter_by(is_active=True)
+        if not include_system:
+            q = q.filter_by(is_system=False)
+        tags = q.order_by(Tag.name).all()
         return jsonify([{'id': t.id, 'name': t.name, 'color': t.color} for t in tags])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2371,6 +2465,8 @@ def api_pause_bot(phone):
     """Agrega etiqueta 'Asistencia Humana' al contacto. Llamado desde dashboard."""
     try:
         phone_normalized = normalize_phone(phone)
+        if not user_can_access_phone(g.current_user, phone_normalized):
+            return jsonify({'error': 'Sin acceso'}), 403
         contact = find_contact_by_phone(phone_normalized)
         if not contact:
             return jsonify({'error': 'Contacto no encontrado'}), 404
@@ -2396,6 +2492,8 @@ def api_resume_bot(phone):
     """Quita etiqueta 'Asistencia Humana' del contacto. Llamado desde dashboard."""
     try:
         phone_normalized = normalize_phone(phone)
+        if not user_can_access_phone(g.current_user, phone_normalized):
+            return jsonify({'error': 'Sin acceso'}), 403
         contact = find_contact_by_phone(phone_normalized)
         if not contact:
             return jsonify({'error': 'Contacto no encontrado'}), 404
@@ -2892,12 +2990,17 @@ def api_admin_create_user():
     if CrmUser.query.filter_by(username=username).first():
         return jsonify({'error': 'El usuario ya existe'}), 409
 
-    user = CrmUser(username=username, display_name=display_name, is_admin=is_admin, is_active=True)
+    can_see_untagged = data.get('can_see_untagged', False)
+    tag_visibility = data.get('tag_visibility', [])
+
+    user = CrmUser(username=username, display_name=display_name, is_admin=is_admin, is_active=True, can_see_untagged=can_see_untagged)
     user.set_password(password)
     db.session.add(user)
     db.session.flush()
     for perm in permissions:
         db.session.add(CrmUserPermission(user_id=user.id, permission=perm))
+    for tid in tag_visibility:
+        db.session.add(CrmUserTagVisibility(user_id=user.id, tag_id=int(tid)))
     db.session.commit()
     return jsonify({'success': True, 'user': user.to_dict()})
 
@@ -2919,6 +3022,12 @@ def api_admin_update_user(user_id):
         CrmUserPermission.query.filter_by(user_id=user.id).delete()
         for perm in data['permissions']:
             db.session.add(CrmUserPermission(user_id=user.id, permission=perm))
+    if 'can_see_untagged' in data:
+        user.can_see_untagged = bool(data['can_see_untagged'])
+    if 'tag_visibility' in data:
+        CrmUserTagVisibility.query.filter_by(user_id=user.id).delete()
+        for tid in (data['tag_visibility'] or []):
+            db.session.add(CrmUserTagVisibility(user_id=user.id, tag_id=int(tid)))
 
     db.session.commit()
     return jsonify({'success': True, 'user': user.to_dict()})
@@ -3132,7 +3241,10 @@ def api_send_template():
     
     if not to_phone or not template_name:
         return jsonify({"error": "to y template_name son requeridos"}), 400
-    
+
+    if not user_can_access_phone(g.current_user, to_phone):
+        return jsonify({"error": "Sin acceso"}), 403
+
     # Construir componentes si hay mapeo de variables
     components = data.get("components") # Permitir componentes manuales si se envían
     
@@ -3241,12 +3353,15 @@ def api_send_text():
     data = request.json
     if not data:
         return jsonify({"error": "No data provided"}), 400
-    
+
     to_phone = re.sub(r'[^\d]', '', str(data.get("to") or ""))
     text = data.get("text")
 
     if not to_phone or not text:
         return jsonify({"error": "to y text son requeridos"}), 400
+
+    if not user_can_access_phone(g.current_user, to_phone):
+        return jsonify({"error": "Sin acceso"}), 403
 
     # Determinar autor: si hay sesión es un agente, si no es el bot
     sent_by = session.get('username', 'bot')
@@ -3288,11 +3403,13 @@ def api_send_media():
     to_phone = request.form.get("to")
     caption = request.form.get("caption", "").strip() or None
     file = request.files.get("file")
-    
+
     if not to_phone:
         return jsonify({"error": "'to' es requerido"}), 400
     if not file:
         return jsonify({"error": "No se envió ningún archivo"}), 400
+    if not user_can_access_phone(g.current_user, re.sub(r'[^\d]', '', to_phone)):
+        return jsonify({"error": "Sin acceso"}), 403
     
     # Leer archivo
     file_bytes = file.read()
@@ -3383,8 +3500,11 @@ def campaigns_page():
     """Página de campañas — OPTIMIZADO: stats en SQL + templates cargados async."""
     from sqlalchemy import case
 
+    # Filtro de visibilidad por usuario
+    vis_tag_ids = get_visible_tag_ids(g.current_user)
+
     # Stats en SQL — GROUP BY solo sobre Campaign.id (joinedload rompe GROUP BY en Postgres)
-    campaigns_with_stats = db.session.query(
+    campaigns_q = db.session.query(
         Campaign,
         func.count(CampaignLog.id).label('total'),
         func.count(case(
@@ -3395,13 +3515,21 @@ def campaigns_page():
         )).label('failed')
     ).outerjoin(
         CampaignLog, Campaign.id == CampaignLog.campaign_id
-    ).group_by(Campaign.id).order_by(Campaign.created_at.desc()).all()
+    ).group_by(Campaign.id)
+
+    if vis_tag_ids is not None:
+        if vis_tag_ids:
+            campaigns_q = campaigns_q.filter(Campaign.tag_id.in_(vis_tag_ids))
+        else:
+            campaigns_q = campaigns_q.filter(False)
+
+    campaigns_with_stats = campaigns_q.order_by(Campaign.created_at.desc()).all()
 
     # Cargar tags en batch (una sola query IN) para evitar N+1 lazy load en el template
-    tag_ids = list({c.tag_id for c, *_ in campaigns_with_stats if c.tag_id})
+    tag_ids_used = list({c.tag_id for c, *_ in campaigns_with_stats if c.tag_id})
     tags_by_id = {}
-    if tag_ids:
-        for t in Tag.query.filter(Tag.id.in_(tag_ids)).all():
+    if tag_ids_used:
+        for t in Tag.query.filter(Tag.id.in_(tag_ids_used)).all():
             tags_by_id[t.id] = t
     for c, *_ in campaigns_with_stats:
         if c.tag_id and c.tag_id in tags_by_id:
@@ -3414,7 +3542,11 @@ def campaigns_page():
             'stats': {'total': total, 'sent': sent, 'failed': failed}
         })
 
-    tags = Tag.query.filter_by(is_active=True).all()
+    # Etiquetas visibles para el dropdown de "crear campaña"
+    tags_q = Tag.query.filter_by(is_active=True)
+    if vis_tag_ids is not None:
+        tags_q = tags_q.filter(Tag.id.in_(vis_tag_ids)) if vis_tag_ids else tags_q.filter(False)
+    tags = tags_q.all()
 
     # Los templates se cargan async via AJAX para no bloquear el SSR
     # (la llamada HTTP a Meta puede tardar 500ms-2s cuando el cache está frío)
@@ -3439,7 +3571,11 @@ def campaigns_compare_page():
 
 @app.route("/api/auto-tag-rules", methods=["GET"])
 def api_auto_tag_rules_list():
-    rules = AutoTagRule.query.order_by(AutoTagRule.id).all()
+    tag_ids = get_visible_tag_ids(g.current_user)
+    q = AutoTagRule.query
+    if tag_ids is not None:
+        q = q.filter(AutoTagRule.tag_id.in_(tag_ids)) if tag_ids else q.filter(False)
+    rules = q.order_by(AutoTagRule.id).all()
     return jsonify([r.to_dict() for r in rules])
 
 @app.route("/api/auto-tag-rules", methods=["POST"])
@@ -3500,7 +3636,11 @@ def api_auto_tag_rules_delete(rule_id):
 
 @app.route("/api/followup-sequences", methods=["GET"])
 def api_followup_sequences_list():
-    sequences = FollowUpSequence.query.order_by(FollowUpSequence.id).all()
+    tag_ids = get_visible_tag_ids(g.current_user)
+    q = FollowUpSequence.query
+    if tag_ids is not None:
+        q = q.filter(FollowUpSequence.tag_id.in_(tag_ids)) if tag_ids else q.filter(False)
+    sequences = q.order_by(FollowUpSequence.id).all()
     return jsonify([s.to_dict() for s in sequences])
 
 @app.route("/api/followup-sequences", methods=["POST"])
@@ -3681,7 +3821,11 @@ def api_contacts_search():
 @app.route("/api/campaigns", methods=["GET"])
 def api_list_campaigns():
     """Lista campañas."""
-    campaigns = Campaign.query.order_by(Campaign.created_at.desc()).all()
+    tag_ids = get_visible_tag_ids(g.current_user)
+    q = Campaign.query
+    if tag_ids is not None:
+        q = q.filter(Campaign.tag_id.in_(tag_ids)) if tag_ids else q.filter(False)
+    campaigns = q.order_by(Campaign.created_at.desc()).all()
 
     # Obtener templates para preview de mensajes
     templates_map = {}
@@ -4848,13 +4992,18 @@ def chatbot_page():
     """Página de gestión del chatbot."""
     documents = RagDocument.query.order_by(RagDocument.created_at.desc()).all()
     chatbot_enabled = ChatbotConfig.get('enabled', 'true') == 'true'
-    return render_template('chatbot.html', documents=documents, chatbot_enabled=chatbot_enabled)
+    system_prompt = ChatbotConfig.get('system_prompt', '')
+    return render_template('chatbot.html', documents=documents, chatbot_enabled=chatbot_enabled, system_prompt=system_prompt)
 
 
 @app.route("/reengagement")
 def reengagement_page():
     """Página de re-engagement automático."""
-    tags = Tag.query.filter_by(is_active=True).order_by(Tag.name).all()
+    vis_tag_ids = get_visible_tag_ids(g.current_user)
+    tags_q = Tag.query.filter_by(is_active=True)
+    if vis_tag_ids is not None:
+        tags_q = tags_q.filter(Tag.id.in_(vis_tag_ids)) if vis_tag_ids else tags_q.filter(False)
+    tags = tags_q.order_by(Tag.name).all()
     auto_tagger_enabled = ChatbotConfig.get('auto_tagger_enabled', 'true') == 'true'
     return render_template('reengagement.html', tags=tags, auto_tagger_enabled=auto_tagger_enabled)
 
@@ -5165,6 +5314,21 @@ def api_update_chatbot_config():
     if 'enabled' in data:
         ChatbotConfig.set('enabled', 'true' if data['enabled'] else 'false')
 
+    return jsonify({'success': True})
+
+
+@app.route("/api/chatbot/system-prompt", methods=["GET"])
+def api_get_system_prompt():
+    """Obtiene el system prompt del chatbot."""
+    return jsonify({'system_prompt': ChatbotConfig.get('system_prompt', '')})
+
+
+@app.route("/api/chatbot/system-prompt", methods=["POST"])
+def api_save_system_prompt():
+    """Guarda el system prompt del chatbot."""
+    data = request.get_json()
+    prompt = data.get('system_prompt', '').strip()
+    ChatbotConfig.set('system_prompt', prompt)
     return jsonify({'success': True})
 
 
