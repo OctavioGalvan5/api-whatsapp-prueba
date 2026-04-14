@@ -724,5 +724,119 @@ class WhatsAppAPI:
             return {"error": error_msg}
 
 
+    # ==================== CATALOG API ====================
+
+    def get_catalogs(self):
+        """Lista los catálogos del WABA."""
+        if not self.is_configured():
+            return {"error": "WhatsApp API no configurada"}
+        url = f"{BASE_URL}/{self.business_account_id}/product_catalogs"
+        try:
+            response = requests.get(url, headers=self.headers, timeout=15)
+            response.raise_for_status()
+            return {"success": True, "catalogs": response.json().get("data", [])}
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error obteniendo catálogos: {e}")
+            return {"error": str(e)}
+
+    def sync_catalog_products(self, catalog_id):
+        """
+        Trae todos los productos de un catálogo desde Meta y los sincroniza en local.
+        Retorna la lista de productos raw de la API.
+        """
+        if not self.is_configured():
+            return {"error": "WhatsApp API no configurada"}
+        url = f"{BASE_URL}/{catalog_id}/products"
+        params = {
+            "fields": "retailer_id,name,description,price,currency,availability,image_url",
+            "limit": 500,
+        }
+        products = []
+        while url:
+            try:
+                response = requests.get(url, headers=self.headers, params=params, timeout=20)
+                response.raise_for_status()
+                data = response.json()
+                products.extend(data.get("data", []))
+                next_page = data.get("paging", {}).get("next")
+                url = next_page
+                params = {}  # next ya trae los params
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Error sincronizando productos: {e}")
+                return {"error": str(e)}
+        return {"success": True, "products": products}
+
+    def create_catalog_product(self, catalog_id, retailer_id, name, price, currency, description=None, availability='in_stock'):
+        """Crea un producto en el catálogo de Meta."""
+        if not self.is_configured():
+            return {"error": "WhatsApp API no configurada"}
+        url = f"{BASE_URL}/{catalog_id}/products"
+        payload = {
+            "retailer_id": retailer_id,
+            "name": name,
+            "price": int(float(price) * 100),  # Meta usa centavos
+            "currency": currency,
+            "availability": availability,
+        }
+        if description:
+            payload["description"] = description
+        try:
+            response = requests.post(url, headers=self.headers, json=payload, timeout=15)
+            response.raise_for_status()
+            return {"success": True, "data": response.json()}
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error creando producto en Meta: {e}")
+            detail = ""
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    detail = e.response.json().get("error", {}).get("message", "")
+                except Exception:
+                    pass
+            return {"error": detail or str(e)}
+
+    def update_catalog_product(self, product_id, name=None, price=None, currency=None, description=None, availability=None):
+        """Actualiza un producto en Meta."""
+        if not self.is_configured():
+            return {"error": "WhatsApp API no configurada"}
+        url = f"{BASE_URL}/{product_id}"
+        payload = {}
+        if name is not None:
+            payload["name"] = name
+        if price is not None:
+            payload["price"] = int(float(price) * 100)
+        if currency is not None:
+            payload["currency"] = currency
+        if description is not None:
+            payload["description"] = description
+        if availability is not None:
+            payload["availability"] = availability
+        try:
+            response = requests.post(url, headers=self.headers, json=payload, timeout=15)
+            response.raise_for_status()
+            return {"success": True}
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error actualizando producto en Meta: {e}")
+            detail = ""
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    detail = e.response.json().get("error", {}).get("message", "")
+                except Exception:
+                    pass
+            return {"error": detail or str(e)}
+
+    def delete_catalog_product(self, product_id):
+        """Elimina un producto de Meta."""
+        if not self.is_configured():
+            return {"error": "WhatsApp API no configurada"}
+        url = f"{BASE_URL}/{product_id}"
+        try:
+            response = requests.delete(url, headers=self.headers, timeout=15)
+            response.raise_for_status()
+            return {"success": True}
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error eliminando producto en Meta: {e}")
+            return {"error": str(e)}
+
+
 # Instancia global
 whatsapp_api = WhatsAppAPI()

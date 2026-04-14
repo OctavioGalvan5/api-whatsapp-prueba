@@ -122,14 +122,15 @@
                     <thead class="bg-gray-50 dark:bg-[#1a3a1d] border-b border-gray-200 dark:border-gray-700">
                         <tr>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Contacto</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Secuencia</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Secuencia</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Paso</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Próximo envío</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="enrollments-tbody">
-                        <tr><td colspan="5" class="text-center py-8 text-gray-400">Cargando...</td></tr>
+                        <tr><td colspan="6" class="text-center py-8 text-gray-400">Cargando...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -946,7 +947,7 @@ async function loadEnrollments() {
     const enrollments = await res.json();
     const tbody = document.getElementById('enrollments-tbody');
     if (!enrollments.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">No hay contactos enrollados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">No hay contactos enrollados.</td></tr>';
         return;
     }
     const statusBadge = {
@@ -960,14 +961,37 @@ async function loadEnrollments() {
                 <div class="font-medium text-sm text-gray-800 dark:text-white">${e.contact_name || e.contact_phone || '-'}</div>
                 <div class="text-xs text-gray-400">${e.contact_phone || ''}</div>
             </td>
-            <td class="px-4 py-3 hidden sm:table-cell text-sm text-gray-600 dark:text-gray-300">${e.sequence_name || '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">${e.sequence_name || '-'}</td>
             <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">Paso ${e.current_step}</td>
             <td class="px-4 py-3">${statusBadge[e.status] || e.status}</td>
             <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
                 ${e.next_send_at ? new Date(e.next_send_at).toLocaleString('es-AR') : '-'}
             </td>
+            <td class="px-4 py-3">
+                ${e.status === 'pending' ? `
+                    <button onclick="cancelEnrollment(${e.id})" title="Cancelar enrollment"
+                        class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors group">
+                        <span class="material-symbols-outlined text-red-400 group-hover:text-red-600 text-lg">cancel</span>
+                    </button>` : '<span class="text-xs text-gray-300">—</span>'}
+            </td>
         </tr>
     `).join('');
+}
+
+// ==================== CANCEL ENROLLMENT ====================
+async function cancelEnrollment(enrollmentId) {
+    if (!confirm('¿Cancelar este enrollment? El contacto dejará de recibir mensajes de esta secuencia.')) return;
+    try {
+        const res = await fetch(`/api/followup-enrollments/${enrollmentId}/cancel`, { method: 'PATCH' });
+        const data = await res.json();
+        if (res.ok) {
+            loadEnrollments();
+        } else {
+            alert(data.error || 'Error al cancelar');
+        }
+    } catch(e) {
+        alert('Error de conexión al cancelar');
+    }
 }
 
 // ==================== STATS & LOGS ====================

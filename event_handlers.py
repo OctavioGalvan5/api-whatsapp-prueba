@@ -174,6 +174,70 @@ def save_status(wa_message_id, status, recipient_id=None, error_code=None, error
     except Exception as e:
         logger.error(f"Error guardando estado en BD: {e}")
 
+def _save_whatsapp_order(wa_message_id, phone_number, order_data, catalog_id, wa_name=None):
+    """Crea una Order en BD a partir de un mensaje de tipo 'order' de WhatsApp."""
+    from app import app
+    from models import db, Contact, Order, OrderItem, CatalogProduct, ChatbotConfig
+    try:
+        with app.app_context():
+            # Auto-guardar catalog_id si no estaba
+            if catalog_id and not ChatbotConfig.get("catalog_id"):
+                ChatbotConfig.set("catalog_id", catalog_id)
+
+            contact = Contact.query.filter_by(phone_number=phone_number).first()
+
+            items_data = order_data.get("product_items", [])
+            total = 0.0
+            currency = "ARS"
+
+            order = Order(
+                contact_id=contact.id if contact else None,
+                phone_number=phone_number,
+                source="whatsapp",
+                wa_message_id=wa_message_id,
+                status="pendiente",
+                payment_status="sin_pagar",
+                currency=currency,
+            )
+            db.session.add(order)
+            db.session.flush()
+
+            for it in items_data:
+                rid = it.get("product_retailer_id", "")
+                product = CatalogProduct.query.get(rid)
+                # price viene en centavos desde el webhook
+                raw_price = it.get("item_price", 0)
+                try:
+                    unit_price = float(raw_price) / 100
+                except (TypeError, ValueError):
+                    unit_price = 0.0
+                qty = int(it.get("quantity", 1))
+                currency = it.get("currency", currency)
+                item = OrderItem(
+                    order_id=order.id,
+                    retailer_id=rid,
+                    product_name=product.name if product else rid,
+                    quantity=qty,
+                    unit_price=unit_price,
+                    currency=currency,
+                )
+                db.session.add(item)
+                total += unit_price * qty
+
+            order.total = total
+            order.currency = currency
+            db.session.commit()
+
+            # Etiquetas automáticas
+            if contact:
+                from app import _apply_order_tags
+                _apply_order_tags(contact.id)
+
+            logger.info(f"🛍️ Orden WA {order.order_number} creada desde mensaje {wa_message_id}")
+    except Exception as e:
+        logger.error(f"Error creando orden desde WhatsApp: {e}")
+
+
 def process_event(data):
     """
     Procesa el evento entrante de WhatsApp.
@@ -255,6 +319,17 @@ def process_event(data):
                     elif msg_type == "button":
                         button = message.get("button", {})
                         content = button.get("text", "[Respuesta a botón]")
+
+                    elif msg_type == "order":
+                        order_data = message.get("order", {})
+                        items = order_data.get("product_items", [])
+                        catalog_id = order_data.get("catalog_id")
+                        lines = []
+                        for it in items:
+                            lines.append(f"{it.get('product_retailer_id')} x{it.get('quantity',1)}")
+                        content = "[Pedido: " + ", ".join(lines) + "]" if lines else "[Pedido]"
+                        # Guardar orden en BD
+                        _save_whatsapp_order(msg_id, sender, order_data, catalog_id, wa_names.get(sender))
 
                     elif msg_type == "unsupported":
                         content = "[Mensaje no soportado por WhatsApp API]"

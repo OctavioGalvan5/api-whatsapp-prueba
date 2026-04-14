@@ -2964,6 +2964,8 @@ AVAILABLE_PERMISSIONS = [
     ('topics',         'Temas',              'category'),
     ('chatbot',        'Chatbot',            'smart_toy'),
     ('reengagement',   'Re-engagement',      'autorenew'),
+    ('orders',         'Órdenes',            'shopping_bag'),
+    ('catalog',        'Catálogo',           'inventory_2'),
     ('settings',       'Configuración',      'settings'),
 ]
 
@@ -3751,6 +3753,19 @@ def api_all_enrollments():
         q = q.filter_by(status=status_filter)
     enrollments = q.order_by(FollowUpEnrollment.enrolled_at.desc()).limit(200).all()
     return jsonify([e.to_dict() for e in enrollments])
+
+
+@app.route("/api/followup-enrollments/<int:enrollment_id>/cancel", methods=["PATCH"])
+def api_cancel_enrollment(enrollment_id):
+    """Cancelar un enrollment activo (pendiente)."""
+    enrollment = FollowUpEnrollment.query.get_or_404(enrollment_id)
+    if enrollment.status != 'pending':
+        return jsonify({'error': 'Solo se pueden cancelar enrollments pendientes'}), 400
+    enrollment.status = 'cancelled'
+    enrollment.cancelled_at = datetime.utcnow()
+    db.session.commit()
+    logger.info(f"🚫 Enrollment #{enrollment_id} cancelado (contacto {enrollment.contact.phone_number if enrollment.contact else '?'}, secuencia {enrollment.sequence.name if enrollment.sequence else '?'})")
+    return jsonify({'success': True, 'enrollment': enrollment.to_dict()})
 
 
 @app.route("/api/followup-sequences/<int:seq_id>/enroll", methods=["POST"])
@@ -5518,6 +5533,503 @@ def api_extract_docx():
     except Exception as e:
         logger.error(f"Error extrayendo texto de DOCX: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+# =====================================================
+# CATALOG
+# =====================================================
+
+def _sync_catalog_to_db(catalog_id):
+    """Sincroniza productos de Meta a la tabla local. Retorna (count, error)."""
+    from models import CatalogProduct, ChatbotConfig
+    from whatsapp_service import whatsapp_api
+    result = whatsapp_api.sync_catalog_products(catalog_id)
+    if "error" in result:
+        return 0, result["error"]
+    products = result.get("products", [])
+    now = datetime.utcnow()
+    for p in products:
+        rid = p.get("retailer_id") or p.get("id")
+        if not rid:
+            continue
+        # price viene como string "1500.00" o int en centavos según el endpoint
+        raw_price = p.get("price")
+        try:
+            price = float(raw_price) / 100 if isinstance(raw_price, int) else float(raw_price) if raw_price else None
+        except (ValueError, TypeError):
+            price = None
+        existing = CatalogProduct.query.get(rid)
+        if existing:
+            existing.wa_product_id = p.get("id", existing.wa_product_id)
+            existing.name = p.get("name", existing.name)
+            existing.description = p.get("description", existing.description)
+            existing.price = price
+            existing.currency = p.get("currency", existing.currency)
+            existing.availability = p.get("availability", existing.availability)
+            existing.image_url = p.get("image_url", existing.image_url)
+            existing.synced_at = now
+        else:
+            db.session.add(CatalogProduct(
+                retailer_id=rid,
+                wa_product_id=p.get("id"),
+                name=p.get("name"),
+                description=p.get("description"),
+                price=price,
+                currency=p.get("currency"),
+                availability=p.get("availability", "in_stock"),
+                image_url=p.get("image_url"),
+                synced_at=now,
+            ))
+    db.session.commit()
+    return len(products), None
+
+
+@app.route("/catalog")
+def catalog_page():
+    if not g.current_user or not g.current_user.has_permission('catalog'):
+        return redirect(url_for('login'))
+    return render_template('catalog.html')
+
+
+@app.route("/api/catalog/detect", methods=["GET"])
+def api_catalog_detect():
+    """Auto-detecta el catalog_id del WABA."""
+    from whatsapp_service import whatsapp_api
+    result = whatsapp_api.get_catalogs()
+    if "error" in result:
+        return jsonify(result), 500
+    catalogs = result.get("catalogs", [])
+    saved = ChatbotConfig.get("catalog_id")
+    return jsonify({"catalogs": catalogs, "saved_catalog_id": saved})
+
+
+@app.route("/api/catalog/set", methods=["POST"])
+def api_catalog_set():
+    """Guarda el catalog_id elegido y dispara la primera sync."""
+    data = request.json or {}
+    catalog_id = data.get("catalog_id", "").strip()
+    if not catalog_id:
+        return jsonify({"error": "catalog_id requerido"}), 400
+    ChatbotConfig.set("catalog_id", catalog_id)
+    count, err = _sync_catalog_to_db(catalog_id)
+    if err:
+        return jsonify({"error": err}), 500
+    return jsonify({"success": True, "synced": count})
+
+
+@app.route("/api/catalog/sync", methods=["POST"])
+def api_catalog_sync():
+    """Sincroniza el catálogo ahora."""
+    catalog_id = ChatbotConfig.get("catalog_id")
+    if not catalog_id:
+        return jsonify({"error": "Catálogo no configurado"}), 400
+    count, err = _sync_catalog_to_db(catalog_id)
+    if err:
+        return jsonify({"error": err}), 500
+    return jsonify({"success": True, "synced": count})
+
+
+@app.route("/api/catalog/products", methods=["GET"])
+def api_catalog_products_list():
+    from models import CatalogProduct
+    products = CatalogProduct.query.order_by(CatalogProduct.name).all()
+    last_sync = None
+    if products:
+        synced_times = [p.synced_at for p in products if p.synced_at]
+        if synced_times:
+            last_sync = max(synced_times).isoformat()
+    catalog_id = ChatbotConfig.get("catalog_id")
+    return jsonify({
+        "products": [p.to_dict() for p in products],
+        "last_sync": last_sync,
+        "catalog_id": catalog_id,
+    })
+
+
+@app.route("/api/catalog/products", methods=["POST"])
+def api_catalog_products_create():
+    from models import CatalogProduct
+    from whatsapp_service import whatsapp_api
+    catalog_id = ChatbotConfig.get("catalog_id")
+    if not catalog_id:
+        return jsonify({"error": "Catálogo no configurado"}), 400
+    data = request.json or {}
+    retailer_id = data.get("retailer_id", "").strip()
+    name = data.get("name", "").strip()
+    if not retailer_id or not name:
+        return jsonify({"error": "retailer_id y name son requeridos"}), 400
+    price = data.get("price")
+    currency = data.get("currency", "ARS")
+    description = data.get("description", "")
+    availability = data.get("availability", "in_stock")
+
+    # Crear en Meta
+    meta_result = whatsapp_api.create_catalog_product(
+        catalog_id, retailer_id, name, price or 0, currency, description, availability
+    )
+    if "error" in meta_result:
+        return jsonify(meta_result), 500
+
+    # Guardar en local
+    product = CatalogProduct(
+        retailer_id=retailer_id,
+        wa_product_id=meta_result.get("data", {}).get("id"),
+        name=name,
+        description=description,
+        price=price,
+        currency=currency,
+        availability=availability,
+        synced_at=datetime.utcnow(),
+    )
+    db.session.add(product)
+    db.session.commit()
+    return jsonify({"success": True, "product": product.to_dict()}), 201
+
+
+@app.route("/api/catalog/products/<retailer_id>", methods=["PUT"])
+def api_catalog_products_update(retailer_id):
+    from models import CatalogProduct
+    from whatsapp_service import whatsapp_api
+    product = CatalogProduct.query.get_or_404(retailer_id)
+    data = request.json or {}
+
+    name = data.get("name", product.name)
+    price = data.get("price", product.price)
+    currency = data.get("currency", product.currency)
+    description = data.get("description", product.description)
+    availability = data.get("availability", product.availability)
+
+    # Actualizar en Meta si tenemos wa_product_id
+    if product.wa_product_id:
+        meta_result = whatsapp_api.update_catalog_product(
+            product.wa_product_id, name=name, price=price,
+            currency=currency, description=description, availability=availability
+        )
+        if "error" in meta_result:
+            return jsonify(meta_result), 500
+
+    product.name = name
+    product.price = price
+    product.currency = currency
+    product.description = description
+    product.availability = availability
+    product.synced_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "product": product.to_dict()})
+
+
+@app.route("/api/catalog/products/<retailer_id>", methods=["DELETE"])
+def api_catalog_products_delete(retailer_id):
+    from models import CatalogProduct
+    from whatsapp_service import whatsapp_api
+    product = CatalogProduct.query.get_or_404(retailer_id)
+
+    if product.wa_product_id:
+        meta_result = whatsapp_api.delete_catalog_product(product.wa_product_id)
+        if "error" in meta_result:
+            return jsonify(meta_result), 500
+
+    db.session.delete(product)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+# =====================================================
+# ORDERS — lógica de etiquetas automáticas
+# =====================================================
+
+def _ensure_tag(name, color='green'):
+    """Obtiene o crea una tag del sistema."""
+    tag = Tag.query.filter_by(name=name).first()
+    if not tag:
+        tag = Tag(name=name, color=color, is_system=True, is_active=True)
+        db.session.add(tag)
+        db.session.flush()
+    return tag
+
+
+def _apply_order_tags(contact_id):
+    """Agrega 'Con pedido' y 'Comprador' al contacto."""
+    contact = Contact.query.get(contact_id)
+    if not contact:
+        return
+    tag_con_pedido = _ensure_tag('Con pedido', 'yellow')
+    tag_comprador = _ensure_tag('Comprador', 'blue')
+    existing = {t.id for t in contact.tags}
+    if tag_con_pedido.id not in existing:
+        contact.tags.append(tag_con_pedido)
+    if tag_comprador.id not in existing:
+        contact.tags.append(tag_comprador)
+    db.session.commit()
+
+
+def _maybe_remove_con_pedido(contact_id):
+    """
+    Quita 'Con pedido' si el contacto no tiene órdenes activas restantes.
+    """
+    from models import Order, ACTIVE_ORDER_STATUSES
+    contact = Contact.query.get(contact_id)
+    if not contact:
+        return
+    active_count = Order.query.filter(
+        Order.contact_id == contact_id,
+        Order.status.in_(ACTIVE_ORDER_STATUSES)
+    ).count()
+    if active_count == 0:
+        tag = Tag.query.filter_by(name='Con pedido').first()
+        if tag and tag in contact.tags:
+            contact.tags.remove(tag)
+            db.session.commit()
+
+
+# =====================================================
+# ORDERS — endpoints
+# =====================================================
+
+@app.route("/orders")
+def orders_page():
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return redirect(url_for('login'))
+    return render_template('orders.html')
+
+
+@app.route("/api/orders", methods=["GET"])
+def api_orders_list():
+    from models import Order
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"error": "Sin permiso"}), 403
+
+    status = request.args.get("status")
+    payment_status = request.args.get("payment_status")
+    payment_method = request.args.get("payment_method")
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+    search = request.args.get("search", "").strip()
+    vista = request.args.get("vista")  # "unseen" | "seen" | "" = todas
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 30))
+
+    q = Order.query.order_by(Order.created_at.desc())
+
+    if status:
+        q = q.filter(Order.status == status)
+    if payment_status:
+        q = q.filter(Order.payment_status == payment_status)
+    if payment_method:
+        q = q.filter(Order.payment_method == payment_method)
+    if date_from:
+        try:
+            q = q.filter(Order.created_at >= datetime.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            q = q.filter(Order.created_at <= datetime.fromisoformat(date_to))
+        except ValueError:
+            pass
+    if search:
+        like = f"%{search}%"
+        q = q.join(Contact, Order.contact_id == Contact.id, isouter=True).filter(
+            or_(Contact.name.ilike(like), Order.phone_number.ilike(like))
+        )
+    if vista == "unseen":
+        q = q.filter(Order.seen_at.is_(None))
+    elif vista == "seen":
+        q = q.filter(Order.seen_at.isnot(None))
+
+    total = q.count()
+    orders = q.offset((page - 1) * per_page).limit(per_page).all()
+    return jsonify({
+        "orders": [o.to_dict() for o in orders],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    })
+
+
+@app.route("/api/orders", methods=["POST"])
+def api_orders_create():
+    from models import Order, OrderItem, CatalogProduct
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"error": "Sin permiso"}), 403
+
+    data = request.json or {}
+    phone_number = data.get("phone_number", "").strip()
+    if not phone_number:
+        return jsonify({"error": "phone_number requerido"}), 400
+
+    contact = Contact.query.filter_by(phone_number=phone_number).first()
+
+    order = Order(
+        contact_id=contact.id if contact else None,
+        phone_number=phone_number,
+        source="manual",
+        status=data.get("status", "pendiente"),
+        payment_status=data.get("payment_status", "sin_pagar"),
+        payment_method=data.get("payment_method"),
+        currency=data.get("currency", "ARS"),
+        shipping_address=data.get("shipping_address"),
+        notes=data.get("notes"),
+        created_by_id=g.current_user.id,
+        last_edited_by_id=g.current_user.id,
+    )
+    db.session.add(order)
+    db.session.flush()
+
+    # Items
+    items_data = data.get("items", [])
+    total = 0
+    for item_data in items_data:
+        rid = item_data.get("retailer_id", "")
+        product = CatalogProduct.query.get(rid)
+        unit_price = float(item_data.get("unit_price", product.price if product else 0) or 0)
+        qty = int(item_data.get("quantity", 1))
+        item = OrderItem(
+            order_id=order.id,
+            retailer_id=rid,
+            product_name=item_data.get("product_name") or (product.name if product else rid),
+            quantity=qty,
+            unit_price=unit_price,
+            currency=item_data.get("currency", order.currency),
+        )
+        db.session.add(item)
+        total += unit_price * qty
+
+    # Total: usar el provisto o calcular de items
+    if data.get("total") is not None:
+        order.total = float(data["total"])
+    elif items_data:
+        order.total = total
+
+    db.session.commit()
+
+    if contact:
+        _apply_order_tags(contact.id)
+
+    logger.info(f"🛍️ Orden manual {order.order_number} creada por {g.current_user.username}")
+    return jsonify({"success": True, "order": order.to_dict()}), 201
+
+
+@app.route("/api/orders/<int:order_id>", methods=["GET"])
+def api_orders_get(order_id):
+    from models import Order
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"error": "Sin permiso"}), 403
+    order = Order.query.get_or_404(order_id)
+    return jsonify(order.to_dict())
+
+
+@app.route("/api/orders/<int:order_id>", methods=["PUT"])
+def api_orders_update(order_id):
+    from models import Order, OrderItem, CatalogProduct, ACTIVE_ORDER_STATUSES
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"error": "Sin permiso"}), 403
+    order = Order.query.get_or_404(order_id)
+    data = request.json or {}
+
+    old_status = order.status
+
+    for field in ("status", "payment_status", "payment_method", "currency",
+                  "shipping_address", "notes"):
+        if field in data:
+            setattr(order, field, data[field])
+
+    if "total" in data:
+        order.total = float(data["total"]) if data["total"] is not None else None
+
+    # Recalcular items si vienen
+    if "items" in data:
+        OrderItem.query.filter_by(order_id=order.id).delete()
+        total = 0
+        for item_data in data["items"]:
+            rid = item_data.get("retailer_id", "")
+            product = CatalogProduct.query.get(rid)
+            unit_price = float(item_data.get("unit_price", product.price if product else 0) or 0)
+            qty = int(item_data.get("quantity", 1))
+            item = OrderItem(
+                order_id=order.id,
+                retailer_id=rid,
+                product_name=item_data.get("product_name") or (product.name if product else rid),
+                quantity=qty,
+                unit_price=unit_price,
+                currency=item_data.get("currency", order.currency),
+            )
+            db.session.add(item)
+            total += unit_price * qty
+        # Solo auto-calcular si el usuario no mandó total explícito
+        if "total" not in data:
+            order.total = total
+
+    order.last_edited_by_id = g.current_user.id
+    order.updated_at = datetime.utcnow()
+    db.session.commit()
+
+    # Evaluar etiquetas si cambió el estado
+    if order.contact_id and old_status != order.status:
+        if order.status in ACTIVE_ORDER_STATUSES:
+            _apply_order_tags(order.contact_id)
+        else:
+            _maybe_remove_con_pedido(order.contact_id)
+
+    return jsonify({"success": True, "order": order.to_dict()})
+
+
+@app.route("/api/orders/<int:order_id>/terminate", methods=["POST"])
+def api_orders_terminate(order_id):
+    from models import Order
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"error": "Sin permiso"}), 403
+    order = Order.query.get_or_404(order_id)
+    order.status = "terminado"
+    order.terminated_at = datetime.utcnow()
+    order.terminated_by_id = g.current_user.id
+    order.last_edited_by_id = g.current_user.id
+    order.updated_at = datetime.utcnow()
+    db.session.commit()
+
+    if order.contact_id:
+        _maybe_remove_con_pedido(order.contact_id)
+
+    return jsonify({"success": True, "order": order.to_dict()})
+
+
+@app.route("/api/orders/<int:order_id>/seen", methods=["POST"])
+def api_orders_seen(order_id):
+    from models import Order
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"error": "Sin permiso"}), 403
+    order = Order.query.get_or_404(order_id)
+    if not order.seen_at:
+        order.seen_at = datetime.utcnow()
+        order.seen_by_id = g.current_user.id
+        db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route("/api/orders/unseen-count", methods=["GET"])
+def api_orders_unseen_count():
+    from models import Order
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"count": 0})
+    count = Order.query.filter(Order.seen_at.is_(None)).count()
+    return jsonify({"count": count})
+
+
+@app.route("/api/orders/latest-unseen-id", methods=["GET"])
+def api_orders_latest_unseen_id():
+    """Para polling de toast: devuelve el id de la última orden de WA no vista."""
+    from models import Order
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"id": None})
+    order = Order.query.filter(
+        Order.seen_at.is_(None),
+        Order.source == 'whatsapp'
+    ).order_by(Order.created_at.desc()).first()
+    return jsonify({"id": order.id if order else None,
+                    "order_number": order.order_number if order else None,
+                    "contact_name": (order.contact.name if order and order.contact else order.phone_number) if order else None,
+                    "items_summary": ", ".join(f"{i.product_name} x{i.quantity}" for i in (order.items[:2] if order else [])),
+                    "total": float(order.total) if order and order.total else None})
 
 
 if __name__ == "__main__":

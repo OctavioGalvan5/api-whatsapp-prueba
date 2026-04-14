@@ -29,8 +29,9 @@
 | status | enum | pendiente / confirmado / pendiente_envio / enviado / entregado / cancelado |
 | payment_status | enum | sin_pagar / pagado / reembolsado |
 | payment_method | enum | efectivo / transferencia / mercadopago / tarjeta / otro |
-| total | decimal | Total de la orden |
+| total | decimal | Total de la orden — se calcula automáticamente de order_items pero es editable manualmente |
 | currency | string | Moneda |
+| shipping_address | text | Dirección de envío — Nullable, editable manualmente |
 | notes | text | Notas internas |
 | seen_at | datetime | Nullable — se setea al abrir por primera vez |
 | seen_by | FK | CrmUser que la vio por primera vez |

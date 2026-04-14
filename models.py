@@ -599,6 +599,154 @@ class FollowUpEnrollment(db.Model):
 
 
 # ==========================================
+# CATALOG PRODUCTS
+# ==========================================
+
+class CatalogProduct(db.Model):
+    """Productos del catálogo de WhatsApp/Meta."""
+    __tablename__ = 'catalog_products'
+
+    retailer_id = db.Column(db.String(100), primary_key=True)
+    wa_product_id = db.Column(db.String(100), nullable=True)
+    name = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    price = db.Column(db.Numeric(12, 2), nullable=True)
+    currency = db.Column(db.String(10), nullable=True)
+    availability = db.Column(db.String(20), default='in_stock')  # in_stock / out_of_stock
+    image_url = db.Column(db.String(500), nullable=True)
+    synced_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self):
+        return {
+            'retailer_id': self.retailer_id,
+            'wa_product_id': self.wa_product_id,
+            'name': self.name,
+            'description': self.description,
+            'price': float(self.price) if self.price is not None else None,
+            'currency': self.currency,
+            'availability': self.availability,
+            'image_url': self.image_url,
+            'synced_at': self.synced_at.isoformat() if self.synced_at else None,
+        }
+
+
+# ==========================================
+# ORDERS
+# ==========================================
+
+ACTIVE_ORDER_STATUSES = ('pendiente', 'confirmado', 'pendiente_envio', 'enviado')
+TERMINAL_ORDER_STATUSES = ('entregado', 'cancelado', 'terminado')
+
+class Order(db.Model):
+    """Órdenes de compra (WhatsApp + manuales)."""
+    __tablename__ = 'orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('whatsapp_contacts.id', ondelete='SET NULL'), nullable=True)
+    phone_number = db.Column(db.String(20), nullable=False)
+    source = db.Column(db.String(20), default='whatsapp')  # whatsapp / manual
+    wa_message_id = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(30), default='pendiente')
+    payment_status = db.Column(db.String(20), default='sin_pagar')
+    payment_method = db.Column(db.String(20), nullable=True)
+    total = db.Column(db.Numeric(12, 2), nullable=True)
+    currency = db.Column(db.String(10), default='ARS')
+    shipping_address = db.Column(db.Text, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    seen_at = db.Column(db.DateTime, nullable=True)
+    seen_by_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='SET NULL'), nullable=True)
+    last_edited_by_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='SET NULL'), nullable=True)
+    terminated_at = db.Column(db.DateTime, nullable=True)
+    terminated_by_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='SET NULL'), nullable=True)
+
+    contact = db.relationship('Contact', backref=db.backref('orders', passive_deletes=True))
+    items = db.relationship('OrderItem', backref='order', cascade='all, delete-orphan', lazy='select')
+    seen_by = db.relationship('CrmUser', foreign_keys=[seen_by_id])
+    created_by = db.relationship('CrmUser', foreign_keys=[created_by_id])
+    last_edited_by = db.relationship('CrmUser', foreign_keys=[last_edited_by_id])
+    terminated_by = db.relationship('CrmUser', foreign_keys=[terminated_by_id])
+
+    __table_args__ = (
+        db.Index('idx_orders_contact', 'contact_id'),
+        db.Index('idx_orders_status', 'status'),
+        db.Index('idx_orders_seen_at', 'seen_at'),
+        db.Index('idx_orders_created_at', 'created_at'),
+    )
+
+    @property
+    def order_number(self):
+        return f"#{self.id:04d}"
+
+    @property
+    def is_active_order(self):
+        return self.status in ACTIVE_ORDER_STATUSES
+
+    def to_dict(self):
+        tz_ar = pytz.timezone('America/Argentina/Buenos_Aires')
+
+        def fmt(dt):
+            if not dt:
+                return None
+            if dt.tzinfo is None:
+                dt = pytz.utc.localize(dt)
+            return dt.astimezone(tz_ar).isoformat()
+
+        return {
+            'id': self.id,
+            'order_number': self.order_number,
+            'contact_id': self.contact_id,
+            'contact_name': self.contact.name if self.contact else None,
+            'phone_number': self.phone_number,
+            'source': self.source,
+            'wa_message_id': self.wa_message_id,
+            'status': self.status,
+            'payment_status': self.payment_status,
+            'payment_method': self.payment_method,
+            'total': float(self.total) if self.total is not None else None,
+            'currency': self.currency,
+            'shipping_address': self.shipping_address,
+            'notes': self.notes,
+            'seen_at': fmt(self.seen_at),
+            'seen_by': self.seen_by.display_name if self.seen_by else None,
+            'created_at': fmt(self.created_at),
+            'updated_at': fmt(self.updated_at),
+            'created_by': self.created_by.display_name if self.created_by else None,
+            'last_edited_by': self.last_edited_by.display_name if self.last_edited_by else None,
+            'terminated_at': fmt(self.terminated_at),
+            'terminated_by': self.terminated_by.display_name if self.terminated_by else None,
+            'items': [i.to_dict() for i in self.items],
+        }
+
+
+class OrderItem(db.Model):
+    """Items individuales de una orden."""
+    __tablename__ = 'order_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id', ondelete='CASCADE'), nullable=False)
+    retailer_id = db.Column(db.String(100), nullable=False)
+    product_name = db.Column(db.String(255), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    unit_price = db.Column(db.Numeric(12, 2), nullable=False)
+    currency = db.Column(db.String(10), default='ARS')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'order_id': self.order_id,
+            'retailer_id': self.retailer_id,
+            'product_name': self.product_name,
+            'quantity': self.quantity,
+            'unit_price': float(self.unit_price) if self.unit_price is not None else None,
+            'currency': self.currency,
+            'subtotal': float(self.unit_price * self.quantity) if self.unit_price is not None else None,
+        }
+
+
+# ==========================================
 # CHATBOT CONFIG
 # ==========================================
 
