@@ -347,23 +347,17 @@
     }
 
     // Poll for status updates on processing documents
+    // Solo recarga si hay docs procesando Y el usuario no está interactuando con la página
     function pollProcessingDocs() {
-        const processingDocs = document.querySelectorAll('.document-row');
-        let hasProcessing = false;
+        const hasProcessing = !!document.querySelector('.document-row span[class*="animate-pulse"]');
+        if (!hasProcessing) return;
 
-        processingDocs.forEach(row => {
-            const badge = row.querySelector('span[class*="animate-pulse"]');
-            if (badge) hasProcessing = true;
-        });
-
-        if (hasProcessing) {
-            setTimeout(() => {
-                // No recargar si el usuario está editando el prompt
-                const promptInput = document.getElementById('system-prompt-input');
-                if (document.activeElement === promptInput) return;
-                location.reload();
-            }, 10000);
-        }
+        setTimeout(() => {
+            const active = document.activeElement;
+            const isInteracting = active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT' || active.tagName === 'BUTTON');
+            if (!isInteracting) location.reload();
+            else pollProcessingDocs(); // reintentar en otros 10s
+        }, 10000);
     }
 
     pollProcessingDocs();
