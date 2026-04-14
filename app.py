@@ -3242,7 +3242,8 @@ def api_send_template():
     if not to_phone or not template_name:
         return jsonify({"error": "to y template_name son requeridos"}), 400
 
-    if not user_can_access_phone(g.current_user, to_phone):
+    _cu = getattr(g, 'current_user', None)
+    if _cu and not user_can_access_phone(_cu, to_phone):
         return jsonify({"error": "Sin acceso"}), 403
 
     # Construir componentes si hay mapeo de variables
@@ -3360,7 +3361,8 @@ def api_send_text():
     if not to_phone or not text:
         return jsonify({"error": "to y text son requeridos"}), 400
 
-    if not user_can_access_phone(g.current_user, to_phone):
+    current_user = getattr(g, 'current_user', None)
+    if current_user and not user_can_access_phone(current_user, to_phone):
         return jsonify({"error": "Sin acceso"}), 403
 
     # Determinar autor: si hay sesión es un agente, si no es el bot
@@ -3408,7 +3410,8 @@ def api_send_media():
         return jsonify({"error": "'to' es requerido"}), 400
     if not file:
         return jsonify({"error": "No se envió ningún archivo"}), 400
-    if not user_can_access_phone(g.current_user, re.sub(r'[^\d]', '', to_phone)):
+    _cu = getattr(g, 'current_user', None)
+    if _cu and not user_can_access_phone(_cu, re.sub(r'[^\d]', '', to_phone)):
         return jsonify({"error": "Sin acceso"}), 403
     
     # Leer archivo
