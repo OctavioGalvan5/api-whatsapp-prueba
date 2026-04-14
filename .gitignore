@@ -1,6 +1,8 @@
 # Environment variables
-# Environment variables
 .env
+.env.*
+.envcountry
+.envestudio
 static/media/
 
 # Python
