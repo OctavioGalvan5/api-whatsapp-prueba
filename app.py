@@ -5212,28 +5212,6 @@ def api_upload_rag_document():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route("/api/rag/documents/<int:doc_id>/download", methods=["GET"])
-def api_download_rag_document(doc_id):
-    """Genera una URL de descarga temporal para un documento RAG."""
-    from whatsapp_service import get_s3_client
-    doc = RagDocument.query.get_or_404(doc_id)
-    try:
-        s3 = get_s3_client()
-        bucket = Config.MINIO_BUCKET_RAG
-        url = s3.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': bucket,
-                'Key': doc.filename,
-                'ResponseContentDisposition': f'attachment; filename="{doc.original_filename}"'
-            },
-            ExpiresIn=300  # 5 minutos
-        )
-        return jsonify({'url': url})
-    except Exception as e:
-        logger.error(f"Error generando URL de descarga RAG: {e}")
-        return jsonify({'error': str(e)}), 500
-
 
 @app.route("/api/rag/documents/<int:doc_id>", methods=["DELETE"])
 def api_delete_rag_document(doc_id):

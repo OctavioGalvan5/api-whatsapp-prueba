@@ -247,20 +247,8 @@
         }
     }
 
-    async function downloadDocument(docId) {
-        try {
-            const resp = await fetch(`/api/rag/documents/${docId}/download`);
-            const data = await resp.json();
-            if (data.url) {
-                const a = document.createElement('a');
-                a.href = data.url;
-                a.click();
-            } else {
-                showToast(data.error || 'Error al descargar', 'error');
-            }
-        } catch (e) {
-            showToast('Error: ' + e.message, 'error');
-        }
+    function downloadDocument(docId) {
+        window.location.href = `/api/rag/documents/${docId}/download`;
     }
 
     async function deleteDocument(docId) {
