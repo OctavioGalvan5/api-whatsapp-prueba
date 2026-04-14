@@ -132,6 +132,9 @@
                             {% endif %}
 
                             <!-- Actions -->
+                            <button onclick="downloadDocument({{ doc.id }})" class="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Descargar">
+                                <span class="material-symbols-outlined text-blue-500">download</span>
+                            </button>
                             <button onclick="deleteDocument({{ doc.id }})" class="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
                                 <span class="material-symbols-outlined text-red-500">delete</span>
                             </button>
@@ -241,6 +244,22 @@
         } catch (e) {
             showToast('Error: ' + e.message, 'error');
             uploadProgress.classList.add('hidden');
+        }
+    }
+
+    async function downloadDocument(docId) {
+        try {
+            const resp = await fetch(`/api/rag/documents/${docId}/download`);
+            const data = await resp.json();
+            if (data.url) {
+                const a = document.createElement('a');
+                a.href = data.url;
+                a.click();
+            } else {
+                showToast(data.error || 'Error al descargar', 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
         }
     }
 
