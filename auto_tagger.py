@@ -59,37 +59,28 @@ def run_auto_tagger(app_context):
                 ).order_by(Message.timestamp.desc()).first()
 
                 if not last_msg:
-                    logger.info(f"[AUTO_TAGGER] {phone}: sin mensajes, saltando")
                     continue
 
                 contact = Contact.query.filter_by(phone_number=phone).first()
                 if not contact:
-                    logger.info(f"[AUTO_TAGGER] {phone}: sin contacto en DB, saltando")
                     continue
-
-                logger.info(f"[AUTO_TAGGER] {phone}: último msg={last_msg.timestamp} id={last_msg.id}")
 
                 # Filtrar solo las reglas que aplican a este contacto en este momento
                 pending_rules = []
                 for rule in rules:
                     cutoff = now - timedelta(minutes=rule.inactivity_minutes)
                     if last_msg.timestamp >= cutoff:
-                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: aún activo (último msg {last_msg.timestamp} >= cutoff {cutoff})")
                         continue
                     if rule.activated_at and last_msg.timestamp < rule.activated_at:
-                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: fuera de rango (msg {last_msg.timestamp} < activated_at {rule.activated_at})")
                         continue
                     if any(t.id == rule.tag_id for t in contact.tags):
-                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: ya tiene la etiqueta")
                         continue
                     cache_key = f"auto_tag_{rule.id}_{phone}_{last_msg.id}"
                     if ChatbotConfig.query.filter_by(key=cache_key).first():
-                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: ya analizado (cache key={cache_key})")
                         continue
                     pending_rules.append(rule)
 
                 if not pending_rules:
-                    logger.info(f"[AUTO_TAGGER] {phone}: sin reglas pendientes")
                     continue
 
                 # Obtener los últimos 20 mensajes una sola vez
@@ -100,7 +91,6 @@ def run_auto_tagger(app_context):
 
                 # UNA sola llamada a la IA con todas las condiciones pendientes
                 conditions = {str(rule.id): rule.prompt_condition for rule in pending_rules}
-                logger.info(f"[AUTO_TAGGER] {phone}: enviando batch con {len(conditions)} condición(es): {conditions}")
                 try:
                     results = analyze_conversation_batch(messages, conditions)
                 except Exception as e:
@@ -189,20 +179,20 @@ PREGUNTAS (respondé cada una con SÍ o NO):
 Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "NO" como valor. Ejemplo:
 {{"123": "SI", "456": "NO"}}"""
 
-    logger.info(f"[AUTO_TAGGER] Prompt enviado:\n{prompt}")
-
     # Construir schema dinámico con los IDs de las condiciones
     schema_properties = {rule_id: {"type": "string", "enum": ["SI", "NO"]} for rule_id in conditions}
-    response = client.chat.completions.create(
+
+    response = client.responses.create(
         model="gpt-5.4-nano",
-        messages=[
+        reasoning={"effort": "none"},
+        input=[
             {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con un JSON de SI/NO por cada pregunta."},
             {"role": "user", "content": prompt}
         ],
-        max_completion_tokens=1000,
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
+        max_output_tokens=800,
+        text={
+            "format": {
+                "type": "json_schema",
                 "name": "auto_tag_response",
                 "strict": True,
                 "schema": {
@@ -215,22 +205,9 @@ Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "N
         }
     )
 
-    choice = response.choices[0]
-    msg = choice.message
-    logger.info(f"[AUTO_TAGGER] Respuesta recibida:\n"
-                f"  finish_reason : {choice.finish_reason}\n"
-                f"  content       : {repr(msg.content)}\n"
-                f"  refusal       : {repr(getattr(msg, 'refusal', None))}\n"
-                f"  usage         : prompt_tokens={response.usage.prompt_tokens} completion_tokens={response.usage.completion_tokens} total={response.usage.total_tokens}")
-    raw = (msg.content or "").strip()
+    import json
+    raw = (response.output_text or "").strip()
     try:
-        import json
-        # Extraer JSON si viene envuelto en markdown ```json ... ```
-        if "```" in raw:
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
         parsed = json.loads(raw)
         return {k: (str(v).upper().startswith("S")) for k, v in parsed.items()}
     except Exception:
