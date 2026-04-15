@@ -51,7 +51,7 @@ def run_auto_tagger(app_context):
                 Message.direction == 'inbound'
             ).distinct().all()
 
-            logger.debug(f"[AUTO_TAGGER] {len(phones_q)} teléfono(s) candidatos (desde {earliest_start})")
+            logger.info(f"[AUTO_TAGGER] {len(phones_q)} teléfono(s) candidatos (desde {earliest_start})")
 
             for (phone,) in phones_q:
                 last_msg = Message.query.filter(
