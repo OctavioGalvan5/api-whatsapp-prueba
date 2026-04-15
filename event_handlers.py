@@ -338,9 +338,9 @@ def process_event(data):
                             try:
                                 from models import CatalogProduct
                                 prod = CatalogProduct.query.get(rid)
-                                display = prod.name if prod and prod.name else rid
+                                display = prod.name if prod and prod.name else 'Artículo'
                             except Exception:
-                                display = rid
+                                display = 'Artículo'
                             lines.append(f"{display} ×{qty}")
                         content = "[Pedido: " + ", ".join(lines) + "]" if lines else "[Pedido]"
                         # Guardar orden en BD

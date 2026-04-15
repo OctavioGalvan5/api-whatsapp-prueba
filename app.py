@@ -477,6 +477,60 @@ def api_fix_broken_media():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route("/api/orders/fix-message-content", methods=["POST"])
+def api_fix_order_message_content():
+    """
+    Migración: actualiza mensajes de tipo 'order' que tengan retailer_id crudo en su contenido.
+    Reemplaza IDs no reconocibles por 'Artículo'.
+    """
+    import re
+    try:
+        order_msgs = Message.query.filter_by(message_type='order').all()
+        fixed = 0
+
+        for msg in order_msgs:
+            if not msg.content:
+                continue
+            # Extraer el interior: "[Pedido: X ×N, Y ×M]"
+            m = re.match(r'^\[Pedido: (.+)\]$', msg.content)
+            if not m:
+                continue
+            inner = m.group(1)
+            parts = inner.split(', ')
+            new_parts = []
+            changed = False
+            for part in parts:
+                # Detectar formato "texto ×N"
+                pm = re.match(r'^(.+?) ×(\d+)$', part)
+                if pm:
+                    item_name = pm.group(1)
+                    qty = pm.group(2)
+                    # Buscar en DB por nombre o por retailer_id
+                    prod = CatalogProduct.query.get(item_name)
+                    if prod and prod.name:
+                        new_parts.append(f"{prod.name} ×{qty}")
+                        if prod.name != item_name:
+                            changed = True
+                    elif not any(c in item_name for c in [' ', 'á', 'é', 'í', 'ó', 'ú', 'ñ']) and len(item_name) > 8:
+                        # Parece un retailer_id crudo → reemplazar
+                        new_parts.append(f"Artículo ×{qty}")
+                        changed = True
+                    else:
+                        new_parts.append(part)
+                else:
+                    new_parts.append(part)
+            if changed:
+                msg.content = "[Pedido: " + ", ".join(new_parts) + "]"
+                fixed += 1
+
+        db.session.commit()
+        return jsonify({'success': True, 'total_order_msgs': len(order_msgs), 'fixed': fixed})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error fixing order message content: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/api/minio/diagnose", methods=["GET"])
 def api_minio_diagnose():
     """Diagnostica la conexión a MinIO."""
