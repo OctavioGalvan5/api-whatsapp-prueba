@@ -29,7 +29,6 @@ def run_auto_tagger(app_context):
         from models import db, Message, Contact, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpEnrollment, ChatbotConfig, Tag
 
         try:
-            # Chequear si el auto tagger está habilitado
             if ChatbotConfig.get('auto_tagger_enabled', 'true') != 'true':
                 logger.info("⏸️ [AUTO_TAGGER] Deshabilitado — saltando")
                 return
@@ -39,62 +38,75 @@ def run_auto_tagger(app_context):
                 return
 
             logger.info(f"🏷️ [AUTO_TAGGER] {len(rules)} regla(s) activa(s)")
+            now = datetime.utcnow()
 
-            for rule in rules:
-                cutoff = datetime.utcnow() - timedelta(minutes=rule.inactivity_minutes)
+            # Recolectar todos los teléfonos candidatos para cualquier regla
+            earliest_start = min(r.activated_at or now for r in rules)
 
-                # Solo considerar mensajes recibidos DESPUÉS de la última activación de la regla
-                start_date = rule.activated_at or datetime.utcnow()
-                phones_q = db.session.query(Message.phone_number).filter(
-                    Message.phone_number.notin_(['unknown', 'outbound', '']),
-                    Message.timestamp >= start_date,
-                    Message.direction == 'inbound'
-                ).distinct().all()
+            phones_q = db.session.query(Message.phone_number).filter(
+                Message.phone_number.notin_(['unknown', 'outbound', '']),
+                Message.timestamp >= earliest_start,
+                Message.direction == 'inbound'
+            ).distinct().all()
 
-                for (phone,) in phones_q:
-                    last_msg = Message.query.filter(
-                        Message.phone_number == phone
-                    ).order_by(Message.timestamp.desc()).first()
+            for (phone,) in phones_q:
+                last_msg = Message.query.filter(
+                    Message.phone_number == phone
+                ).order_by(Message.timestamp.desc()).first()
 
-                    if not last_msg or last_msg.timestamp >= cutoff:
-                        continue
+                if not last_msg:
+                    continue
 
-                    contact = Contact.query.filter_by(phone_number=phone).first()
-                    if not contact:
-                        continue
+                contact = Contact.query.filter_by(phone_number=phone).first()
+                if not contact:
+                    continue
 
-                    # ¿Ya tiene esta etiqueta?
+                # Filtrar solo las reglas que aplican a este contacto en este momento
+                pending_rules = []
+                for rule in rules:
+                    cutoff = now - timedelta(minutes=rule.inactivity_minutes)
+                    if last_msg.timestamp >= cutoff:
+                        continue  # Contacto aún activo para esta regla
+                    if last_msg.timestamp < (rule.activated_at or now):
+                        continue  # Fuera del rango de esta regla
                     if any(t.id == rule.tag_id for t in contact.tags):
-                        continue
-
-                    # ¿Ya fue analizado para esta regla en esta sesión?
+                        continue  # Ya tiene la etiqueta
                     cache_key = f"auto_tag_{rule.id}_{phone}_{last_msg.id}"
-                    already_analyzed = ChatbotConfig.query.filter_by(key=cache_key).first()
-                    if already_analyzed:
-                        continue
+                    if ChatbotConfig.query.filter_by(key=cache_key).first():
+                        continue  # Ya analizado
+                    pending_rules.append(rule)
 
-                    # Obtener últimos 20 mensajes
-                    messages = Message.query.filter(
-                        Message.phone_number == phone
-                    ).order_by(Message.timestamp.desc()).limit(20).all()
-                    messages = list(reversed(messages))
+                if not pending_rules:
+                    continue
 
-                    # Analizar con IA
-                    try:
-                        result = analyze_conversation(messages, rule.prompt_condition)
-                    except Exception as e:
-                        logger.error(f"❌ [AUTO_TAGGER] Error IA para {phone}: {e}")
+                # Obtener los últimos 20 mensajes una sola vez
+                messages = Message.query.filter(
+                    Message.phone_number == phone
+                ).order_by(Message.timestamp.desc()).limit(20).all()
+                messages = list(reversed(messages))
+
+                # UNA sola llamada a la IA con todas las condiciones pendientes
+                conditions = {str(rule.id): rule.prompt_condition for rule in pending_rules}
+                try:
+                    results = analyze_conversation_batch(messages, conditions)
+                except Exception as e:
+                    logger.error(f"❌ [AUTO_TAGGER] Error IA para {phone}: {e}")
+                    for rule in pending_rules:
                         _write_log(db, AutoTagLog, rule, contact, phone, 'error')
-                        continue
+                    continue
+
+                for rule in pending_rules:
+                    rule_result = results.get(str(rule.id), False)
 
                     # Marcar como analizado
-                    db.session.add(ChatbotConfig(key=cache_key, value=str(result)))
+                    cache_key = f"auto_tag_{rule.id}_{phone}_{last_msg.id}"
+                    db.session.add(ChatbotConfig(key=cache_key, value=str(rule_result)))
                     try:
                         db.session.commit()
                     except Exception:
                         db.session.rollback()
 
-                    if result:
+                    if rule_result:
                         tag = Tag.query.get(rule.tag_id)
                         if tag and tag not in contact.tags:
                             contact.tags.append(tag)
@@ -104,6 +116,8 @@ def run_auto_tagger(app_context):
                             enroll_in_sequences(db, contact, rule.tag_id, FollowUpSequence, FollowUpEnrollment)
                     else:
                         _write_log(db, AutoTagLog, rule, contact, phone, 'skipped')
+
+                logger.info(f"🏷️ [AUTO_TAGGER] {phone}: {len(pending_rules)} regla(s) evaluadas en 1 llamada")
 
         except Exception as e:
             logger.error(f"❌ [AUTO_TAGGER] Error: {e}", exc_info=True)
@@ -126,8 +140,12 @@ def _write_log(db, AutoTagLog, rule, contact, phone, result):
         logger.warning(f"No se pudo guardar log de auto-tagger: {e}")
 
 
-def analyze_conversation(messages, prompt_condition):
-    """Analiza la conversación y retorna True/False."""
+def analyze_conversation_batch(messages, conditions):
+    """
+    Analiza la conversación contra múltiples condiciones en una sola llamada.
+    conditions: dict {rule_id_str: prompt_condition}
+    Retorna: dict {rule_id_str: True/False}
+    """
     conv_lines = []
     for msg in messages:
         role = "Usuario" if msg.direction == "inbound" else "Bot"
@@ -142,26 +160,40 @@ def analyze_conversation(messages, prompt_condition):
     )
     escalation_note = "\n\n[NOTA]: En esta conversación el cliente fue derivado a un humano." if escalated else ""
 
-    prompt = f"""Analizá la siguiente conversación de WhatsApp y respondé la pregunta con una sola palabra: SÍ o NO.
+    conditions_text = "\n".join(
+        f'- "{rule_id}": {condition}' for rule_id, condition in conditions.items()
+    )
+
+    prompt = f"""Analizá la siguiente conversación de WhatsApp y respondé cada pregunta con SÍ o NO.
 
 CONVERSACIÓN:
 {conversation_text}{escalation_note}
 
-PREGUNTA: {prompt_condition}
+PREGUNTAS (respondé cada una con SÍ o NO):
+{conditions_text}
 
-Respondé únicamente con SÍ o NO."""
+Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "NO" como valor. Ejemplo:
+{{"123": "SI", "456": "NO"}}"""
 
     response = client.chat.completions.create(
         model="gpt-5-nano",
         messages=[
-            {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con SÍ o NO."},
+            {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con un JSON de SÍ/NO por cada pregunta."},
             {"role": "user", "content": prompt}
         ],
         temperature=0.1,
-        max_tokens=5
+        max_completion_tokens=200
     )
-    answer = response.choices[0].message.content.strip().upper()
-    return answer.startswith("SÍ") or answer.startswith("SI")
+
+    raw = response.choices[0].message.content.strip()
+    try:
+        import json
+        parsed = json.loads(raw)
+        return {k: (str(v).upper().startswith("S")) for k, v in parsed.items()}
+    except Exception:
+        # Fallback: si no parsea el JSON, marcar todas como False
+        logger.warning(f"[AUTO_TAGGER] No se pudo parsear respuesta batch: {raw}")
+        return {k: False for k in conditions}
 
 
 def enroll_in_sequences(db, contact, tag_id, FollowUpSequence, FollowUpEnrollment):

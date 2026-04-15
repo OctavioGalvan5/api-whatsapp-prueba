@@ -230,6 +230,43 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
     sent_ok = result and (result.get('messages') or result.get('message_id') or result.get('success'))
     if sent_ok:
         logger.info(f"✅ [FOLLOWUP] Paso {step.order} enviado a {contact.phone_number} (secuencia: {sequence.name})")
+        # Guardar en DB para que aparezca en el dashboard
+        try:
+            from event_handlers import save_message
+            from whatsapp_service import whatsapp_api as _wa
+
+            # Intentar obtener el contenido real del template
+            content = f"[Template: {step.template_name}]"
+            try:
+                tpl_data = _wa.get_templates()
+                tpl = next((t for t in tpl_data.get('templates', []) if t['name'] == step.template_name), None)
+                if tpl:
+                    body_comp = next((c for c in tpl.get('components', []) if c.get('type', '').upper() == 'BODY'), None)
+                    if body_comp:
+                        body_text = body_comp.get('text', '')
+                        # Reemplazar {{1}}, {{2}}... con los valores resueltos
+                        body_params = []
+                        for comp in (components or []):
+                            if comp.get('type', '').lower() == 'body':
+                                body_params = [p.get('text', '') for p in comp.get('parameters', [])]
+                                break
+                        for i, val in enumerate(body_params, 1):
+                            body_text = body_text.replace(f'{{{{{i}}}}}', str(val))
+                        content = body_text
+            except Exception:
+                pass  # Fallback al nombre del template
+
+            wa_msg_id = result.get('message_id')
+            save_message(
+                wa_message_id=wa_msg_id,
+                phone_number=contact.phone_number,
+                direction='outbound',
+                message_type='template',
+                content=content,
+                wa_name=None
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ [FOLLOWUP] No se pudo guardar mensaje en DB: {e}")
     else:
         logger.warning(f"⚠️ [FOLLOWUP] Fallo enviando paso {step.order} a {contact.phone_number}: {result}")
 

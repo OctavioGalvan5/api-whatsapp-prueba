@@ -443,7 +443,11 @@
                 {% if msg.caption %}
                 <p class="mt-1">{{ msg.caption }}</p>
                 {% elif not msg.media_url %}
-                <p>{{ msg.content or '[Sin contenido]' }}</p>
+                    {% if msg.message_type == 'template' %}
+                    <p class="flex items-center gap-1.5 opacity-90"><span class="material-symbols-outlined text-[14px]">auto_awesome</span>{{ msg.content or '[Template]' }}</p>
+                    {% else %}
+                    <p>{{ msg.content or '[Sin contenido]' }}</p>
+                    {% endif %}
                 {% endif %}
 
                 {% else %}
