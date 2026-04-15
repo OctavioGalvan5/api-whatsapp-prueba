@@ -231,18 +231,18 @@
                 {{ contact_details.name[0] if contact_details and contact_details.name else selected_contact[-2:] }}
             </div>
             <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-                <div class="flex items-center gap-2 min-w-0">
+                <div class="flex items-center gap-2 min-w-0 flex-wrap">
                     <h2 class="chat-user-name text-[#111812] dark:text-white text-base font-semibold truncate">
                         {{ contact_details.name if contact_details and contact_details.name else selected_contact }}
                     </h2>
-                    <p class="chat-user-phone text-xs text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{{ selected_contact }}</p>
+                    {% if contact_details and contact_details.name %}
+                    <a href="https://wa.me/{{ selected_contact }}" target="_blank" class="chat-user-phone text-xs text-gray-400 dark:text-gray-500 shrink-0 hover:text-primary transition-colors">{{ selected_contact }}</a>
+                    {% endif %}
                 </div>
-                <div class="flex gap-1 chat-tags-container overflow-x-auto flex-nowrap md:flex-wrap scrollbar-hide">
+                <div class="flex gap-1 chat-tags-container overflow-x-auto flex-nowrap scrollbar-hide">
                     {% if contact_details and contact_details.tags %}
                     {% for tag in contact_details.tags %}
-                    <span
-                        class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider whitespace-nowrap shrink-0">{{
-                        tag }}</span>
+                    <span class="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider whitespace-nowrap shrink-0">{{ tag }}</span>
                     {% endfor %}
                     {% endif %}
                 </div>
@@ -250,66 +250,80 @@
         </div>
         <!-- Header Actions -->
         <div class="flex items-center gap-1 md:gap-2 shrink-0">
-            <!-- Stats in header -->
+            <!-- Stats: solo desktop -->
             <div class="hidden md:flex gap-3 mr-4 text-xs text-gray-500">
-                <div class="chat-stat-sent flex items-center gap-1"><span
-                        class="w-2 h-2 rounded-full bg-blue-500"></span> {{ contact_stats.sent if contact_stats else
-                    0 }} sent</div>
-                <div class="chat-stat-delivered flex items-center gap-1"><span
-                        class="w-2 h-2 rounded-full bg-green-500"></span> {{ contact_stats.delivered if
-                    contact_stats else 0 }} deliv</div>
-                <div class="chat-stat-read flex items-center gap-1"><span
-                        class="w-2 h-2 rounded-full bg-purple-500"></span> {{ contact_stats.read if contact_stats
-                    else 0 }} read</div>
+                <div class="chat-stat-sent flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> {{ contact_stats.sent if contact_stats else 0 }} sent</div>
+                <div class="chat-stat-delivered flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> {{ contact_stats.delivered if contact_stats else 0 }} deliv</div>
+                <div class="chat-stat-read flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-500"></span> {{ contact_stats.read if contact_stats else 0 }} read</div>
             </div>
-            <!-- Bot pausado: banner + botón reactivar -->
-            <div id="bot-paused-banner" class="{% if not bot_paused %}hidden{% endif %} flex items-center gap-2">
-                <span
-                    class="hidden sm:flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-medium px-3 py-1.5 rounded-full">
+
+            <!-- Bot pausado -->
+            <div id="bot-paused-banner" class="{% if not bot_paused %}hidden{% endif %} flex items-center gap-1">
+                <span class="hidden sm:flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-medium px-2 py-1.5 rounded-full">
                     <span class="material-symbols-outlined text-sm">support_agent</span>
-                    Chatbot pausado
+                    <span class="hidden md:inline">Chatbot pausado</span>
                 </span>
                 <button onclick="resumeBot('{{ selected_contact }}')"
-                    class="flex items-center gap-1.5 bg-primary text-white text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors">
+                    class="flex items-center gap-1 bg-primary text-white text-xs font-medium px-2 py-1.5 rounded-lg hover:bg-primary/90 transition-colors">
                     <span class="material-symbols-outlined text-sm">smart_toy</span>
-                    <span class="hidden sm:inline">Reactivar Chatbot</span>
+                    <span class="hidden sm:inline">Reactivar</span>
                 </button>
             </div>
-            <!-- Bot activo: botón pausar -->
+            <!-- Bot activo -->
             <div id="bot-active-controls" class="{% if bot_paused %}hidden{% endif %}">
                 <button onclick="pauseBot('{{ selected_contact }}')"
-                    class="flex items-center gap-1.5 bg-orange-500 text-white text-xs font-medium px-2 sm:px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors">
+                    class="flex items-center gap-1 bg-orange-500 text-white text-xs font-medium px-2 py-1.5 rounded-lg hover:bg-orange-600 transition-colors">
                     <span class="material-symbols-outlined text-sm">pause</span>
-                    <span class="hidden sm:inline">Pausar Chatbot</span>
+                    <span class="hidden sm:inline">Pausar</span>
                 </button>
             </div>
-            {% if current_user and current_user.has_permission('orders') %}
-            <button onclick="openOrderModal('{{ selected_contact }}')"
-                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                title="Crear orden">
-                <span class="material-symbols-outlined text-gray-500">shopping_bag</span>
-            </button>
-            <button onclick="toggleOrdersPanel()"
-                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                title="Ver órdenes del contacto" id="orders-panel-btn">
-                <span class="material-symbols-outlined text-gray-500">receipt_long</span>
-            </button>
-            {% endif %}
-            <button onclick="toggleTagsPanel()"
-                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                title="Gestionar etiquetas" id="tags-toggle-btn">
-                <span class="material-symbols-outlined text-gray-500">label</span>
-            </button>
-            <button onclick="exportPDF()"
-                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                title="Exportar a PDF">
-                <span class="material-symbols-outlined text-gray-500">picture_as_pdf</span>
-            </button>
-            <button onclick="toggleNotesPanel()"
-                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                title="Notas internas" id="notes-toggle-btn">
-                <span class="material-symbols-outlined text-gray-500">sticky_note_2</span>
-            </button>
+
+            <!-- Botones secundarios: visibles en desktop, ocultos en mobile -->
+            <div class="hidden md:flex items-center gap-1">
+                {% if current_user and current_user.has_permission('orders') %}
+                <button onclick="openOrderModal('{{ selected_contact }}')" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Crear orden">
+                    <span class="material-symbols-outlined text-gray-500">shopping_bag</span>
+                </button>
+                <button onclick="toggleOrdersPanel()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Órdenes del contacto" id="orders-panel-btn">
+                    <span class="material-symbols-outlined text-gray-500">receipt_long</span>
+                </button>
+                {% endif %}
+                <button onclick="toggleTagsPanel()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Etiquetas" id="tags-toggle-btn">
+                    <span class="material-symbols-outlined text-gray-500">label</span>
+                </button>
+                <button onclick="exportPDF()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Exportar PDF">
+                    <span class="material-symbols-outlined text-gray-500">picture_as_pdf</span>
+                </button>
+                <button onclick="toggleNotesPanel()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Notas" id="notes-toggle-btn">
+                    <span class="material-symbols-outlined text-gray-500">sticky_note_2</span>
+                </button>
+            </div>
+
+            <!-- Menú ··· en mobile -->
+            <div class="md:hidden relative">
+                <button onclick="toggleMobileMenu()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                    <span class="material-symbols-outlined text-gray-500">more_vert</span>
+                </button>
+                <div id="mobile-chat-menu" class="hidden absolute right-0 top-10 w-48 bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl z-30 py-1 overflow-hidden">
+                    {% if current_user and current_user.has_permission('orders') %}
+                    <button onclick="openOrderModal('{{ selected_contact }}');closeMobileMenu()" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <span class="material-symbols-outlined text-gray-500 text-[18px]">shopping_bag</span> Crear orden
+                    </button>
+                    <button onclick="toggleOrdersPanel();closeMobileMenu()" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <span class="material-symbols-outlined text-gray-500 text-[18px]">receipt_long</span> Ver órdenes
+                    </button>
+                    {% endif %}
+                    <button onclick="toggleTagsPanel();closeMobileMenu()" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <span class="material-symbols-outlined text-gray-500 text-[18px]">label</span> Etiquetas
+                    </button>
+                    <button onclick="toggleNotesPanel();closeMobileMenu()" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <span class="material-symbols-outlined text-gray-500 text-[18px]">sticky_note_2</span> Notas
+                    </button>
+                    <button onclick="exportPDF();closeMobileMenu()" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <span class="material-symbols-outlined text-gray-500 text-[18px]">picture_as_pdf</span> Exportar PDF
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -793,6 +807,22 @@
         if (sidebar) sidebar.style.display = 'flex';
         if (chatArea) chatArea.style.display = 'none';
     }
+
+    function toggleMobileMenu() {
+        const menu = document.getElementById('mobile-chat-menu');
+        if (menu) menu.classList.toggle('hidden');
+    }
+    function closeMobileMenu() {
+        const menu = document.getElementById('mobile-chat-menu');
+        if (menu) menu.classList.add('hidden');
+    }
+    // Cerrar el menú al tocar fuera
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('mobile-chat-menu');
+        if (menu && !menu.classList.contains('hidden') && !menu.parentElement.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
     const templateVarCache = {}; // Preservar variables de plantilla por contacto
 
     // Helper para escapar HTML (previene XSS)
@@ -2187,14 +2217,14 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         </div>
       </div>
 
-      <!-- Buscador de productos -->
+      <!-- Lista de productos del catálogo -->
       <div>
-        <label class="text-xs text-gray-500 mb-1 block">Agregar productos</label>
-        <div class="relative">
-          <input id="om-product-search" type="text" placeholder="Buscar producto del catálogo..."
-            oninput="omSearchProducts(this.value)"
-            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-          <div id="om-product-suggestions" class="hidden absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-40 overflow-y-auto z-10"></div>
+        <label class="text-xs text-gray-500 mb-1 block">Productos del catálogo</label>
+        <input id="om-product-search" type="text" placeholder="Filtrar productos..."
+          oninput="omFilterProducts(this.value)"
+          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary mb-2">
+        <div id="om-product-list" class="flex flex-col gap-1 max-h-44 overflow-y-auto rounded-xl border border-gray-100 dark:border-gray-700 p-1">
+          <p class="text-xs text-gray-400 text-center py-3">Cargando catálogo...</p>
         </div>
       </div>
 
@@ -2235,35 +2265,51 @@ async function openOrderModal(phone) {
   document.getElementById('om-product-search').value = '';
   document.getElementById('om-address').value = '';
   document.getElementById('om-notes').value = '';
-  document.getElementById('om-product-suggestions').classList.add('hidden');
-  // Precargar productos
-  if (!omProducts.length) {
-    const res = await fetch('/api/catalog/products');
-    const data = await res.json();
-    omProducts = data.products || [];
-  }
+  // Cargar productos siempre frescos al abrir
+  const res = await fetch('/api/catalog/products');
+  const data = await res.json();
+  omProducts = data.products || [];
+  omRenderProductList(omProducts);
   document.getElementById('modal-order-chat').classList.remove('hidden');
 }
 
 function closeOrderModal() { document.getElementById('modal-order-chat').classList.add('hidden'); }
 
-function omSearchProducts(q) {
-  const box = document.getElementById('om-product-suggestions');
-  if (!q.trim()) { box.classList.add('hidden'); return; }
-  const matches = omProducts.filter(p => p.name && p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
-  if (!matches.length) { box.classList.add('hidden'); return; }
-  box.innerHTML = matches.map(p => `
-    <div class="px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer text-sm" onclick='omSelectProduct(${JSON.stringify(p)})'>
-      <span class="font-medium">${p.name}</span>
-      ${p.price != null ? `<span class="text-gray-400 text-xs ml-2">${Number(p.price).toLocaleString('es-AR')} ${p.currency||'ARS'}</span>` : ''}
-    </div>`).join('');
-  box.classList.remove('hidden');
+function omRenderProductList(products) {
+  const el = document.getElementById('om-product-list');
+  if (!products.length) {
+    el.innerHTML = '<p class="text-xs text-gray-400 text-center py-3">Sin productos en el catálogo</p>';
+    return;
+  }
+  el.innerHTML = products.map(p => {
+    const img = p.image_url
+      ? `<img src="${p.image_url}" class="w-9 h-9 rounded-lg object-cover shrink-0" onerror="this.style.display='none'">`
+      : `<div class="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[16px] text-gray-400">inventory_2</span></div>`;
+    const price = p.price != null ? Number(p.price).toLocaleString('es-AR') + ' ' + (p.currency || 'ARS') : '—';
+    return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+      ${img}
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-medium truncate">${escapeHtml(p.name || '—')}</p>
+        <p class="text-xs text-gray-400">${price}</p>
+      </div>
+      <button onclick='omSelectProduct(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="shrink-0 w-7 h-7 rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-black flex items-center justify-center transition-colors">
+        <span class="material-symbols-outlined text-[16px]">add</span>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function omFilterProducts(q) {
+  if (!q.trim()) { omRenderProductList(omProducts); return; }
+  const lq = q.toLowerCase();
+  omRenderProductList(omProducts.filter(p => p.name && p.name.toLowerCase().includes(lq)));
 }
 
 function omSelectProduct(p) {
-  document.getElementById('om-product-suggestions').classList.add('hidden');
-  document.getElementById('om-product-search').value = '';
-  omItems.push({ retailer_id: p.retailer_id, product_name: p.name, quantity: 1, unit_price: p.price || 0, currency: p.currency || 'ARS' });
+  // Si ya está, incrementar cantidad
+  const existing = omItems.find(i => i.retailer_id === p.retailer_id);
+  if (existing) { existing.quantity++; }
+  else { omItems.push({ retailer_id: p.retailer_id, product_name: p.name, quantity: 1, unit_price: p.price || 0, currency: p.currency || 'ARS' }); }
   omRenderItems();
 }
 
