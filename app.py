@@ -2444,11 +2444,14 @@ def api_bot_status(phone):
         phone_normalized = normalize_phone(phone)
         contact = find_contact_by_phone(phone_normalized)
         if not contact:
-            # Sin registro de contacto = bot activo (usuario nuevo)
+            logger.info(f"[BOT-STATUS] {phone} → normalizado: {phone_normalized} → contacto NO encontrado → bot_active=True")
             return jsonify({'bot_active': True, 'phone': phone_normalized})
 
         # Verificar si tiene la etiqueta "Asistencia Humana"
-        has_human_tag = any(t.name == 'Asistencia Humana' for t in contact.tags)
+        contact_tags = [t.name for t in contact.tags]
+        has_human_tag = any(t == 'Asistencia Humana' for t in contact_tags)
+
+        logger.info(f"[BOT-STATUS] {phone} → normalizado: {phone_normalized} → contacto id={contact.id} nombre='{contact.name}' → tags={contact_tags} → has_human_tag={has_human_tag} → bot_active={not has_human_tag}")
 
         return jsonify({
             'bot_active': not has_human_tag,
@@ -2456,7 +2459,7 @@ def api_bot_status(phone):
             'has_human_assistance_tag': has_human_tag
         })
     except Exception as e:
-        logger.error(f"Error checking bot status: {e}")
+        logger.error(f"[BOT-STATUS] Error checking bot status para {phone}: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -5864,10 +5867,14 @@ def api_orders_list():
     date_to = request.args.get("date_to")
     search = request.args.get("search", "").strip()
     vista = request.args.get("vista")  # "unseen" | "seen" | "" = todas
+    phone = request.args.get("phone", "").strip()
     page = int(request.args.get("page", 1))
     per_page = int(request.args.get("per_page", 30))
 
     q = Order.query.order_by(Order.created_at.desc())
+
+    if phone:
+        q = q.filter(Order.phone_number == phone)
 
     if status:
         q = q.filter(Order.status == status)

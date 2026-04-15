@@ -289,6 +289,11 @@
                 title="Crear orden">
                 <span class="material-symbols-outlined text-gray-500">shopping_bag</span>
             </button>
+            <button onclick="toggleOrdersPanel()"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                title="Ver órdenes del contacto" id="orders-panel-btn">
+                <span class="material-symbols-outlined text-gray-500">receipt_long</span>
+            </button>
             {% endif %}
             <button onclick="toggleTagsPanel()"
                 class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
@@ -607,6 +612,25 @@
             <p class="text-xs text-gray-400 text-center py-4">Cargando etiquetas...</p>
         </div>
     </div>
+
+    <!-- Orders Side Panel -->
+    {% if current_user and current_user.has_permission('orders') %}
+    <div id="orders-panel"
+        class="hidden absolute top-0 right-0 w-80 h-full bg-white dark:bg-[#152a17] border-l border-gray-200 dark:border-gray-800 flex flex-col z-20 shadow-xl">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">shopping_bag</span>
+                <h3 class="font-semibold text-sm">Órdenes</h3>
+            </div>
+            <button onclick="toggleOrdersPanel()" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                <span class="material-symbols-outlined text-gray-500 text-lg">close</span>
+            </button>
+        </div>
+        <div id="orders-panel-list" class="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+            <p class="text-xs text-gray-400 text-center py-4">Cargando órdenes...</p>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Notes Side Panel -->
     <div id="notes-panel"
@@ -1109,6 +1133,11 @@
             const data = await response.json();
             if (data.success) {
                 currentPhone = phone;
+                // Cerrar paneles laterales al cambiar contacto
+                tagsOpen = false; notesOpen = false; ordersOpen = false;
+                document.getElementById('tags-panel')?.classList.add('hidden');
+                document.getElementById('notes-panel')?.classList.add('hidden');
+                document.getElementById('orders-panel')?.classList.add('hidden');
                 renderChat(data);
                 restoreTemplateVars(phone);
                 showChatMobile();
@@ -1918,10 +1947,11 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         const panel = document.getElementById('tags-panel');
         if (!panel) return;
         tagsOpen = !tagsOpen;
-        // Cerrar notas si estaba abierto
         if (tagsOpen) {
             notesOpen = false;
+            ordersOpen = false;
             document.getElementById('notes-panel')?.classList.add('hidden');
+            document.getElementById('orders-panel')?.classList.add('hidden');
         }
         panel.classList.toggle('hidden', !tagsOpen);
         if (tagsOpen) await loadTagsPanel();
@@ -1999,13 +2029,69 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         const panel = document.getElementById('notes-panel');
         if (!panel) return;
         notesOpen = !notesOpen;
-        // Cerrar tags si estaba abierto
+        // Cerrar tags y órdenes si estaban abiertos
         if (notesOpen) {
             tagsOpen = false;
+            ordersOpen = false;
             document.getElementById('tags-panel')?.classList.add('hidden');
+            document.getElementById('orders-panel')?.classList.add('hidden');
         }
         panel.classList.toggle('hidden', !notesOpen);
         if (notesOpen) loadNotes();
+    }
+
+    let ordersOpen = false;
+
+    function toggleOrdersPanel() {
+        const panel = document.getElementById('orders-panel');
+        if (!panel) return;
+        ordersOpen = !ordersOpen;
+        if (ordersOpen) {
+            tagsOpen = false;
+            notesOpen = false;
+            document.getElementById('tags-panel')?.classList.add('hidden');
+            document.getElementById('notes-panel')?.classList.add('hidden');
+        }
+        panel.classList.toggle('hidden', !ordersOpen);
+        if (ordersOpen) loadContactOrders();
+    }
+
+    async function loadContactOrders() {
+        if (!currentPhone) return;
+        const list = document.getElementById('orders-panel-list');
+        list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Cargando...</p>';
+        try {
+            const res = await fetch(`/api/orders?phone=${encodeURIComponent(currentPhone)}&per_page=50`);
+            const data = await res.json();
+            const orders = data.orders || [];
+            if (!orders.length) {
+                list.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Sin órdenes para este contacto</p>';
+                return;
+            }
+            const statusLabel = { pendiente: 'Pendiente', confirmado: 'Confirmado', pendiente_envio: 'Pend. envío', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado', terminado: 'Terminado' };
+            const statusColor = { pendiente: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', confirmado: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', pendiente_envio: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', enviado: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', entregado: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', cancelado: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', terminado: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' };
+            list.innerHTML = orders.map(o => {
+                const date = new Date(o.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                const itemsSummary = (o.items || []).map(i => `${i.product_name} ×${i.quantity}`).join(', ') || '—';
+                const total = o.total != null ? Number(o.total).toLocaleString('es-AR') + ' ' + (o.currency || '') : '—';
+                const sc = statusColor[o.status] || 'bg-gray-100 text-gray-500';
+                const sl = statusLabel[o.status] || o.status;
+                return `
+                <a href="/orders?id=${o.id}" class="block p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">#${o.id}</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${sc}">${sl}</span>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate mb-1">${escapeHtml(itemsSummary)}</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">${total}</span>
+                        <span class="text-xs text-gray-400">${date}</span>
+                    </div>
+                </a>`;
+            }).join('');
+        } catch (e) {
+            list.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Error cargando órdenes</p>';
+        }
     }
 
     async function loadNotes() {

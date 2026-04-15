@@ -673,7 +673,10 @@
     setTimeout(() => t.remove(), 3000);
   }
 
-  // Init
-  loadOrders();
+  // Init — abrir orden específica si viene ?id= en la URL
+  const _initOrderId = new URLSearchParams(window.location.search).get('id');
+  loadOrders().then(() => {
+    if (_initOrderId) openDetail(parseInt(_initOrderId));
+  });
 </script>
 {% endblock %}
