@@ -70,17 +70,22 @@ def run_auto_tagger(app_context):
                 for rule in rules:
                     cutoff = now - timedelta(minutes=rule.inactivity_minutes)
                     if last_msg.timestamp >= cutoff:
-                        continue  # Contacto aún activo para esta regla
+                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: aún activo (último msg {last_msg.timestamp} >= cutoff {cutoff})")
+                        continue
                     if rule.activated_at and last_msg.timestamp < rule.activated_at:
-                        continue  # Fuera del rango de esta regla
+                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: fuera de rango")
+                        continue
                     if any(t.id == rule.tag_id for t in contact.tags):
-                        continue  # Ya tiene la etiqueta
+                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: ya tiene la etiqueta")
+                        continue
                     cache_key = f"auto_tag_{rule.id}_{phone}_{last_msg.id}"
                     if ChatbotConfig.query.filter_by(key=cache_key).first():
-                        continue  # Ya analizado
+                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: ya analizado (cache)")
+                        continue
                     pending_rules.append(rule)
 
                 if not pending_rules:
+                    logger.info(f"[AUTO_TAGGER] {phone}: sin reglas pendientes, saltando")
                     continue
 
                 # Obtener los últimos 20 mensajes una sola vez
