@@ -7,7 +7,7 @@ import pandas as pd
 import re
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for, abort, g
 from config import Config
-from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpStep, FollowUpEnrollment, CrmUserTagVisibility
+from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpStep, FollowUpEnrollment, CrmUserTagVisibility, CatalogProduct, Order, OrderItem
 import threading
 import time as time_module
 from event_handlers import process_event
@@ -270,7 +270,7 @@ def verify_webhook():
     
     return "Hello world", 200
 
-@app.route("/media/<filename>")
+@app.route("/media/<path:filename>")
 def media_proxy(filename):
     """
     Proxy para servir archivos de MinIO o almacenamiento local.
@@ -5552,10 +5552,21 @@ def _sync_catalog_to_db(catalog_id):
         rid = p.get("retailer_id") or p.get("id")
         if not rid:
             continue
-        # price viene como string "1500.00" o int en centavos según el endpoint
         raw_price = p.get("price")
         try:
-            price = float(raw_price) / 100 if isinstance(raw_price, int) else float(raw_price) if raw_price else None
+            if isinstance(raw_price, (int, float)):
+                price = float(raw_price)
+            elif raw_price:
+                # Meta puede mandar "$15.000,00" (formato AR) o "15000.00" (formato US)
+                cleaned = str(raw_price).strip().replace('$', '').replace(' ', '')
+                # Detectar formato: si tiene coma después del último punto → AR
+                if ',' in cleaned and cleaned.rfind(',') > cleaned.rfind('.'):
+                    cleaned = cleaned.replace('.', '').replace(',', '.')
+                else:
+                    cleaned = cleaned.replace(',', '')
+                price = float(cleaned)
+            else:
+                price = None
         except (ValueError, TypeError):
             price = None
         existing = CatalogProduct.query.get(rid)
@@ -5576,10 +5587,17 @@ def _sync_catalog_to_db(catalog_id):
                 description=p.get("description"),
                 price=price,
                 currency=p.get("currency"),
-                availability=p.get("availability", "in_stock"),
+                availability=p.get("availability", "in stock"),
                 image_url=p.get("image_url"),
                 synced_at=now,
             ))
+    # Eliminar productos locales que ya no existen en Meta
+    synced_ids = {p.get("retailer_id") or p.get("id") for p in products if p.get("retailer_id") or p.get("id")}
+    local_products = CatalogProduct.query.all()
+    for lp in local_products:
+        if lp.retailer_id not in synced_ids:
+            db.session.delete(lp)
+
     db.session.commit()
     return len(products), None
 
@@ -5589,6 +5607,40 @@ def catalog_page():
     if not g.current_user or not g.current_user.has_permission('catalog'):
         return redirect(url_for('login'))
     return render_template('catalog.html')
+
+
+@app.route("/api/catalog/upload-image", methods=["POST"])
+def api_catalog_upload_image():
+    """Sube una imagen de producto a MinIO y devuelve la URL pública absoluta."""
+    from whatsapp_service import get_s3_client, ensure_bucket_exists
+    if 'file' not in request.files:
+        return jsonify({"error": "No se recibió archivo"}), 400
+    f = request.files['file']
+    if not f.filename:
+        return jsonify({"error": "Archivo sin nombre"}), 400
+    allowed = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
+    mime = f.mimetype or ''
+    if mime not in allowed:
+        return jsonify({"error": "Solo se permiten imágenes (jpg, png, webp)"}), 400
+    ext_map = {'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif'}
+    ext = ext_map.get(mime, '.jpg')
+    filename = f"catalog-images/{uuid.uuid4().hex}{ext}"
+    try:
+        s3 = get_s3_client()
+        ensure_bucket_exists()
+        file_bytes = f.read()
+        s3.put_object(
+            Bucket=Config.MINIO_BUCKET,
+            Key=filename,
+            Body=file_bytes,
+            ContentType=mime
+        )
+        base = Config.FLASK_BASE_URL.rstrip('/')
+        public_url = f"{base}/media/{filename}"
+        return jsonify({"url": public_url})
+    except Exception as e:
+        logger.error(f"Error subiendo imagen de catálogo a MinIO: {e}")
+        return jsonify({"error": "Error al subir la imagen"}), 500
 
 
 @app.route("/api/catalog/detect", methods=["GET"])
@@ -5658,14 +5710,17 @@ def api_catalog_products_create():
     name = data.get("name", "").strip()
     if not retailer_id or not name:
         return jsonify({"error": "retailer_id y name son requeridos"}), 400
+    if CatalogProduct.query.get(retailer_id):
+        return jsonify({"error": f"Ya existe un producto con Retailer ID '{retailer_id}'"}), 409
     price = data.get("price")
     currency = data.get("currency", "ARS")
     description = data.get("description", "")
-    availability = data.get("availability", "in_stock")
+    availability = data.get("availability", "in stock")
+    image_url = data.get("image_url") or None
 
     # Crear en Meta
     meta_result = whatsapp_api.create_catalog_product(
-        catalog_id, retailer_id, name, price or 0, currency, description, availability
+        catalog_id, retailer_id, name, price or 0, currency, description, availability, image_url=image_url
     )
     if "error" in meta_result:
         return jsonify(meta_result), 500
@@ -5679,6 +5734,7 @@ def api_catalog_products_create():
         price=price,
         currency=currency,
         availability=availability,
+        image_url=image_url,
         synced_at=datetime.utcnow(),
     )
     db.session.add(product)
@@ -5698,12 +5754,14 @@ def api_catalog_products_update(retailer_id):
     currency = data.get("currency", product.currency)
     description = data.get("description", product.description)
     availability = data.get("availability", product.availability)
+    image_url = data.get("image_url", product.image_url) or None
 
     # Actualizar en Meta si tenemos wa_product_id
     if product.wa_product_id:
         meta_result = whatsapp_api.update_catalog_product(
             product.wa_product_id, name=name, price=price,
-            currency=currency, description=description, availability=availability
+            currency=currency, description=description, availability=availability,
+            image_url=image_url
         )
         if "error" in meta_result:
             return jsonify(meta_result), 500
@@ -5713,6 +5771,7 @@ def api_catalog_products_update(retailer_id):
     product.currency = currency
     product.description = description
     product.availability = availability
+    product.image_url = image_url
     product.synced_at = datetime.utcnow()
     db.session.commit()
     return jsonify({"success": True, "product": product.to_dict()})
@@ -5725,9 +5784,8 @@ def api_catalog_products_delete(retailer_id):
     product = CatalogProduct.query.get_or_404(retailer_id)
 
     if product.wa_product_id:
-        meta_result = whatsapp_api.delete_catalog_product(product.wa_product_id)
-        if "error" in meta_result:
-            return jsonify(meta_result), 500
+        whatsapp_api.delete_catalog_product(product.wa_product_id)
+        # Ignoramos error de Meta: si ya fue eliminado allá, igual lo borramos localmente
 
     db.session.delete(product)
     db.session.commit()

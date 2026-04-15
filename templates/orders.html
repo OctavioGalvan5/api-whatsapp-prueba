@@ -1,0 +1,679 @@
+{% extends "base.html" %}
+{% block title %}Órdenes — CRM{% endblock %}
+
+{% block content %}
+<div class="flex flex-1 overflow-hidden">
+
+  <!-- ===== LISTA DE ÓRDENES ===== -->
+  <div id="orders-list-panel" class="flex flex-col w-full md:w-[480px] lg:w-[520px] border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#152a17] flex-shrink-0">
+
+    <!-- Header + filtros -->
+    <div class="p-4 border-b border-gray-200 dark:border-gray-800">
+      <div class="flex items-center justify-between mb-3">
+        <h1 class="text-lg font-semibold">Órdenes</h1>
+        <button onclick="openCreateModal()"
+          class="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-black rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors">
+          <span class="material-symbols-outlined text-[18px]">add</span>
+          Nueva
+        </button>
+      </div>
+
+      <!-- Buscador -->
+      <div class="relative mb-3">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">search</span>
+        <input id="search-input" type="text" placeholder="Buscar por nombre o teléfono..."
+          class="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary"
+          oninput="debouncedLoad()">
+      </div>
+
+      <!-- Filtros fila 1 -->
+      <div class="flex gap-2 flex-wrap mb-2">
+        <select id="filter-status" onchange="loadOrders()"
+          class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="confirmado">Confirmado</option>
+          <option value="pendiente_envio">Pendiente envío</option>
+          <option value="enviado">Enviado</option>
+          <option value="entregado">Entregado</option>
+          <option value="cancelado">Cancelado</option>
+          <option value="terminado">Terminado</option>
+        </select>
+        <select id="filter-payment" onchange="loadOrders()"
+          class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <option value="">Todos los pagos</option>
+          <option value="sin_pagar">Sin pagar</option>
+          <option value="pagado">Pagado</option>
+          <option value="reembolsado">Reembolsado</option>
+        </select>
+        <select id="filter-method" onchange="loadOrders()"
+          class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <option value="">Todos los métodos</option>
+          <option value="efectivo">Efectivo</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="mercadopago">MercadoPago</option>
+          <option value="tarjeta">Tarjeta</option>
+          <option value="otro">Otro</option>
+        </select>
+        <select id="filter-vista" onchange="loadOrders()"
+          class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <option value="">Todas</option>
+          <option value="unseen">No vistas</option>
+          <option value="seen">Vistas</option>
+        </select>
+      </div>
+
+      <!-- Filtros fecha -->
+      <div class="flex gap-2 items-center">
+        <input id="filter-from" type="date" onchange="loadOrders()"
+          class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
+        <span class="text-xs text-gray-400">—</span>
+        <input id="filter-to" type="date" onchange="loadOrders()"
+          class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
+        <button onclick="clearFilters()" class="ml-auto text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Limpiar</button>
+      </div>
+    </div>
+
+    <!-- Lista -->
+    <div id="orders-list" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-gray-100 dark:divide-gray-800">
+      <div class="p-8 text-center text-gray-400 text-sm">Cargando...</div>
+    </div>
+
+    <!-- Paginación -->
+    <div id="pagination" class="hidden border-t border-gray-200 dark:border-gray-800 px-4 py-2 flex items-center justify-between text-sm text-gray-500">
+      <span id="pagination-info"></span>
+      <div class="flex gap-2">
+        <button id="btn-prev" onclick="changePage(-1)" class="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40" disabled>←</button>
+        <button id="btn-next" onclick="changePage(1)" class="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40" disabled>→</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PANEL DE DETALLE ===== -->
+  <div id="order-detail-panel" class="flex flex-1 flex-col bg-gray-50 dark:bg-[#102212] overflow-hidden max-md:hidden">
+    <div id="detail-empty" class="flex-1 flex items-center justify-center text-gray-400">
+      <div class="text-center">
+        <span class="material-symbols-outlined text-5xl mb-2 block">shopping_bag</span>
+        <p class="text-sm">Seleccioná una orden para ver el detalle</p>
+      </div>
+    </div>
+    <div id="detail-content" class="flex-1 flex flex-col overflow-hidden" style="display:none">
+      <!-- Header del detalle -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#152a17]">
+        <div>
+          <span id="d-order-number" class="font-bold text-lg"></span>
+          <span id="d-source-badge" class="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500"></span>
+        </div>
+        <div class="flex gap-2">
+          <button id="btn-terminate" onclick="terminateOrder()"
+            class="flex items-center gap-1 px-3 py-1.5 text-sm rounded-xl border border-red-200 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            <span class="material-symbols-outlined text-[16px]">block</span>
+            Terminar orden
+          </button>
+          <button onclick="saveDetail()"
+            class="flex items-center gap-1 px-3 py-1.5 text-sm rounded-xl bg-primary text-black font-medium hover:bg-primary/90 transition-colors">
+            <span class="material-symbols-outlined text-[16px]">save</span>
+            Guardar
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo del detalle -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Columna izquierda: datos de la orden -->
+        <div class="flex flex-col gap-4">
+
+          <!-- Contacto -->
+          <div class="bg-white dark:bg-[#152a17] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Contacto</p>
+            <p id="d-contact-name" class="font-medium"></p>
+            <a id="d-contact-phone" href="#" class="text-sm text-primary hover:underline"></a>
+          </div>
+
+          <!-- Estado y pago -->
+          <div class="bg-white dark:bg-[#152a17] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Estado</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Estado orden</label>
+                <select id="d-status"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+                  <option value="pendiente">Pendiente</option>
+                  <option value="confirmado">Confirmado</option>
+                  <option value="pendiente_envio">Pendiente envío</option>
+                  <option value="enviado">Enviado</option>
+                  <option value="entregado">Entregado</option>
+                  <option value="cancelado">Cancelado</option>
+                  <option value="terminado">Terminado</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Estado pago</label>
+                <select id="d-payment-status"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+                  <option value="sin_pagar">Sin pagar</option>
+                  <option value="pagado">Pagado</option>
+                  <option value="reembolsado">Reembolsado</option>
+                </select>
+              </div>
+              <div class="col-span-2">
+                <label class="text-xs text-gray-500 mb-1 block">Método de pago</label>
+                <select id="d-payment-method"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+                  <option value="">— Sin especificar —</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="mercadopago">MercadoPago</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total y dirección -->
+          <div class="bg-white dark:bg-[#152a17] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Totales y envío</p>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Total</label>
+                <input id="d-total" type="number" min="0" step="0.01" placeholder="0.00"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Moneda</label>
+                <input id="d-currency" type="text" maxlength="5" placeholder="ARS"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 mb-1 block">Dirección de envío</label>
+              <textarea id="d-shipping-address" rows="2" placeholder="Dirección..."
+                class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary resize-none"></textarea>
+            </div>
+          </div>
+
+          <!-- Notas -->
+          <div class="bg-white dark:bg-[#152a17] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 block">Notas internas</label>
+            <textarea id="d-notes" rows="3" placeholder="Notas..."
+              class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary resize-none"></textarea>
+          </div>
+        </div>
+
+        <!-- Columna derecha: productos + auditoría -->
+        <div class="flex flex-col gap-4">
+
+          <!-- Productos -->
+          <div class="bg-white dark:bg-[#152a17] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Productos</p>
+              <button onclick="openAddItemModal()" class="text-xs text-primary hover:underline flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px]">add</span> Agregar
+              </button>
+            </div>
+            <div id="d-items-list" class="flex flex-col gap-2">
+              <p class="text-sm text-gray-400">Sin productos</p>
+            </div>
+            <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-between text-sm font-semibold">
+              <span>Subtotal calculado</span>
+              <span id="d-subtotal">—</span>
+            </div>
+          </div>
+
+          <!-- Auditoría -->
+          <div class="bg-white dark:bg-[#152a17] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Auditoría</p>
+            <div class="flex flex-col gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+              <div class="flex justify-between"><span>Creado por</span><span id="d-created-by" class="font-medium text-gray-700 dark:text-gray-300"></span></div>
+              <div class="flex justify-between"><span>Fecha creación</span><span id="d-created-at" class="font-medium text-gray-700 dark:text-gray-300"></span></div>
+              <div class="flex justify-between"><span>Último editor</span><span id="d-edited-by" class="font-medium text-gray-700 dark:text-gray-300"></span></div>
+              <div class="flex justify-between"><span>Última edición</span><span id="d-updated-at" class="font-medium text-gray-700 dark:text-gray-300"></span></div>
+              <div class="flex justify-between"><span>Visto por</span><span id="d-seen-by" class="font-medium text-gray-700 dark:text-gray-300"></span></div>
+              <div class="flex justify-between"><span>Visto el</span><span id="d-seen-at" class="font-medium text-gray-700 dark:text-gray-300"></span></div>
+              <div id="d-terminated-row" class="hidden">
+                <div class="flex justify-between"><span>Terminado por</span><span id="d-terminated-by" class="font-medium text-gray-700 dark:text-gray-300"></span></div>
+                <div class="flex justify-between"><span>Terminado el</span><span id="d-terminated-at" class="font-medium text-gray-700 dark:text-gray-300"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL CREAR ORDEN ===== -->
+<div id="modal-create" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+  <div class="bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-lg">Nueva orden manual</h2>
+      <button onclick="closeCreateModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="flex flex-col gap-3">
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Teléfono del contacto *</label>
+        <input id="create-phone" type="text" placeholder="5491123456789"
+          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Estado inicial</label>
+          <select id="create-status"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+            <option value="pendiente">Pendiente</option>
+            <option value="confirmado">Confirmado</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Método de pago</label>
+          <select id="create-method"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+            <option value="">— Sin especificar —</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="mercadopago">MercadoPago</option>
+            <option value="tarjeta">Tarjeta</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Dirección de envío</label>
+        <input id="create-address" type="text" placeholder="Opcional..."
+          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Notas</label>
+        <textarea id="create-notes" rows="2" placeholder="Opcional..."
+          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary resize-none"></textarea>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="closeCreateModal()" class="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Cancelar</button>
+      <button onclick="submitCreateOrder()" class="flex-1 py-2 rounded-xl bg-primary text-black font-medium text-sm hover:bg-primary/90">Crear orden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL AGREGAR ITEM ===== -->
+<div id="modal-add-item" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+  <div class="bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-lg">Agregar producto</h2>
+      <button onclick="closeAddItemModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="flex flex-col gap-3">
+      <div class="relative">
+        <input id="item-search" type="text" placeholder="Buscar producto..."
+          oninput="searchProducts(this.value)"
+          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        <div id="product-suggestions" class="hidden absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-48 overflow-y-auto z-10"></div>
+      </div>
+      <div id="selected-product-info" class="hidden bg-gray-50 dark:bg-gray-900 rounded-xl p-3 text-sm">
+        <p id="sel-product-name" class="font-medium"></p>
+        <p id="sel-product-price" class="text-gray-500 text-xs"></p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Cantidad</label>
+          <input id="item-qty" type="number" min="1" value="1"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Precio unitario</label>
+          <input id="item-price" type="number" min="0" step="0.01" placeholder="0.00"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="closeAddItemModal()" class="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Cancelar</button>
+      <button onclick="confirmAddItem()" class="flex-1 py-2 rounded-xl bg-primary text-black font-medium text-sm hover:bg-primary/90">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentPage = 1;
+  let totalOrders = 0;
+  const PER_PAGE = 30;
+  let currentOrderId = null;
+  let pendingItems = [];
+  let allProducts = [];
+  let selectedProduct = null;
+  let debounceTimer = null;
+
+  const STATUS_LABELS = {
+    pendiente: 'Pendiente', confirmado: 'Confirmado',
+    pendiente_envio: 'Pend. envío', enviado: 'Enviado',
+    entregado: 'Entregado', cancelado: 'Cancelado', terminado: 'Terminado'
+  };
+  const STATUS_COLORS = {
+    pendiente: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    confirmado: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    pendiente_envio: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    enviado: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    entregado: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    cancelado: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    terminado: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  };
+  const PAY_LABELS = { sin_pagar: 'Sin pagar', pagado: 'Pagado', reembolsado: 'Reembolsado' };
+  const PAY_COLORS = {
+    sin_pagar: 'text-red-500', pagado: 'text-green-600 dark:text-green-400', reembolsado: 'text-gray-500'
+  };
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function debouncedLoad() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => { currentPage = 1; loadOrders(); }, 350);
+  }
+
+  async function loadOrders() {
+    const params = new URLSearchParams({
+      page: currentPage,
+      per_page: PER_PAGE,
+      search: document.getElementById('search-input').value,
+      status: document.getElementById('filter-status').value,
+      payment_status: document.getElementById('filter-payment').value,
+      payment_method: document.getElementById('filter-method').value,
+      vista: document.getElementById('filter-vista').value,
+      date_from: document.getElementById('filter-from').value,
+      date_to: document.getElementById('filter-to').value,
+    });
+    const res = await fetch('/api/orders?' + params);
+    const data = await res.json();
+    totalOrders = data.total;
+    renderList(data.orders);
+    renderPagination();
+  }
+
+  function renderList(orders) {
+    const el = document.getElementById('orders-list');
+    if (!orders.length) {
+      el.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">No hay órdenes</div>';
+      return;
+    }
+    el.innerHTML = orders.map(o => {
+      const dot = !o.seen_at ? '<span class="w-2 h-2 rounded-full bg-primary flex-shrink-0"></span>' : '<span class="w-2 h-2 flex-shrink-0"></span>';
+      const sc = STATUS_COLORS[o.status] || 'bg-gray-100 text-gray-600';
+      const pc = PAY_COLORS[o.payment_status] || '';
+      const items_summary = o.items && o.items.length
+        ? o.items.slice(0, 2).map(i => `${i.product_name} ×${i.quantity}`).join(' · ') + (o.items.length > 2 ? ` +${o.items.length - 2} más` : '')
+        : '<span class="italic text-gray-400">Sin productos</span>';
+      const active = currentOrderId === o.id ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50';
+      return `
+        <div class="px-4 py-3 cursor-pointer ${active} transition-colors" onclick="openDetail(${o.id})">
+          <div class="flex items-center gap-2 mb-1">
+            ${dot}
+            <span class="font-semibold text-sm">${o.order_number}</span>
+            <span class="text-xs px-1.5 py-0.5 rounded-full ${sc}">${STATUS_LABELS[o.status] || o.status}</span>
+            <span class="ml-auto text-xs font-medium ${pc}">${PAY_LABELS[o.payment_status] || ''}</span>
+          </div>
+          <p class="text-sm text-gray-700 dark:text-gray-300 ml-4">${o.contact_name || o.phone_number}</p>
+          <p class="text-xs text-gray-400 ml-4 truncate" title="${o.items ? o.items.map(i=>i.product_name+' ×'+i.quantity).join(', ') : ''}">${items_summary}</p>
+          <div class="flex justify-between ml-4 mt-0.5">
+            <span class="text-xs text-gray-400">${fmtDate(o.created_at)}</span>
+            ${o.total != null ? `<span class="text-xs font-medium">${Number(o.total).toLocaleString('es-AR')} ${o.currency || 'ARS'}</span>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderPagination() {
+    const total = totalOrders;
+    const pages = Math.ceil(total / PER_PAGE);
+    const el = document.getElementById('pagination');
+    if (pages <= 1) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    document.getElementById('pagination-info').textContent = `${(currentPage - 1) * PER_PAGE + 1}–${Math.min(currentPage * PER_PAGE, total)} de ${total}`;
+    document.getElementById('btn-prev').disabled = currentPage <= 1;
+    document.getElementById('btn-next').disabled = currentPage >= pages;
+  }
+
+  function changePage(delta) {
+    currentPage += delta;
+    loadOrders();
+  }
+
+  function clearFilters() {
+    ['filter-status', 'filter-payment', 'filter-method', 'filter-vista'].forEach(id => document.getElementById(id).value = '');
+    ['filter-from', 'filter-to'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('search-input').value = '';
+    currentPage = 1;
+    loadOrders();
+  }
+
+  async function openDetail(orderId) {
+    currentOrderId = orderId;
+    // Mark seen
+    fetch(`/api/orders/${orderId}/seen`, { method: 'POST' });
+
+    const res = await fetch(`/api/orders/${orderId}`);
+    const o = await res.json();
+
+    document.getElementById('detail-empty').style.display = 'none';
+    document.getElementById('detail-content').style.display = 'flex';
+
+    document.getElementById('d-order-number').textContent = o.order_number;
+    document.getElementById('d-source-badge').textContent = o.source === 'whatsapp' ? 'WhatsApp' : 'Manual';
+    document.getElementById('d-contact-name').textContent = o.contact_name || o.phone_number;
+    const phoneEl = document.getElementById('d-contact-phone');
+    phoneEl.textContent = o.phone_number;
+    phoneEl.href = `/dashboard?phone=${o.phone_number}`;
+
+    document.getElementById('d-status').value = o.status || 'pendiente';
+    document.getElementById('d-payment-status').value = o.payment_status || 'sin_pagar';
+    document.getElementById('d-payment-method').value = o.payment_method || '';
+    document.getElementById('d-total').value = o.total != null ? o.total : '';
+    document.getElementById('d-currency').value = o.currency || 'ARS';
+    document.getElementById('d-shipping-address').value = o.shipping_address || '';
+    document.getElementById('d-notes').value = o.notes || '';
+
+    // Items
+    pendingItems = o.items ? [...o.items] : [];
+    renderItems();
+
+    // Auditoría
+    document.getElementById('d-created-by').textContent = o.created_by || '—';
+    document.getElementById('d-created-at').textContent = fmtDate(o.created_at);
+    document.getElementById('d-edited-by').textContent = o.last_edited_by || '—';
+    document.getElementById('d-updated-at').textContent = fmtDate(o.updated_at);
+    document.getElementById('d-seen-by').textContent = o.seen_by || '—';
+    document.getElementById('d-seen-at').textContent = fmtDate(o.seen_at);
+    if (o.terminated_at) {
+      document.getElementById('d-terminated-row').classList.remove('hidden');
+      document.getElementById('d-terminated-by').textContent = o.terminated_by || '—';
+      document.getElementById('d-terminated-at').textContent = fmtDate(o.terminated_at);
+    } else {
+      document.getElementById('d-terminated-row').classList.add('hidden');
+    }
+
+    // Ocultar "Terminar" si ya está terminado/cancelado/entregado
+    const terminalStates = ['terminado', 'cancelado', 'entregado'];
+    document.getElementById('btn-terminate').style.display = terminalStates.includes(o.status) ? 'none' : '';
+
+    // Re-render lista para highlight
+    loadOrders();
+  }
+
+  function renderItems() {
+    const el = document.getElementById('d-items-list');
+    if (!pendingItems.length) {
+      el.innerHTML = '<p class="text-sm text-gray-400">Sin productos</p>';
+      document.getElementById('d-subtotal').textContent = '—';
+      return;
+    }
+    let subtotal = 0;
+    el.innerHTML = pendingItems.map((item, idx) => {
+      const sub = (item.unit_price || 0) * (item.quantity || 1);
+      subtotal += sub;
+      return `
+        <div class="flex items-center gap-2 py-1.5 border-b border-gray-50 dark:border-gray-800 last:border-0">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">${item.product_name}</p>
+            <p class="text-xs text-gray-400">x${item.quantity} × ${Number(item.unit_price).toLocaleString('es-AR')}</p>
+          </div>
+          <span class="text-sm font-medium flex-shrink-0">${Number(sub).toLocaleString('es-AR')}</span>
+          <button onclick="removeItem(${idx})" class="text-gray-300 hover:text-red-400 transition-colors">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>`;
+    }).join('');
+    document.getElementById('d-subtotal').textContent = Number(subtotal).toLocaleString('es-AR') + ' ' + (pendingItems[0]?.currency || 'ARS');
+    // Auto-completar total si está vacío
+    const totalInput = document.getElementById('d-total');
+    if (!totalInput.value) totalInput.value = subtotal.toFixed(2);
+  }
+
+  function removeItem(idx) {
+    pendingItems.splice(idx, 1);
+    renderItems();
+  }
+
+  async function saveDetail() {
+    if (!currentOrderId) return;
+    const payload = {
+      status: document.getElementById('d-status').value,
+      payment_status: document.getElementById('d-payment-status').value,
+      payment_method: document.getElementById('d-payment-method').value,
+      total: document.getElementById('d-total').value !== '' ? parseFloat(document.getElementById('d-total').value) : null,
+      currency: document.getElementById('d-currency').value,
+      shipping_address: document.getElementById('d-shipping-address').value,
+      notes: document.getElementById('d-notes').value,
+      items: pendingItems.map(i => ({
+        retailer_id: i.retailer_id,
+        product_name: i.product_name,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        currency: i.currency,
+      })),
+    };
+    const res = await fetch(`/api/orders/${currentOrderId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) {
+      showToast('Orden guardada', 'success');
+      loadOrders();
+    } else {
+      showToast('Error al guardar', 'error');
+    }
+  }
+
+  async function terminateOrder() {
+    if (!currentOrderId) return;
+    if (!confirm('¿Confirmar terminar esta orden?')) return;
+    const res = await fetch(`/api/orders/${currentOrderId}/terminate`, { method: 'POST' });
+    if (res.ok) {
+      showToast('Orden terminada', 'success');
+      openDetail(currentOrderId);
+    } else {
+      showToast('Error', 'error');
+    }
+  }
+
+  // ---- Crear orden ----
+  function openCreateModal() { document.getElementById('modal-create').classList.remove('hidden'); }
+  function closeCreateModal() { document.getElementById('modal-create').classList.add('hidden'); }
+
+  async function submitCreateOrder() {
+    const phone = document.getElementById('create-phone').value.trim();
+    if (!phone) { alert('El teléfono es obligatorio'); return; }
+    const payload = {
+      phone_number: phone,
+      status: document.getElementById('create-status').value,
+      payment_method: document.getElementById('create-method').value,
+      shipping_address: document.getElementById('create-address').value,
+      notes: document.getElementById('create-notes').value,
+    };
+    const res = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (res.ok) {
+      const data = await res.json();
+      closeCreateModal();
+      showToast('Orden creada', 'success');
+      loadOrders();
+      openDetail(data.order.id);
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Error al crear');
+    }
+  }
+
+  // ---- Agregar item ----
+  async function loadProducts() {
+    if (allProducts.length) return;
+    const res = await fetch('/api/catalog/products');
+    const data = await res.json();
+    allProducts = data.products || [];
+  }
+
+  function openAddItemModal() {
+    loadProducts();
+    document.getElementById('modal-add-item').classList.remove('hidden');
+    document.getElementById('item-search').value = '';
+    document.getElementById('item-qty').value = '1';
+    document.getElementById('item-price').value = '';
+    document.getElementById('product-suggestions').classList.add('hidden');
+    document.getElementById('selected-product-info').classList.add('hidden');
+    selectedProduct = null;
+  }
+  function closeAddItemModal() { document.getElementById('modal-add-item').classList.add('hidden'); }
+
+  function searchProducts(q) {
+    const box = document.getElementById('product-suggestions');
+    if (!q.trim()) { box.classList.add('hidden'); return; }
+    const matches = allProducts.filter(p => p.name && p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 10);
+    if (!matches.length) { box.classList.add('hidden'); return; }
+    box.innerHTML = matches.map(p => `
+      <div class="px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer text-sm" onclick="selectProduct(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+        <span class="font-medium">${p.name}</span>
+        ${p.price != null ? `<span class="text-gray-400 text-xs ml-2">${Number(p.price).toLocaleString('es-AR')} ${p.currency || 'ARS'}</span>` : ''}
+      </div>`).join('');
+    box.classList.remove('hidden');
+  }
+
+  function selectProduct(p) {
+    selectedProduct = p;
+    document.getElementById('item-search').value = p.name;
+    document.getElementById('product-suggestions').classList.add('hidden');
+    document.getElementById('selected-product-info').classList.remove('hidden');
+    document.getElementById('sel-product-name').textContent = p.name;
+    document.getElementById('sel-product-price').textContent = p.price != null ? `${Number(p.price).toLocaleString('es-AR')} ${p.currency || 'ARS'}` : '';
+    document.getElementById('item-price').value = p.price != null ? p.price : '';
+  }
+
+  function confirmAddItem() {
+    const name = selectedProduct ? selectedProduct.name : document.getElementById('item-search').value.trim();
+    const rid = selectedProduct ? selectedProduct.retailer_id : (name || 'manual');
+    const qty = parseInt(document.getElementById('item-qty').value) || 1;
+    const price = parseFloat(document.getElementById('item-price').value) || 0;
+    if (!name) { alert('Seleccioná o ingresá un producto'); return; }
+    pendingItems.push({
+      retailer_id: rid,
+      product_name: name,
+      quantity: qty,
+      unit_price: price,
+      currency: selectedProduct?.currency || 'ARS',
+    });
+    renderItems();
+    closeAddItemModal();
+  }
+
+  // ---- Toast ----
+  function showToast(msg, type = 'success') {
+    const t = document.createElement('div');
+    t.className = `fixed bottom-20 md:bottom-6 right-4 z-50 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium transition-all ${type === 'success' ? 'bg-primary text-black' : 'bg-red-500 text-white'}`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  // Init
+  loadOrders();
+</script>
+{% endblock %}

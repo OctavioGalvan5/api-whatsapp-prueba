@@ -283,6 +283,13 @@
                     <span class="hidden sm:inline">Pausar Chatbot</span>
                 </button>
             </div>
+            {% if current_user and current_user.has_permission('orders') %}
+            <button onclick="openOrderModal('{{ selected_contact }}')"
+                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                title="Crear orden">
+                <span class="material-symbols-outlined text-gray-500">shopping_bag</span>
+            </button>
+            {% endif %}
             <button onclick="toggleTagsPanel()"
                 class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                 title="Gestionar etiquetas" id="tags-toggle-btn">
@@ -319,6 +326,24 @@
 
         {% if msg.direction == 'inbound' %}
         <div class="flex flex-col items-start max-w-[80%]">
+            {% if msg.message_type == 'order' %}
+            {# Burbuja especial de pedido #}
+            <div class="bg-white dark:bg-[#152a17] rounded-2xl message-shadow overflow-hidden min-w-[220px] max-w-xs border border-primary/30">
+                <div class="bg-primary/10 px-4 py-2 flex items-center gap-2 border-b border-primary/20">
+                    <span class="material-symbols-outlined text-primary text-[18px]">shopping_bag</span>
+                    <span class="text-sm font-semibold text-primary">Pedido</span>
+                </div>
+                <div class="px-4 py-3 text-sm text-[#111812] dark:text-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">{{ msg.content or '' }}</p>
+                    {% if msg.wa_message_id %}
+                    <a href="/orders" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                        Ver pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="px-4 pb-2 text-[10px] text-gray-400">{{ msg_argentina.strftime('%H:%M') if msg_argentina else '' }}</div>
+            </div>
+            {% else %}
             <div
                 class="bg-white dark:bg-[#152a17] p-3 rounded-lg rounded-tl-none text-sm message-shadow text-[#111812] dark:text-gray-200">
 
@@ -380,6 +405,7 @@
                 <div class="text-[10px] text-gray-400 text-right mt-1">{{ msg_argentina.strftime('%H:%M') if
                     msg_argentina else '' }}</div>
             </div>
+            {% endif %}{# end order else #}
         </div>
         {% else %}
         <div class="flex flex-col items-end max-w-[80%] self-end">
@@ -1235,6 +1261,23 @@
                         if (msg.caption) {
                             contentHtml += `<p class="mt-1">${escapeHtml(msg.caption)}</p>`;
                         }
+                    } else if (msg.message_type === 'order') {
+                        // Burbuja especial de pedido — igual al SSR de Jinja
+                        const orderMatch = (msg.content || '').match(/\[Pedido: (.+)\]/);
+                        const orderSummary = orderMatch ? orderMatch[1] : (msg.content || '');
+                        contentHtml = `
+<div class="bg-white dark:bg-[#152a17] rounded-2xl overflow-hidden min-w-[220px] max-w-xs border border-primary/30 -m-3">
+    <div class="bg-primary/10 px-4 py-2 flex items-center gap-2 border-b border-primary/20">
+        <span class="material-symbols-outlined text-primary text-[18px]">shopping_bag</span>
+        <span class="font-semibold text-sm text-primary">Pedido</span>
+    </div>
+    <div class="px-4 py-3">
+        <p class="text-sm text-gray-600 dark:text-gray-300">${escapeHtml(orderSummary)}</p>
+        <a href="/orders" class="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+            Ver pedido <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+        </a>
+    </div>
+</div>`;
                     } else {
                         // Mensaje de texto normal o fallback
                         contentHtml = `<p>${escapeHtml(msg.content || '[Sin contenido]')}</p>`;
@@ -2024,4 +2067,163 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
     }
 
 </script>
+
+{% if current_user and current_user.has_permission('orders') %}
+<!-- ===== MODAL CREAR ORDEN DESDE CHAT ===== -->
+<div id="modal-order-chat" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+  <div class="bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-lg">Crear orden</h2>
+      <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="mb-3 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 text-sm text-gray-600 dark:text-gray-400">
+      Contacto: <span id="order-modal-phone" class="font-medium text-gray-800 dark:text-white"></span>
+    </div>
+    <div class="flex flex-col gap-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Estado inicial</label>
+          <select id="om-status" class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+            <option value="pendiente">Pendiente</option>
+            <option value="confirmado">Confirmado</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Método de pago</label>
+          <select id="om-method" class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+            <option value="">— Sin especificar —</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="mercadopago">MercadoPago</option>
+            <option value="tarjeta">Tarjeta</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Buscador de productos -->
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Agregar productos</label>
+        <div class="relative">
+          <input id="om-product-search" type="text" placeholder="Buscar producto del catálogo..."
+            oninput="omSearchProducts(this.value)"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <div id="om-product-suggestions" class="hidden absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-h-40 overflow-y-auto z-10"></div>
+        </div>
+      </div>
+
+      <!-- Lista de items -->
+      <div id="om-items-list" class="flex flex-col gap-1 max-h-32 overflow-y-auto"></div>
+      <div class="flex justify-between text-sm font-medium border-t border-gray-100 dark:border-gray-800 pt-2">
+        <span>Total</span>
+        <span id="om-total-label">—</span>
+      </div>
+
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Dirección de envío</label>
+        <input id="om-address" type="text" placeholder="Opcional..." class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Notas</label>
+        <textarea id="om-notes" rows="2" class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary resize-none"></textarea>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="closeOrderModal()" class="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Cancelar</button>
+      <button onclick="submitOrderChat()" class="flex-1 py-2 rounded-xl bg-primary text-black font-medium text-sm hover:bg-primary/90">Crear orden</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let omItems = [];
+let omProducts = [];
+let omPhone = '';
+
+async function openOrderModal(phone) {
+  omPhone = phone;
+  omItems = [];
+  document.getElementById('order-modal-phone').textContent = phone;
+  document.getElementById('om-items-list').innerHTML = '';
+  document.getElementById('om-total-label').textContent = '—';
+  document.getElementById('om-product-search').value = '';
+  document.getElementById('om-address').value = '';
+  document.getElementById('om-notes').value = '';
+  document.getElementById('om-product-suggestions').classList.add('hidden');
+  // Precargar productos
+  if (!omProducts.length) {
+    const res = await fetch('/api/catalog/products');
+    const data = await res.json();
+    omProducts = data.products || [];
+  }
+  document.getElementById('modal-order-chat').classList.remove('hidden');
+}
+
+function closeOrderModal() { document.getElementById('modal-order-chat').classList.add('hidden'); }
+
+function omSearchProducts(q) {
+  const box = document.getElementById('om-product-suggestions');
+  if (!q.trim()) { box.classList.add('hidden'); return; }
+  const matches = omProducts.filter(p => p.name && p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  if (!matches.length) { box.classList.add('hidden'); return; }
+  box.innerHTML = matches.map(p => `
+    <div class="px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer text-sm" onclick='omSelectProduct(${JSON.stringify(p)})'>
+      <span class="font-medium">${p.name}</span>
+      ${p.price != null ? `<span class="text-gray-400 text-xs ml-2">${Number(p.price).toLocaleString('es-AR')} ${p.currency||'ARS'}</span>` : ''}
+    </div>`).join('');
+  box.classList.remove('hidden');
+}
+
+function omSelectProduct(p) {
+  document.getElementById('om-product-suggestions').classList.add('hidden');
+  document.getElementById('om-product-search').value = '';
+  omItems.push({ retailer_id: p.retailer_id, product_name: p.name, quantity: 1, unit_price: p.price || 0, currency: p.currency || 'ARS' });
+  omRenderItems();
+}
+
+function omRenderItems() {
+  const el = document.getElementById('om-items-list');
+  let total = 0;
+  el.innerHTML = omItems.map((it, idx) => {
+    total += (it.unit_price || 0) * (it.quantity || 1);
+    return `<div class="flex items-center gap-2 text-xs py-1 border-b border-gray-50 dark:border-gray-800">
+      <span class="flex-1 truncate">${it.product_name}</span>
+      <input type="number" min="1" value="${it.quantity}" onchange="omItems[${idx}].quantity=parseInt(this.value)||1;omRenderItems()" class="w-12 text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent focus:outline-none py-0.5">
+      <span class="w-20 text-right">${Number((it.unit_price||0)*(it.quantity||1)).toLocaleString('es-AR')}</span>
+      <button onclick="omItems.splice(${idx},1);omRenderItems()" class="text-gray-300 hover:text-red-400"><span class="material-symbols-outlined text-[14px]">close</span></button>
+    </div>`;
+  }).join('');
+  document.getElementById('om-total-label').textContent = total > 0 ? Number(total).toLocaleString('es-AR') + ' ARS' : '—';
+}
+
+async function submitOrderChat() {
+  if (!omPhone) return;
+  const payload = {
+    phone_number: omPhone,
+    status: document.getElementById('om-status').value,
+    payment_method: document.getElementById('om-method').value,
+    shipping_address: document.getElementById('om-address').value,
+    notes: document.getElementById('om-notes').value,
+    items: omItems,
+  };
+  if (omItems.length) {
+    payload.total = omItems.reduce((s, i) => s + (i.unit_price||0)*(i.quantity||1), 0);
+  }
+  const res = await fetch('/api/orders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  if (res.ok) {
+    const data = await res.json();
+    closeOrderModal();
+    // Toast
+    const t = document.createElement('div');
+    t.className = 'fixed bottom-20 md:bottom-6 right-4 z-50 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium bg-primary text-black';
+    t.innerHTML = `Orden ${data.order.order_number} creada — <a href="/orders" class="underline font-bold">Ver</a>`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 5000);
+  } else {
+    const err = await res.json();
+    alert(err.error || 'Error al crear la orden');
+  }
+}
+</script>
+{% endif %}
 {% endblock %}

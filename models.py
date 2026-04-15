@@ -613,7 +613,7 @@ class CatalogProduct(db.Model):
     price = db.Column(db.Numeric(12, 2), nullable=True)
     currency = db.Column(db.String(10), nullable=True)
     availability = db.Column(db.String(20), default='in_stock')  # in_stock / out_of_stock
-    image_url = db.Column(db.String(500), nullable=True)
+    image_url = db.Column(db.Text, nullable=True)
     synced_at = db.Column(db.DateTime, nullable=True)
 
     def to_dict(self):

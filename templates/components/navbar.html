@@ -105,6 +105,35 @@
     </div>
     {% endif %}
 
+    <!-- Tienda (Órdenes + Catálogo) -->
+    {% set can_orders = not current_user or current_user.has_permission('orders') %}
+    {% set can_catalog = not current_user or current_user.has_permission('catalog') %}
+    {% if can_orders or can_catalog %}
+    <div class="relative group">
+        <button
+            class="p-3 rounded-xl relative {% if request.path in ['/orders', '/catalog'] %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+            title="Tienda">
+            <span class="material-symbols-outlined {% if request.path not in ['/orders', '/catalog'] %}text-gray-500 dark:text-gray-400{% endif %}">shopping_bag</span>
+            <span id="orders-badge" class="hidden absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-black text-[9px] font-bold flex items-center justify-center leading-none"></span>
+        </button>
+        <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            {% if can_orders %}
+            <a href="/orders" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/orders' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">receipt_long</span>
+                <span class="text-sm font-medium">Órdenes</span>
+                <span id="orders-badge-menu" class="hidden ml-auto text-xs font-bold bg-primary text-black rounded-full w-5 h-5 flex items-center justify-center"></span>
+            </a>
+            {% endif %}
+            {% if can_catalog %}
+            <a href="/catalog" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/catalog' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">inventory_2</span>
+                <span class="text-sm font-medium">Catálogo</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Chatbot -->
     {% if not current_user or current_user.has_permission('chatbot') %}
     <a href="/chatbot"
@@ -197,6 +226,18 @@
 
 <!-- MOBILE MENU OVERLAY (para el botón "Más") -->
 <div id="mobile-menu" class="hidden md:hidden fixed bottom-14 right-2 z-50 bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 py-2 min-w-[180px]">
+    {% if not current_user or current_user.has_permission('orders') %}
+    <a href="/orders" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/orders' %}text-primary{% endif %}">
+        <span class="material-symbols-outlined">receipt_long</span>
+        <span class="text-sm font-medium">Órdenes</span>
+    </a>
+    {% endif %}
+    {% if not current_user or current_user.has_permission('catalog') %}
+    <a href="/catalog" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/catalog' %}text-primary{% endif %}">
+        <span class="material-symbols-outlined">inventory_2</span>
+        <span class="text-sm font-medium">Catálogo</span>
+    </a>
+    {% endif %}
     {% if not current_user or current_user.has_permission('reengagement') %}
     <a href="/reengagement" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/reengagement' %}text-primary{% endif %}">
         <span class="material-symbols-outlined">autorenew</span>
@@ -239,3 +280,81 @@
         }
     });
 </script>
+
+<!-- ===== BADGE DE ÓRDENES + TOAST ===== -->
+{% if not current_user or current_user.has_permission('orders') %}
+<div id="order-toast" class="hidden fixed bottom-20 md:bottom-6 right-4 z-50 bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl p-4 max-w-xs w-full">
+    <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary text-2xl flex-shrink-0">shopping_bag</span>
+        <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm" id="toast-title">Nueva orden</p>
+            <p class="text-xs text-gray-500 mt-0.5" id="toast-body"></p>
+        </div>
+        <button onclick="document.getElementById('order-toast').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 flex-shrink-0">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+    </div>
+    <a id="toast-link" href="/orders" class="mt-3 flex items-center justify-center gap-1 w-full py-1.5 rounded-xl bg-primary text-black text-sm font-medium hover:bg-primary/90">
+        Ver orden <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+    </a>
+</div>
+<script>
+(function() {
+    let lastSeenId = null;
+    let firstRun = true;
+
+    async function pollOrdersBadge() {
+        try {
+            const res = await fetch('/api/orders/unseen-count');
+            const data = await res.json();
+            const count = data.count || 0;
+            const badge = document.getElementById('orders-badge');
+            const badgeMenu = document.getElementById('orders-badge-menu');
+            if (badge) {
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+            if (badgeMenu) {
+                if (count > 0) {
+                    badgeMenu.textContent = count > 99 ? '99+' : count;
+                    badgeMenu.classList.remove('hidden');
+                } else {
+                    badgeMenu.classList.add('hidden');
+                }
+            }
+        } catch(e) {}
+    }
+
+    async function pollOrderToast() {
+        try {
+            const res = await fetch('/api/orders/latest-unseen-id');
+            const data = await res.json();
+            if (!data.id) { firstRun = false; return; }
+            if (firstRun) { lastSeenId = data.id; firstRun = false; return; }
+            if (data.id !== lastSeenId) {
+                lastSeenId = data.id;
+                // Solo mostrar toast si no estamos en /orders
+                if (!window.location.pathname.startsWith('/orders')) {
+                    document.getElementById('toast-title').textContent = `📦 Nueva orden ${data.order_number || ''}`;
+                    const contact = data.contact_name || '';
+                    const items = data.items_summary || '';
+                    const total = data.total ? ` — $${Number(data.total).toLocaleString('es-AR')}` : '';
+                    document.getElementById('toast-body').textContent = (contact ? contact + '\n' : '') + items + total;
+                    document.getElementById('order-toast').classList.remove('hidden');
+                    setTimeout(() => document.getElementById('order-toast').classList.add('hidden'), 10000);
+                }
+            }
+        } catch(e) {}
+    }
+
+    pollOrdersBadge();
+    pollOrderToast();
+    setInterval(pollOrdersBadge, 30000);
+    setInterval(pollOrderToast, 30000);
+})();
+</script>
+{% endif %}

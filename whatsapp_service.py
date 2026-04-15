@@ -766,7 +766,7 @@ class WhatsAppAPI:
                 return {"error": str(e)}
         return {"success": True, "products": products}
 
-    def create_catalog_product(self, catalog_id, retailer_id, name, price, currency, description=None, availability='in_stock'):
+    def create_catalog_product(self, catalog_id, retailer_id, name, price, currency, description=None, availability='in stock', image_url=None):
         """Crea un producto en el catálogo de Meta."""
         if not self.is_configured():
             return {"error": "WhatsApp API no configurada"}
@@ -780,6 +780,8 @@ class WhatsAppAPI:
         }
         if description:
             payload["description"] = description
+        if image_url:
+            payload["image_url"] = image_url
         try:
             response = requests.post(url, headers=self.headers, json=payload, timeout=15)
             response.raise_for_status()
@@ -794,7 +796,7 @@ class WhatsAppAPI:
                     pass
             return {"error": detail or str(e)}
 
-    def update_catalog_product(self, product_id, name=None, price=None, currency=None, description=None, availability=None):
+    def update_catalog_product(self, product_id, name=None, price=None, currency=None, description=None, availability=None, image_url=None):
         """Actualiza un producto en Meta."""
         if not self.is_configured():
             return {"error": "WhatsApp API no configurada"}
@@ -810,6 +812,8 @@ class WhatsAppAPI:
             payload["description"] = description
         if availability is not None:
             payload["availability"] = availability
+        if image_url is not None:
+            payload["image_url"] = image_url
         try:
             response = requests.post(url, headers=self.headers, json=payload, timeout=15)
             response.raise_for_status()

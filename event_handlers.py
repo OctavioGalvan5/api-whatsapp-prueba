@@ -205,12 +205,15 @@ def _save_whatsapp_order(wa_message_id, phone_number, order_data, catalog_id, wa
             for it in items_data:
                 rid = it.get("product_retailer_id", "")
                 product = CatalogProduct.query.get(rid)
-                # price viene en centavos desde el webhook
+                # item_price viene como decimal directo ("1500.00"), no en centavos
                 raw_price = it.get("item_price", 0)
                 try:
-                    unit_price = float(raw_price) / 100
+                    unit_price = float(raw_price) if raw_price else 0.0
                 except (TypeError, ValueError):
                     unit_price = 0.0
+                # Fallback al precio del catálogo si el webhook manda 0
+                if unit_price == 0.0 and product and product.price:
+                    unit_price = float(product.price)
                 qty = int(it.get("quantity", 1))
                 currency = it.get("currency", currency)
                 item = OrderItem(
@@ -324,6 +327,9 @@ def process_event(data):
                         order_data = message.get("order", {})
                         items = order_data.get("product_items", [])
                         catalog_id = order_data.get("catalog_id")
+                        logger.info(f"[ORDER] Mensaje completo: {json.dumps(message, indent=2)}")
+                        logger.info(f"[ORDER] order_data: {json.dumps(order_data, indent=2)}")
+                        logger.info(f"[ORDER] product_items: {json.dumps(items, indent=2)}")
                         lines = []
                         for it in items:
                             lines.append(f"{it.get('product_retailer_id')} x{it.get('quantity',1)}")
