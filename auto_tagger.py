@@ -184,14 +184,21 @@ Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "N
         max_completion_tokens=200
     )
 
-    raw = response.choices[0].message.content.strip()
+    raw = response.choices[0].message.content or ""
+    raw = raw.strip()
+    logger.info(f"[AUTO_TAGGER] Respuesta batch cruda: {repr(raw)}")
     try:
         import json
+        # Extraer JSON si viene envuelto en markdown ```json ... ```
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
         parsed = json.loads(raw)
         return {k: (str(v).upper().startswith("S")) for k, v in parsed.items()}
     except Exception:
-        # Fallback: si no parsea el JSON, marcar todas como False
-        logger.warning(f"[AUTO_TAGGER] No se pudo parsear respuesta batch: {raw}")
+        logger.warning(f"[AUTO_TAGGER] No se pudo parsear respuesta batch: {repr(raw)}")
         return {k: False for k in conditions}
 
 
