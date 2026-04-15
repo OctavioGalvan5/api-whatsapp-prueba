@@ -51,7 +51,7 @@ def run_auto_tagger(app_context):
                 Message.direction == 'inbound'
             ).distinct().all()
 
-            logger.info(f"[AUTO_TAGGER] {len(phones_q)} teléfono(s) candidatos (desde {earliest_start})")
+            logger.debug(f"[AUTO_TAGGER] {len(phones_q)} teléfono(s) candidatos (desde {earliest_start})")
 
             for (phone,) in phones_q:
                 last_msg = Message.query.filter(
@@ -70,22 +70,22 @@ def run_auto_tagger(app_context):
                 for rule in rules:
                     cutoff = now - timedelta(minutes=rule.inactivity_minutes)
                     if last_msg.timestamp >= cutoff:
-                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: aún activo (último msg {last_msg.timestamp} >= cutoff {cutoff})")
+                        logger.debug(f"[AUTO_TAGGER] {phone} regla={rule.id}: aún activo (último msg {last_msg.timestamp} >= cutoff {cutoff})")
                         continue
                     if rule.activated_at and last_msg.timestamp < rule.activated_at:
-                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: fuera de rango")
+                        logger.debug(f"[AUTO_TAGGER] {phone} regla={rule.id}: fuera de rango")
                         continue
                     if any(t.id == rule.tag_id for t in contact.tags):
-                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: ya tiene la etiqueta")
+                        logger.debug(f"[AUTO_TAGGER] {phone} regla={rule.id}: ya tiene la etiqueta")
                         continue
                     cache_key = f"auto_tag_{rule.id}_{phone}_{last_msg.id}"
                     if ChatbotConfig.query.filter_by(key=cache_key).first():
-                        logger.info(f"[AUTO_TAGGER] {phone} regla={rule.id}: ya analizado (cache)")
+                        logger.debug(f"[AUTO_TAGGER] {phone} regla={rule.id}: ya analizado (cache)")
                         continue
                     pending_rules.append(rule)
 
                 if not pending_rules:
-                    logger.info(f"[AUTO_TAGGER] {phone}: sin reglas pendientes, saltando")
+                    logger.debug(f"[AUTO_TAGGER] {phone}: sin reglas pendientes, saltando")
                     continue
 
                 # Obtener los últimos 20 mensajes una sola vez
@@ -193,9 +193,9 @@ Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "N
         max_completion_tokens=200
     )
 
-    raw = response.choices[0].message.content or ""
-    raw = raw.strip()
-    logger.info(f"[AUTO_TAGGER] Respuesta batch cruda: {repr(raw)}")
+    msg = response.choices[0].message
+    logger.info(f"[AUTO_TAGGER] finish_reason={response.choices[0].finish_reason} content={repr(msg.content)} refusal={repr(getattr(msg,'refusal',None))}")
+    raw = (msg.content or "").strip()
     try:
         import json
         # Extraer JSON si viene envuelto en markdown ```json ... ```
