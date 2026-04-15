@@ -1306,22 +1306,26 @@
                             contentHtml += `<p class="mt-1">${escapeHtml(msg.caption)}</p>`;
                         }
                     } else if (msg.message_type === 'order') {
-                        // Burbuja especial de pedido — igual al SSR de Jinja
+                        // Burbuja especial de pedido — renderizada fuera del wrapper estándar
                         const orderMatch = (msg.content || '').match(/\[Pedido: (.+)\]/);
                         const orderSummary = orderMatch ? orderMatch[1] : (msg.content || '');
-                        contentHtml = `
-<div class="bg-white dark:bg-[#152a17] rounded-2xl overflow-hidden min-w-[220px] max-w-xs border border-primary/30 -m-3">
-    <div class="bg-primary/10 px-4 py-2 flex items-center gap-2 border-b border-primary/20">
-        <span class="material-symbols-outlined text-primary text-[18px]">shopping_bag</span>
-        <span class="font-semibold text-sm text-primary">Pedido</span>
-    </div>
-    <div class="px-4 py-3">
-        <p class="text-sm text-gray-600 dark:text-gray-300">${escapeHtml(orderSummary)}</p>
-        <a href="/orders" class="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
-            Ver pedido <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-        </a>
+                        html += `
+<div class="flex flex-col items-start max-w-[80%]">
+    <div class="bg-white dark:bg-[#152a17] rounded-2xl message-shadow overflow-hidden min-w-[220px] max-w-xs border border-primary/30">
+        <div class="bg-primary/10 px-4 py-2 flex items-center gap-2 border-b border-primary/20">
+            <span class="material-symbols-outlined text-primary text-[18px]">shopping_bag</span>
+            <span class="text-sm font-semibold text-primary">Pedido</span>
+        </div>
+        <div class="px-4 py-3 text-sm text-[#111812] dark:text-gray-200">
+            <p class="text-xs text-gray-500 mb-1">${escapeHtml(orderSummary)}</p>
+            <a href="/orders" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                Ver pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+            </a>
+        </div>
+        <div class="px-4 pb-2 text-[10px] text-gray-400">${msg.time}</div>
     </div>
 </div>`;
+                        return; // forEach: saltar el wrapper estándar
                     } else {
                         // Mensaje de texto normal o fallback
                         contentHtml = `<p>${escapeHtml(msg.content || '[Sin contenido]')}</p>`;
