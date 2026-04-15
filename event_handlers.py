@@ -332,7 +332,16 @@ def process_event(data):
                         logger.info(f"[ORDER] product_items: {json.dumps(items, indent=2)}")
                         lines = []
                         for it in items:
-                            lines.append(f"{it.get('product_retailer_id')} x{it.get('quantity',1)}")
+                            rid = it.get('product_retailer_id', '')
+                            qty = it.get('quantity', 1)
+                            # Buscar nombre del producto en la DB
+                            try:
+                                from models import CatalogProduct
+                                prod = CatalogProduct.query.get(rid)
+                                display = prod.name if prod and prod.name else rid
+                            except Exception:
+                                display = rid
+                            lines.append(f"{display} ×{qty}")
                         content = "[Pedido: " + ", ".join(lines) + "]" if lines else "[Pedido]"
                         # Guardar orden en BD
                         _save_whatsapp_order(msg_id, sender, order_data, catalog_id, wa_names.get(sender))

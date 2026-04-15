@@ -332,7 +332,9 @@
                     <span class="text-sm font-semibold text-primary">Pedido</span>
                 </div>
                 <div class="px-4 py-3 text-sm text-[#111812] dark:text-gray-200">
-                    <p class="text-xs text-gray-500 mb-1">{{ msg.content or '' }}</p>
+                    {% set _order_raw = msg.content or '' %}
+                    {% set _order_summary = _order_raw[9:-1] if _order_raw.startswith('[Pedido: ') and _order_raw.endswith(']') else _order_raw %}
+                    <p class="text-xs text-gray-500 mb-1">{{ _order_summary }}</p>
                     {% if msg.wa_message_id %}
                     <a href="/orders" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                         Ver pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
