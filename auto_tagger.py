@@ -184,17 +184,33 @@ PREGUNTAS (respondé cada una con SÍ o NO):
 Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "NO" como valor. Ejemplo:
 {{"123": "SI", "456": "NO"}}"""
 
+    # Construir schema dinámico con los IDs de las condiciones
+    schema_properties = {rule_id: {"type": "string", "enum": ["SI", "NO"]} for rule_id in conditions}
     response = client.chat.completions.create(
-        model="gpt-5-nano",
+        model="gpt-5.4-nano",
         messages=[
-            {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con un JSON de SÍ/NO por cada pregunta."},
+            {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con un JSON de SI/NO por cada pregunta."},
             {"role": "user", "content": prompt}
         ],
-        max_completion_tokens=200
+        max_completion_tokens=1000,
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "auto_tag_response",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": schema_properties,
+                    "required": list(conditions.keys()),
+                    "additionalProperties": False
+                }
+            }
+        }
     )
 
+    choice = response.choices[0]
     msg = response.choices[0].message
-    logger.info(f"[AUTO_TAGGER] finish_reason={response.choices[0].finish_reason} content={repr(msg.content)} refusal={repr(getattr(msg,'refusal',None))}")
+    logger.info(f"[AUTO_TAGGER] finish_reason={choice.finish_reason} usage={response.usage} content={repr(msg.content)} refusal={repr(getattr(msg,'refusal',None))}")
     raw = (msg.content or "").strip()
     try:
         import json
