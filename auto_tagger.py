@@ -41,13 +41,17 @@ def run_auto_tagger(app_context):
             now = datetime.utcnow()
 
             # Recolectar todos los teléfonos candidatos para cualquier regla
-            earliest_start = min(r.activated_at or now for r in rules)
+            # Si activated_at es None usamos epoch (considera todos los mensajes)
+            _epoch = datetime(2000, 1, 1)
+            earliest_start = min(r.activated_at or _epoch for r in rules)
 
             phones_q = db.session.query(Message.phone_number).filter(
                 Message.phone_number.notin_(['unknown', 'outbound', '']),
                 Message.timestamp >= earliest_start,
                 Message.direction == 'inbound'
             ).distinct().all()
+
+            logger.info(f"[AUTO_TAGGER] {len(phones_q)} teléfono(s) candidatos (desde {earliest_start})")
 
             for (phone,) in phones_q:
                 last_msg = Message.query.filter(
@@ -67,7 +71,7 @@ def run_auto_tagger(app_context):
                     cutoff = now - timedelta(minutes=rule.inactivity_minutes)
                     if last_msg.timestamp >= cutoff:
                         continue  # Contacto aún activo para esta regla
-                    if last_msg.timestamp < (rule.activated_at or now):
+                    if rule.activated_at and last_msg.timestamp < rule.activated_at:
                         continue  # Fuera del rango de esta regla
                     if any(t.id == rule.tag_id for t in contact.tags):
                         continue  # Ya tiene la etiqueta
