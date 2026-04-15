@@ -98,7 +98,7 @@ def run_followup_sender(app_context):
             pending = FollowUpEnrollment.query.filter(
                 FollowUpEnrollment.status == 'pending',
                 FollowUpEnrollment.next_send_at <= now
-            ).all()
+            ).with_for_update(skip_locked=True).all()
 
             if not pending:
                 return
