@@ -181,7 +181,6 @@ Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "N
             {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con un JSON de SÍ/NO por cada pregunta."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.1,
         max_completion_tokens=200
     )
 
