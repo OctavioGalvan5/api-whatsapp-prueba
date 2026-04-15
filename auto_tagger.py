@@ -152,7 +152,7 @@ PREGUNTA: {prompt_condition}
 Respondé únicamente con SÍ o NO."""
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5-nano",
         messages=[
             {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con SÍ o NO."},
             {"role": "user", "content": prompt}

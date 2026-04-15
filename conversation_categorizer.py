@@ -272,7 +272,7 @@ EJEMPLOS DE VERDADEROS POSITIVOS:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-nano",
             messages=[
                 {"role": "system", "content": "Eres un analizador experto de conversaciones de atención al cliente. Tu trabajo es clasificar conversaciones con alta precisión, evitando falsos positivos. Sé muy selectivo al marcar conversaciones que requieren asistencia humana. Responde siempre en JSON válido."},
                 {"role": "user", "content": prompt}

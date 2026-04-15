@@ -278,33 +278,12 @@
                 </button>
             </div>
 
-            <!-- Botones secundarios: visibles en desktop, ocultos en mobile -->
-            <div class="hidden md:flex items-center gap-1">
-                {% if current_user and current_user.has_permission('orders') %}
-                <button onclick="openOrderModal('{{ selected_contact }}')" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Crear orden">
-                    <span class="material-symbols-outlined text-gray-500">shopping_bag</span>
-                </button>
-                <button onclick="toggleOrdersPanel()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Órdenes del contacto" id="orders-panel-btn">
-                    <span class="material-symbols-outlined text-gray-500">receipt_long</span>
-                </button>
-                {% endif %}
-                <button onclick="toggleTagsPanel()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Etiquetas" id="tags-toggle-btn">
-                    <span class="material-symbols-outlined text-gray-500">label</span>
-                </button>
-                <button onclick="exportPDF()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Exportar PDF">
-                    <span class="material-symbols-outlined text-gray-500">picture_as_pdf</span>
-                </button>
-                <button onclick="toggleNotesPanel()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Notas" id="notes-toggle-btn">
-                    <span class="material-symbols-outlined text-gray-500">sticky_note_2</span>
-                </button>
-            </div>
-
-            <!-- Menú ··· en mobile -->
-            <div class="md:hidden relative">
+            <!-- Menú ··· (todas las pantallas) -->
+            <div class="relative">
                 <button onclick="toggleMobileMenu()" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
                     <span class="material-symbols-outlined text-gray-500">more_vert</span>
                 </button>
-                <div id="mobile-chat-menu" class="hidden absolute right-0 top-10 w-48 bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl z-30 py-1 overflow-hidden">
+                <div id="mobile-chat-menu" class="hidden absolute right-0 top-10 w-52 bg-white dark:bg-[#1a3a1d] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl z-30 py-1 overflow-hidden">
                     {% if current_user and current_user.has_permission('orders') %}
                     <button onclick="openOrderModal('{{ selected_contact }}');closeMobileMenu()" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                         <span class="material-symbols-outlined text-gray-500 text-[18px]">shopping_bag</span> Crear orden
