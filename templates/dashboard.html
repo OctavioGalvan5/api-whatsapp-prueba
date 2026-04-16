@@ -2342,30 +2342,35 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         <span id="om-total-label">—</span>
       </div>
 
-      <div>
-        <label class="text-xs text-gray-500 mb-1 block">Dirección / Plus Code</label>
-        <input id="om-address" type="text" placeholder="Dirección o plus code..." class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-      </div>
-
-      <!-- Geolocalización -->
-      <div>
-        <label class="text-xs text-gray-500 mb-1 block">URL de Google Maps</label>
-        <input id="om-geocode-input" type="text" placeholder="Ej: https://maps.app.goo.gl/..."
-          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-        <div id="om-geocode-status" class="text-[11px] mt-1 hidden"></div>
-        <div class="grid grid-cols-2 gap-2 mt-2">
-          <input id="om-latitude" type="number" step="any" placeholder="Latitud"
-            oninput="omUpdateMapLink()"
-            class="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-          <input id="om-longitude" type="number" step="any" placeholder="Longitud"
-            oninput="omUpdateMapLink()"
-            class="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+      <!-- Dirección estructurada -->
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Plus Code</label>
+          <input id="om-plus-code" type="text" placeholder="Ej: 6HFG+R6Q"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
         </div>
-        <div id="om-map-link-container" class="hidden mt-2">
-          <a id="om-map-link" href="#" target="_blank" rel="noopener"
-            class="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-primary px-3 py-1.5 rounded-lg hover:bg-primary/80 transition-colors">
-            <span class="material-symbols-outlined text-[14px]">map</span> Ver en Google Maps
-          </a>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Código postal</label>
+          <input id="om-postal-code" type="text" placeholder="Ej: 4400"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Dirección</label>
+        <input id="om-address" type="text" placeholder="Calle, número, piso..."
+          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Ciudad</label>
+          <input id="om-city" type="text" placeholder="Ej: Salta"
+            oninput="omCityChanged()"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Provincia</label>
+          <input id="om-province" type="text" placeholder="Ej: Salta"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
         </div>
       </div>
 
@@ -2395,17 +2400,16 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
           <input id="om-delivery-time" type="time"
             class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
         </div>
-        <div>
-          <label class="text-xs text-gray-500 mb-1 block">Llegada más temprana</label>
-          <input id="om-earliest-arrival" type="time"
-            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 mb-1 block">Llegada más tardía</label>
-          <input id="om-latest-arrival" type="time"
-            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-        </div>
       </div>
+
+      <!-- Campos ocultos para compatibilidad -->
+      <input type="hidden" id="om-geocode-input">
+      <div id="om-geocode-status" class="hidden"></div>
+      <input type="hidden" id="om-latitude">
+      <input type="hidden" id="om-longitude">
+      <div id="om-map-link-container" class="hidden"><a id="om-map-link" href="#"></a></div>
+      <input type="hidden" id="om-earliest-arrival">
+      <input type="hidden" id="om-latest-arrival">
 
       <div>
         <label class="text-xs text-gray-500 mb-1 block">Notas</label>
@@ -2431,20 +2435,35 @@ function omResetFields() {
   document.getElementById('om-items-list').innerHTML = '';
   document.getElementById('om-total-label').textContent = '—';
   document.getElementById('om-product-search').value = '';
+  document.getElementById('om-plus-code').value = '';
   document.getElementById('om-address').value = '';
+  document.getElementById('om-city').value = '';
+  document.getElementById('om-province').value = '';
+  document.getElementById('om-postal-code').value = '';
   document.getElementById('om-notes').value = '';
-  document.getElementById('om-geocode-input').value = '';
-  document.getElementById('om-geocode-status').classList.add('hidden');
-  document.getElementById('om-latitude').value = '';
-  document.getElementById('om-longitude').value = '';
-  document.getElementById('om-map-link-container').classList.add('hidden');
   document.getElementById('om-recipient-name').value = '';
   document.getElementById('om-recipient-phone').value = '';
   document.getElementById('om-delivery-date').value = '';
   document.getElementById('om-delivery-time').value = '';
   document.getElementById('om-earliest-arrival').value = '';
   document.getElementById('om-latest-arrival').value = '';
+  document.getElementById('om-latitude').value = '';
+  document.getElementById('om-longitude').value = '';
 }
+
+function omCityChanged() {
+  const city = document.getElementById('om-city').value;
+  const province = document.getElementById('om-province');
+  if (!province.value || province.dataset.autoFilled === 'true') {
+    province.value = city;
+    province.dataset.autoFilled = 'true';
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('om-province')?.addEventListener('input', function() {
+    this.dataset.autoFilled = 'false';
+  });
+});
 
 async function openOrderModal(phone) {
   omEditId = null;
@@ -2474,7 +2493,13 @@ async function openOrderForConfirm(orderId) {
   document.getElementById('om-submit-btn').textContent = o.status === 'confirmado' ? 'Guardar cambios' : 'Confirmar orden';
   document.getElementById('om-status').value = o.status || 'pendiente';
   document.getElementById('om-method').value = o.payment_method || '';
-  document.getElementById('om-address').value = o.shipping_address || '';
+  document.getElementById('om-plus-code').value = o.plus_code || '';
+  document.getElementById('om-address').value = o.address || o.shipping_address || '';
+  document.getElementById('om-city').value = o.city || '';
+  const provEl = document.getElementById('om-province');
+  provEl.value = o.province || '';
+  provEl.dataset.autoFilled = 'false';
+  document.getElementById('om-postal-code').value = o.postal_code || '';
   document.getElementById('om-notes').value = o.notes || '';
   document.getElementById('om-recipient-name').value = o.recipient_name || '';
   document.getElementById('om-recipient-phone').value = o.recipient_phone || '';
@@ -2482,9 +2507,8 @@ async function openOrderForConfirm(orderId) {
   document.getElementById('om-delivery-time').value = o.delivery_time || '';
   document.getElementById('om-earliest-arrival').value = o.earliest_arrival_time || '';
   document.getElementById('om-latest-arrival').value = o.latest_arrival_time || '';
-  if (o.latitude) { document.getElementById('om-latitude').value = o.latitude; }
-  if (o.longitude) { document.getElementById('om-longitude').value = o.longitude; }
-  if (o.latitude && o.longitude) omUpdateMapLink();
+  document.getElementById('om-latitude').value = o.latitude || '';
+  document.getElementById('om-longitude').value = o.longitude || '';
   // Cargar items existentes
   omItems = (o.items || []).map(i => ({ product_id: i.product_id, product_name: i.product_name, unit_price: i.unit_price, quantity: i.quantity }));
   omRenderItems();
@@ -2622,7 +2646,11 @@ async function submitOrderChat() {
   const payload = {
     phone_number: omPhone,
     payment_method: document.getElementById('om-method').value,
-    shipping_address: document.getElementById('om-address').value,
+    plus_code: document.getElementById('om-plus-code').value || null,
+    address: document.getElementById('om-address').value || null,
+    city: document.getElementById('om-city').value || null,
+    province: document.getElementById('om-province').value || null,
+    postal_code: document.getElementById('om-postal-code').value || null,
     notes: document.getElementById('om-notes').value,
     recipient_name: document.getElementById('om-recipient-name').value || null,
     recipient_phone: document.getElementById('om-recipient-phone').value || null,

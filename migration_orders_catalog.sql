@@ -90,3 +90,10 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS recipient_phone VARCHAR(30);
 -- Agregar lat/lng a órdenes
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);
+
+-- Agregar campos de dirección estructurada y localización
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS plus_code VARCHAR(20);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS province VARCHAR(100);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);

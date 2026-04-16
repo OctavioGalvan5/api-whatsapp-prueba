@@ -6167,26 +6167,12 @@ def api_orders_export():
     ws.title = "Órdenes"
 
     columns = [
-        "Unit/Flat/Unit Name",
-        "Latitude",
-        "Longitude",
-        "Earliest Arrival Time",
-        "Latest Arrival Time",
-        "Time at stop (minutes)",
-        "Notes",
-        "Size",
-        "Recipient Name",
-        "Type of stop",
-        "Order",
-        "Proof of delivery",
-        "Recipient Email Address",
-        "Recipient Phone Number",
-        "Id",
-        "Package Count",
-        "Products",
-        "Seller website",
-        "Seller Name",
-        "Driver (email or phone number)",
+        "Address Line 1",
+        "Address Line 2",
+        "City",
+        "State",
+        "Postal Code",
+        "Extra info (Optional)",
     ]
 
     # Header con estilo
@@ -6200,41 +6186,28 @@ def api_orders_export():
 
     # Datos
     for row_idx, o in enumerate(orders, 2):
-        products_str = ", ".join(
-            f"{item.product_name} x{item.quantity}" for item in (o.items or [])
-        ) if o.items else ""
-        earliest = str(o.earliest_arrival_time) if o.earliest_arrival_time else ""
-        latest = str(o.latest_arrival_time) if o.latest_arrival_time else ""
-        lat = float(o.latitude) if o.latitude is not None else ""
-        lng = float(o.longitude) if o.longitude is not None else ""
+        extra_parts = []
+        if o.recipient_name:
+            extra_parts.append(f"Persona que recibe: {o.recipient_name}")
+        if o.recipient_phone:
+            extra_parts.append(f"Celular: {o.recipient_phone}")
+        if o.notes:
+            extra_parts.append(o.notes)
+        extra_info = " | ".join(extra_parts)
 
         row_data = [
-            o.shipping_address or "",   # Unit/Flat/Unit Name
-            lat,                         # Latitude
-            lng,                         # Longitude
-            earliest,                    # Earliest Arrival Time
-            latest,                      # Latest Arrival Time
-            "",                          # Time at stop (minutes)
-            o.notes or "",               # Notes
-            "",                          # Size
-            o.recipient_name or "",      # Recipient Name
-            "Delivery",                  # Type of stop
-            str(o.order_number or o.id), # Order
-            "",                          # Proof of delivery
-            "",                          # Recipient Email Address
-            o.recipient_phone or "",     # Recipient Phone Number
-            str(o.id),                   # Id
-            "",                          # Package Count
-            products_str,                # Products
-            "",                          # Seller website
-            "",                          # Seller Name
-            "",                          # Driver
+            o.plus_code or "",      # Address Line 1
+            o.address or "",        # Address Line 2
+            o.city or "",           # City
+            o.province or "",       # State
+            o.postal_code or "",    # Postal Code
+            extra_info,             # Extra info
         ]
         for col_idx, value in enumerate(row_data, 1):
             ws.cell(row=row_idx, column=col_idx, value=value)
 
     # Ajustar anchos
-    col_widths = [30, 14, 14, 20, 20, 20, 30, 10, 25, 15, 15, 18, 28, 22, 10, 15, 40, 25, 20, 28]
+    col_widths = [20, 35, 20, 20, 15, 50]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
 
@@ -6288,6 +6261,11 @@ def api_orders_create():
         recipient_phone=data.get("recipient_phone") or None,
         latitude=float(data["latitude"]) if data.get("latitude") not in (None, "") else None,
         longitude=float(data["longitude"]) if data.get("longitude") not in (None, "") else None,
+        plus_code=data.get("plus_code") or None,
+        address=data.get("address") or None,
+        city=data.get("city") or None,
+        province=data.get("province") or None,
+        postal_code=data.get("postal_code") or None,
         created_by_id=g.current_user.id,
         last_edited_by_id=g.current_user.id,
     )
@@ -6350,7 +6328,8 @@ def api_orders_update(order_id):
     for field in ("status", "payment_status", "payment_method", "currency",
                   "shipping_address", "notes", "delivery_time",
                   "earliest_arrival_time", "latest_arrival_time",
-                  "recipient_name", "recipient_phone"):
+                  "recipient_name", "recipient_phone",
+                  "plus_code", "address", "city", "province", "postal_code"):
         if field in data:
             setattr(order, field, data[field] or None)
 

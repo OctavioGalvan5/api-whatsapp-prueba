@@ -421,7 +421,12 @@ CREATE TABLE IF NOT EXISTS orders (
     recipient_name VARCHAR(255),
     recipient_phone VARCHAR(30),
     latitude NUMERIC(10, 7),
-    longitude NUMERIC(10, 7)
+    longitude NUMERIC(10, 7),
+    plus_code VARCHAR(20),
+    address TEXT,
+    city VARCHAR(100),
+    province VARCHAR(100),
+    postal_code VARCHAR(20)
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_contact ON orders(contact_id);

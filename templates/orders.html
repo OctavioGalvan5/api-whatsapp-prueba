@@ -196,37 +196,43 @@
                   class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
               </div>
             </div>
-            <div>
-              <label class="text-xs text-gray-500 mb-1 block">Dirección / Plus Code</label>
-              <textarea id="d-shipping-address" rows="2" placeholder="Dirección..."
-                class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary resize-none"></textarea>
+            <!-- Dirección estructurada -->
+            <div class="grid grid-cols-2 gap-3 mt-1">
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Plus Code</label>
+                <input id="d-plus-code" type="text" placeholder="Ej: 6HFG+R6Q"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Código postal</label>
+                <input id="d-postal-code" type="text" placeholder="Ej: 4400"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+              </div>
             </div>
-            <!-- Geolocalización -->
             <div class="mt-3">
-              <label class="text-xs text-gray-500 mb-1 block">URL de Google Maps</label>
-              <input id="d-geocode-input" type="text" placeholder="Ej: https://maps.app.goo.gl/..."
-                class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-              <div id="d-geocode-status" class="text-[11px] mt-1 hidden"></div>
+              <label class="text-xs text-gray-500 mb-1 block">Dirección</label>
+              <textarea id="d-shipping-address" rows="2" placeholder="Calle, número, piso..."
+                class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary resize-none"></textarea>
             </div>
             <div class="grid grid-cols-2 gap-3 mt-3">
               <div>
-                <label class="text-xs text-gray-500 mb-1 block">Latitud</label>
-                <input id="d-latitude" type="number" step="any" placeholder="-24.7821"
+                <label class="text-xs text-gray-500 mb-1 block">Ciudad</label>
+                <input id="d-city" type="text" placeholder="Ej: Salta"
+                  oninput="dCityChanged()"
                   class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
               </div>
               <div>
-                <label class="text-xs text-gray-500 mb-1 block">Longitud</label>
-                <input id="d-longitude" type="number" step="any" placeholder="-65.4232"
+                <label class="text-xs text-gray-500 mb-1 block">Provincia</label>
+                <input id="d-province" type="text" placeholder="Ej: Salta"
                   class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
               </div>
             </div>
-            <div id="d-map-link-container" class="hidden mt-2">
-              <a id="d-map-link" href="#" target="_blank" rel="noopener"
-                class="flex items-center gap-1 text-xs text-primary hover:underline">
-                <span class="material-symbols-outlined text-[14px]">open_in_new</span>
-                Ver en Google Maps
-              </a>
-            </div>
+            <!-- Campos ocultos para compatibilidad -->
+            <input type="hidden" id="d-geocode-input">
+            <div id="d-geocode-status" class="hidden"></div>
+            <input type="hidden" id="d-latitude">
+            <input type="hidden" id="d-longitude">
+            <div id="d-map-link-container" class="hidden"><a id="d-map-link" href="#"></a></div>
           </div>
 
           <!-- Entrega -->
@@ -243,17 +249,10 @@
                 <input id="d-delivery-time" type="time"
                   class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
               </div>
-              <div>
-                <label class="text-xs text-gray-500 mb-1 block">Llegada más temprana</label>
-                <input id="d-earliest-arrival" type="time"
-                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 mb-1 block">Llegada más tardía</label>
-                <input id="d-latest-arrival" type="time"
-                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-              </div>
             </div>
+            <!-- Campos ocultos -->
+            <input type="hidden" id="d-earliest-arrival">
+            <input type="hidden" id="d-latest-arrival">
           </div>
 
           <!-- Destinatario -->
@@ -568,7 +567,13 @@
     document.getElementById('d-payment-method').value = o.payment_method || '';
     document.getElementById('d-total').value = o.total != null ? o.total : '';
     document.getElementById('d-currency').value = o.currency || 'ARS';
-    document.getElementById('d-shipping-address').value = o.shipping_address || '';
+    document.getElementById('d-plus-code').value = o.plus_code || '';
+    document.getElementById('d-postal-code').value = o.postal_code || '';
+    document.getElementById('d-shipping-address').value = o.address || o.shipping_address || '';
+    document.getElementById('d-city').value = o.city || '';
+    const dProv = document.getElementById('d-province');
+    dProv.value = o.province || '';
+    dProv.dataset.autoFilled = 'false';
     document.getElementById('d-notes').value = o.notes || '';
     document.getElementById('d-delivery-date').value = o.delivery_date || '';
     document.getElementById('d-delivery-time').value = o.delivery_time || '';
@@ -651,7 +656,12 @@
       payment_method: document.getElementById('d-payment-method').value,
       total: document.getElementById('d-total').value !== '' ? parseFloat(document.getElementById('d-total').value) : null,
       currency: document.getElementById('d-currency').value,
+      plus_code: document.getElementById('d-plus-code').value || null,
+      address: document.getElementById('d-shipping-address').value || null,
       shipping_address: document.getElementById('d-shipping-address').value,
+      city: document.getElementById('d-city').value || null,
+      province: document.getElementById('d-province').value || null,
+      postal_code: document.getElementById('d-postal-code').value || null,
       notes: document.getElementById('d-notes').value,
       delivery_date: document.getElementById('d-delivery-date').value || null,
       delivery_time: document.getElementById('d-delivery-time').value || null,
@@ -785,6 +795,18 @@
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3000);
   }
+
+  function dCityChanged() {
+    const city = document.getElementById('d-city').value;
+    const prov = document.getElementById('d-province');
+    if (!prov.value || prov.dataset.autoFilled === 'true') {
+      prov.value = city;
+      prov.dataset.autoFilled = 'true';
+    }
+  }
+  document.getElementById('d-province')?.addEventListener('input', function() {
+    this.dataset.autoFilled = 'false';
+  });
 
   function updateMapLink() {
     const lat = document.getElementById('d-latitude').value;

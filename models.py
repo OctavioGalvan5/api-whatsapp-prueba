@@ -669,6 +669,11 @@ class Order(db.Model):
     recipient_phone = db.Column(db.String(30), nullable=True)
     latitude = db.Column(db.Numeric(10, 7), nullable=True)
     longitude = db.Column(db.Numeric(10, 7), nullable=True)
+    plus_code = db.Column(db.String(20), nullable=True)
+    address = db.Column(db.Text, nullable=True)
+    city = db.Column(db.String(100), nullable=True)
+    province = db.Column(db.String(100), nullable=True)
+    postal_code = db.Column(db.String(20), nullable=True)
 
     contact = db.relationship('Contact', backref=db.backref('orders', passive_deletes=True))
     items = db.relationship('OrderItem', backref='order', cascade='all, delete-orphan', lazy='select')
@@ -733,6 +738,11 @@ class Order(db.Model):
             'recipient_phone': self.recipient_phone,
             'latitude': float(self.latitude) if self.latitude is not None else None,
             'longitude': float(self.longitude) if self.longitude is not None else None,
+            'plus_code': self.plus_code,
+            'address': self.address,
+            'city': self.city,
+            'province': self.province,
+            'postal_code': self.postal_code,
             'items': [i.to_dict() for i in self.items],
         }
 
