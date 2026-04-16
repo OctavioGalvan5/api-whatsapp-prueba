@@ -2174,10 +2174,22 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                         </div>
                     </a>
                     ${!isDone ? `
-                    <button onclick="finishOrder(event, ${o.id}, this)"
-                        class="mt-2 w-full flex items-center justify-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg py-1.5 transition-colors border border-gray-100 dark:border-gray-700 hover:border-primary">
-                        <span class="material-symbols-outlined text-[14px]">check_circle</span> Terminar orden
-                    </button>` : ''}
+                    <div id="finish-wrap-${o.id}" class="mt-2">
+                        <button onclick="toggleFinishOptions(event, ${o.id})"
+                            class="w-full flex items-center justify-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg py-1.5 transition-colors border border-gray-100 dark:border-gray-700 hover:border-primary">
+                            <span class="material-symbols-outlined text-[14px]">check_circle</span> Terminar orden
+                        </button>
+                        <div id="finish-opts-${o.id}" class="hidden mt-1 grid grid-cols-2 gap-1">
+                            <button onclick="finishOrder(event, ${o.id}, 'pagado')"
+                                class="flex items-center justify-center gap-1 text-xs font-medium text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-lg py-1.5 transition-colors">
+                                <span class="material-symbols-outlined text-[14px]">payments</span> Pagada
+                            </button>
+                            <button onclick="finishOrder(event, ${o.id}, 'sin_pagar')"
+                                class="flex items-center justify-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/40 rounded-lg py-1.5 transition-colors">
+                                <span class="material-symbols-outlined text-[14px]">money_off</span> Sin pagar
+                            </button>
+                        </div>
+                    </div>` : ''}
                 </div>`;
             }).join('');
         } catch (e) {
@@ -2185,29 +2197,34 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         }
     }
 
-    async function finishOrder(event, orderId, btn) {
+    function toggleFinishOptions(event, orderId) {
         event.preventDefault();
         event.stopPropagation();
-        btn.disabled = true;
-        btn.innerHTML = '<span class="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>';
+        const opts = document.getElementById(`finish-opts-${orderId}`);
+        opts.classList.toggle('hidden');
+    }
+
+    async function finishOrder(event, orderId, paymentStatus) {
+        event.preventDefault();
+        event.stopPropagation();
+        const wrap = document.getElementById(`finish-wrap-${orderId}`);
+        wrap.innerHTML = '<span class="text-xs text-gray-400 flex items-center justify-center gap-1 py-1"><span class="material-symbols-outlined text-[14px] animate-spin">progress_activity</span></span>';
         try {
             const res = await fetch(`/api/orders/${orderId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'terminado' }),
+                body: JSON.stringify({ status: 'terminado', payment_status: paymentStatus }),
             });
             if (res.ok) {
-                // Quitar el botón y actualizar badge de estado
-                btn.closest('.relative').querySelector('a').querySelector('.rounded-full').textContent = 'Terminado';
-                btn.closest('.relative').querySelector('a').querySelector('.rounded-full').className = 'text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
-                btn.remove();
+                const card = wrap.closest('.relative');
+                card.querySelector('a .rounded-full').textContent = 'Terminado';
+                card.querySelector('a .rounded-full').className = 'text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
+                wrap.remove();
             } else {
-                btn.disabled = false;
-                btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">check_circle</span> Terminar orden';
+                wrap.innerHTML = '<p class="text-xs text-red-400 text-center py-1">Error al terminar</p>';
             }
         } catch {
-            btn.disabled = false;
-            btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">check_circle</span> Terminar orden';
+            wrap.innerHTML = '<p class="text-xs text-red-400 text-center py-1">Error al terminar</p>';
         }
     }
 
