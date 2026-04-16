@@ -336,9 +336,15 @@
                     {% set _order_summary = _order_raw[9:-1] if _order_raw.startswith('[Pedido: ') and _order_raw.endswith(']') else _order_raw %}
                     <p class="text-xs text-gray-500 mb-1">{{ _order_summary }}</p>
                     {% set _oid = order_id_map.get(msg.wa_message_id) if msg.wa_message_id else None %}
-                    <a href="/orders{% if _oid %}?id={{ _oid }}{% endif %}" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                    {% if _oid %}
+                    <button onclick="openOrderForConfirm({{ _oid }})" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                        Ver / confirmar pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </button>
+                    {% else %}
+                    <a href="/orders" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                         Ver pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </a>
+                    {% endif %}
                 </div>
                 <div class="px-4 pb-2 text-[10px] text-gray-400">{{ msg_argentina.strftime('%H:%M') if msg_argentina else '' }}</div>
             </div>
@@ -1371,9 +1377,14 @@
         </div>
         <div class="px-4 py-3 text-sm text-[#111812] dark:text-gray-200">
             <p class="text-xs text-gray-500 mb-1">${escapeHtml(orderSummary)}</p>
-            <a href="/orders${msg.order_id ? '?id=' + msg.order_id : ''}" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                Ver pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </a>
+            ${msg.order_id
+              ? `<button onclick="openOrderForConfirm(${msg.order_id})" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                    Ver / confirmar pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                 </button>`
+              : `<a href="/orders" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                    Ver pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                 </a>`
+            }
         </div>
         <div class="px-4 pb-2 text-[10px] text-gray-400">${msg.time}</div>
     </div>
@@ -2181,7 +2192,7 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         btn.innerHTML = '<span class="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>';
         try {
             const res = await fetch(`/api/orders/${orderId}`, {
-                method: 'PATCH',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: 'terminado' }),
             });
@@ -2266,7 +2277,7 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
   <div class="bg-white dark:bg-[#1a3a1d] rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-md flex flex-col" style="max-height: 92dvh;">
     <!-- Header fijo -->
     <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
-      <h2 class="font-semibold text-lg">Crear orden</h2>
+      <h2 id="om-modal-title" class="font-semibold text-lg">Crear orden</h2>
       <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
     </div>
     <!-- Contacto fijo -->
@@ -2387,7 +2398,7 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
     <!-- Footer fijo -->
     <div class="flex gap-2 px-5 py-4 border-t border-gray-100 dark:border-gray-800 shrink-0">
       <button onclick="closeOrderModal()" class="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Cancelar</button>
-      <button onclick="submitOrderChat()" class="flex-1 py-2.5 rounded-xl bg-primary text-black font-medium text-sm hover:bg-primary/90">Crear orden</button>
+      <button id="om-submit-btn" onclick="submitOrderChat()" class="flex-1 py-2.5 rounded-xl bg-primary text-black font-medium text-sm hover:bg-primary/90">Crear orden</button>
     </div>
   </div>
 </div>
@@ -2396,11 +2407,10 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
 let omItems = [];
 let omProducts = [];
 let omPhone = '';
+let omEditId = null; // null = crear, número = editar/confirmar
 
-async function openOrderModal(phone) {
-  omPhone = phone;
+function omResetFields() {
   omItems = [];
-  document.getElementById('order-modal-phone').textContent = phone;
   document.getElementById('om-items-list').innerHTML = '';
   document.getElementById('om-total-label').textContent = '—';
   document.getElementById('om-product-search').value = '';
@@ -2417,10 +2427,54 @@ async function openOrderModal(phone) {
   document.getElementById('om-delivery-time').value = '';
   document.getElementById('om-earliest-arrival').value = '';
   document.getElementById('om-latest-arrival').value = '';
-  // Cargar productos siempre frescos al abrir
+}
+
+async function openOrderModal(phone) {
+  omEditId = null;
+  omPhone = phone;
+  omResetFields();
+  document.getElementById('order-modal-phone').textContent = phone;
+  document.getElementById('om-modal-title').textContent = 'Crear orden';
+  document.getElementById('om-submit-btn').textContent = 'Crear orden';
+  document.getElementById('om-status').value = 'pendiente';
   const res = await fetch('/api/catalog/products');
   const data = await res.json();
   omProducts = data.products || [];
+  omRenderProductList(omProducts);
+  document.getElementById('modal-order-chat').classList.remove('hidden');
+}
+
+async function openOrderForConfirm(orderId) {
+  omEditId = orderId;
+  omResetFields();
+  // Cargar datos de la orden
+  const res = await fetch(`/api/orders/${orderId}`);
+  if (!res.ok) { alert('No se pudo cargar la orden'); return; }
+  const o = await res.json();
+  omPhone = o.phone_number;
+  document.getElementById('order-modal-phone').textContent = o.contact_name || o.phone_number;
+  document.getElementById('om-modal-title').textContent = `Orden ${o.order_number || '#' + orderId}`;
+  document.getElementById('om-submit-btn').textContent = o.status === 'confirmado' ? 'Guardar cambios' : 'Confirmar orden';
+  document.getElementById('om-status').value = o.status || 'pendiente';
+  document.getElementById('om-method').value = o.payment_method || '';
+  document.getElementById('om-address').value = o.shipping_address || '';
+  document.getElementById('om-notes').value = o.notes || '';
+  document.getElementById('om-recipient-name').value = o.recipient_name || '';
+  document.getElementById('om-recipient-phone').value = o.recipient_phone || '';
+  document.getElementById('om-delivery-date').value = o.delivery_date || '';
+  document.getElementById('om-delivery-time').value = o.delivery_time || '';
+  document.getElementById('om-earliest-arrival').value = o.earliest_arrival_time || '';
+  document.getElementById('om-latest-arrival').value = o.latest_arrival_time || '';
+  if (o.latitude) { document.getElementById('om-latitude').value = o.latitude; }
+  if (o.longitude) { document.getElementById('om-longitude').value = o.longitude; }
+  if (o.latitude && o.longitude) omUpdateMapLink();
+  // Cargar items existentes
+  omItems = (o.items || []).map(i => ({ product_id: i.product_id, product_name: i.product_name, unit_price: i.unit_price, quantity: i.quantity }));
+  omRenderItems();
+  // Cargar catálogo
+  const pRes = await fetch('/api/catalog/products');
+  const pData = await pRes.json();
+  omProducts = pData.products || [];
   omRenderProductList(omProducts);
   document.getElementById('modal-order-chat').classList.remove('hidden');
 }
@@ -2547,10 +2601,9 @@ function omRenderItems() {
 }
 
 async function submitOrderChat() {
-  if (!omPhone) return;
+  if (!omPhone && !omEditId) return;
   const payload = {
     phone_number: omPhone,
-    status: document.getElementById('om-status').value,
     payment_method: document.getElementById('om-method').value,
     shipping_address: document.getElementById('om-address').value,
     notes: document.getElementById('om-notes').value,
@@ -2567,19 +2620,34 @@ async function submitOrderChat() {
   if (omItems.length) {
     payload.total = omItems.reduce((s, i) => s + (i.unit_price||0)*(i.quantity||1), 0);
   }
-  const res = await fetch('/api/orders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+
+  let res;
+  if (omEditId) {
+    // Editar orden existente → confirmar si estaba pendiente
+    const currentStatus = document.getElementById('om-status').value;
+    payload.status = currentStatus === 'pendiente' ? 'confirmado' : currentStatus;
+    res = await fetch(`/api/orders/${omEditId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  } else {
+    // Crear orden nueva
+    payload.status = document.getElementById('om-status').value;
+    res = await fetch('/api/orders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  }
+
   if (res.ok) {
     const data = await res.json();
     closeOrderModal();
-    // Toast
+    const order = data.order || data;
+    const msg = omEditId
+      ? `Orden ${order.order_number || ''} confirmada`
+      : `Orden ${order.order_number || ''} creada`;
     const t = document.createElement('div');
     t.className = 'fixed bottom-20 md:bottom-6 right-4 z-50 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium bg-primary text-black';
-    t.innerHTML = `Orden ${data.order.order_number} creada — <a href="/orders" class="underline font-bold">Ver</a>`;
+    t.innerHTML = `${msg} — <a href="/orders" class="underline font-bold">Ver</a>`;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 5000);
   } else {
     const err = await res.json();
-    alert(err.error || 'Error al crear la orden');
+    alert(err.error || 'Error al guardar la orden');
   }
 }
 </script>
