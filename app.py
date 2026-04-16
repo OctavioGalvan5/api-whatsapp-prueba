@@ -477,6 +477,86 @@ def api_fix_broken_media():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route("/api/geocode", methods=["GET"])
+def api_geocode():
+    """Resuelve un plus code o dirección a lat/lng."""
+    import re, urllib.request, urllib.parse, json as _json
+    q = request.args.get("q", "").strip()
+    logger.info(f"[geocode] query recibida: '{q}'")
+    if not q:
+        return jsonify({"error": "q requerido"}), 400
+    try:
+        plus_code_pattern = re.compile(
+            r'^([23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]*)\s*(.*)?$', re.IGNORECASE
+        )
+        match = plus_code_pattern.match(q)
+        logger.info(f"[geocode] ¿es plus code? {'sí' if match else 'no'}")
+
+        if match:
+            from openlocationcode import openlocationcode as olc
+            code = match.group(1).upper()
+            ref = (match.group(2) or "").strip()
+            logger.info(f"[geocode] plus code: '{code}' | referencia: '{ref}'")
+
+            full_code = code
+            is_full = olc.isFull(code)
+            logger.info(f"[geocode] isFull: {is_full}")
+
+            if not is_full:
+                if not ref:
+                    logger.warning("[geocode] código corto sin referencia")
+                    return jsonify({"error": "Código corto requiere ciudad de referencia (ej: 6HFG+R6Q Salta)"}), 400
+                nom_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(ref)}&format=json&limit=5"
+                logger.info(f"[geocode] buscando referencia en Nominatim: {nom_url}")
+                req = urllib.request.Request(nom_url, headers={"User-Agent": "WhatsAppCRM/1.0"})
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    city_data = _json.loads(r.read())
+                logger.info(f"[geocode] resultados ciudad: {[{'name': r.get('name'), 'place_rank': r.get('place_rank'), 'type': r.get('type')} for r in city_data]}")
+                if not city_data:
+                    logger.warning(f"[geocode] ciudad '{ref}' no encontrada")
+                    return jsonify({"error": f"No se encontró '{ref}' como ciudad de referencia"}), 404
+                # Preferir ciudad/pueblo sobre provincia/país (place_rank más alto = más específico)
+                best = max(city_data, key=lambda r: r.get("place_rank", 0))
+                logger.info(f"[geocode] mejor resultado: name={best.get('name')} place_rank={best.get('place_rank')} type={best.get('type')}")
+                ref_lat = float(best["lat"])
+                ref_lng = float(best["lon"])
+                logger.info(f"[geocode] coordenadas de referencia: {ref_lat}, {ref_lng}")
+                full_code = olc.recoverNearest(code, ref_lat, ref_lng)
+                logger.info(f"[geocode] full code recuperado: '{full_code}'")
+
+            decoded = olc.decode(full_code)
+            result = {
+                "lat": round(decoded.latitudeCenter, 7),
+                "lng": round(decoded.longitudeCenter, 7),
+                "label": f"Plus code: {code}" + (f" ({ref})" if ref else "")
+            }
+            logger.info(f"[geocode] resultado plus code: {result}")
+            return jsonify(result)
+
+        # Dirección normal — Nominatim
+        nom_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q)}&format=json&limit=1"
+        logger.info(f"[geocode] dirección normal, Nominatim: {nom_url}")
+        req = urllib.request.Request(nom_url, headers={"User-Agent": "WhatsAppCRM/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = _json.loads(r.read())
+        logger.info(f"[geocode] respuesta Nominatim: {data}")
+        if not data:
+            logger.warning(f"[geocode] sin resultados para '{q}'")
+            return jsonify({"error": "No se encontraron coordenadas para esa dirección"}), 404
+        label = ", ".join(data[0]["display_name"].split(",")[:3])
+        result = {
+            "lat": round(float(data[0]["lat"]), 7),
+            "lng": round(float(data[0]["lon"]), 7),
+            "label": label
+        }
+        logger.info(f"[geocode] resultado dirección: {result}")
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"[geocode] excepción para '{q}': {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/orders/fix-message-content", methods=["POST"])
 def api_fix_order_message_content():
     """
@@ -811,6 +891,14 @@ def dashboard():
     _vis_ids = get_visible_tag_ids(user)
     has_no_visibility = _vis_ids is not None and len(_vis_ids) == 0 and not user.can_see_untagged
 
+    # Mapa wa_message_id → order_id para el SSR de burbujas de pedido
+    order_wamids = [m.wa_message_id for m in messages if m.message_type == 'order' and m.wa_message_id]
+    order_id_map = {}
+    if order_wamids:
+        from models import Order as _Order
+        _rows = _Order.query.filter(_Order.wa_message_id.in_(order_wamids)).with_entities(_Order.wa_message_id, _Order.id).all()
+        order_id_map = {row[0]: row[1] for row in _rows}
+
     return render_template('dashboard.html',
                          stats=stats,
                          contacts=contacts,
@@ -826,7 +914,8 @@ def dashboard():
                          has_more_contacts=has_more_contacts,
                          bot_paused=bot_paused,
                          available_tags=available_tags,
-                         has_no_visibility=has_no_visibility)
+                         has_no_visibility=has_no_visibility,
+                         order_id_map=order_id_map)
 
 @app.route("/analytics")
 def analytics():
@@ -2125,6 +2214,14 @@ def api_get_messages(phone):
                     can_send_free_text = True
                     last_inbound_msg = last_inbound.timestamp
 
+        # Pre-cargar order_ids para mensajes de tipo order
+        order_msg_ids = [m.wa_message_id for m in messages if m.message_type == 'order' and m.wa_message_id]
+        order_id_by_wamid = {}
+        if order_msg_ids:
+            from models import Order as _Order
+            order_rows = _Order.query.filter(_Order.wa_message_id.in_(order_msg_ids)).with_entities(_Order.wa_message_id, _Order.id).all()
+            order_id_by_wamid = {row[0]: row[1] for row in order_rows}
+
         # Serializar mensajes
         messages_data = []
         for m in messages:
@@ -2132,7 +2229,7 @@ def api_get_messages(phone):
             dt_arg = to_argentina_filter(m.timestamp)
             time_str = dt_arg.strftime('%H:%M') if dt_arg else ''
             date_str = dt_arg.strftime('%d/%m/%Y') if dt_arg else ''
-            
+
             messages_data.append({
                 'id': m.id,
                 'content': m.content,
@@ -2143,7 +2240,8 @@ def api_get_messages(phone):
                 'message_type': m.message_type,
                 'media_url': m.media_url,
                 'caption': m.caption,
-                'sent_by': m.sent_by
+                'sent_by': m.sent_by,
+                'order_id': order_id_by_wamid.get(m.wa_message_id) if m.message_type == 'order' else None,
             })
 
         # Verificar si el bot está pausado para este contacto
@@ -5979,6 +6077,11 @@ def api_orders_create():
 
     contact = Contact.query.filter_by(phone_number=phone_number).first()
 
+    from datetime import date as _date
+    def _parse_date(v):
+        try: return _date.fromisoformat(v) if v else None
+        except: return None
+
     order = Order(
         contact_id=contact.id if contact else None,
         phone_number=phone_number,
@@ -5989,6 +6092,14 @@ def api_orders_create():
         currency=data.get("currency", "ARS"),
         shipping_address=data.get("shipping_address"),
         notes=data.get("notes"),
+        delivery_date=_parse_date(data.get("delivery_date")),
+        delivery_time=data.get("delivery_time") or None,
+        earliest_arrival_time=data.get("earliest_arrival_time") or None,
+        latest_arrival_time=data.get("latest_arrival_time") or None,
+        recipient_name=data.get("recipient_name") or None,
+        recipient_phone=data.get("recipient_phone") or None,
+        latitude=float(data["latitude"]) if data.get("latitude") not in (None, "") else None,
+        longitude=float(data["longitude"]) if data.get("longitude") not in (None, "") else None,
         created_by_id=g.current_user.id,
         last_edited_by_id=g.current_user.id,
     )
@@ -6049,9 +6160,25 @@ def api_orders_update(order_id):
     old_status = order.status
 
     for field in ("status", "payment_status", "payment_method", "currency",
-                  "shipping_address", "notes"):
+                  "shipping_address", "notes", "delivery_time",
+                  "earliest_arrival_time", "latest_arrival_time",
+                  "recipient_name", "recipient_phone"):
         if field in data:
-            setattr(order, field, data[field])
+            setattr(order, field, data[field] or None)
+
+    for field in ("latitude", "longitude"):
+        if field in data:
+            try:
+                setattr(order, field, float(data[field]) if data[field] not in (None, "") else None)
+            except (ValueError, TypeError):
+                pass
+
+    if "delivery_date" in data:
+        try:
+            from datetime import date as _date
+            order.delivery_date = _date.fromisoformat(data["delivery_date"]) if data["delivery_date"] else None
+        except Exception:
+            pass
 
     if "total" in data:
         order.total = float(data["total"]) if data["total"] is not None else None

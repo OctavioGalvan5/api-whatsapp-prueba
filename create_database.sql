@@ -2,7 +2,7 @@
 -- Script de creación de base de datos
 -- WhatsApp CRM + Chatbot RAG
 -- Estructura completa SIN datos
--- Generado: 2026-02-18
+-- Actualizado: 2026-04-16
 -- ==========================================
 
 -- Extensión para vectores (pgvector)
@@ -372,6 +372,75 @@ CREATE TABLE IF NOT EXISTS followup_enrollments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_enrollments_status_next ON followup_enrollments(status, next_send_at);
+
+-- ==========================================
+-- CATALOG PRODUCTS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS catalog_products (
+    retailer_id VARCHAR(100) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price NUMERIC(12, 2),
+    currency VARCHAR(10) DEFAULT 'ARS',
+    availability VARCHAR(20) DEFAULT 'in stock',
+    image_url TEXT,
+    meta_product_id VARCHAR(100),
+    synced_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- ORDERS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS orders (
+    id SERIAL PRIMARY KEY,
+    contact_id INTEGER REFERENCES whatsapp_contacts(id) ON DELETE SET NULL,
+    phone_number VARCHAR(20) NOT NULL,
+    source VARCHAR(20) DEFAULT 'whatsapp',
+    wa_message_id VARCHAR(100),
+    status VARCHAR(30) DEFAULT 'pendiente',
+    payment_status VARCHAR(20) DEFAULT 'sin_pagar',
+    payment_method VARCHAR(20),
+    total NUMERIC(12, 2),
+    currency VARCHAR(10) DEFAULT 'ARS',
+    shipping_address TEXT,
+    notes TEXT,
+    seen_at TIMESTAMP,
+    seen_by_id INTEGER REFERENCES crm_users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by_id INTEGER REFERENCES crm_users(id) ON DELETE SET NULL,
+    last_edited_by_id INTEGER REFERENCES crm_users(id) ON DELETE SET NULL,
+    terminated_at TIMESTAMP,
+    terminated_by_id INTEGER REFERENCES crm_users(id) ON DELETE SET NULL,
+    delivery_date DATE,
+    delivery_time VARCHAR(5),
+    earliest_arrival_time VARCHAR(5),
+    latest_arrival_time VARCHAR(5),
+    recipient_name VARCHAR(255),
+    recipient_phone VARCHAR(30),
+    latitude NUMERIC(10, 7),
+    longitude NUMERIC(10, 7)
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_contact ON orders(contact_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_seen_at ON orders(seen_at);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
+
+-- ==========================================
+-- ORDER ITEMS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS order_items (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    retailer_id VARCHAR(100) NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    unit_price NUMERIC(12, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'ARS'
+);
 
 -- ==========================================
 -- ADMIN INICIAL

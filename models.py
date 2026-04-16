@@ -661,6 +661,14 @@ class Order(db.Model):
     last_edited_by_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='SET NULL'), nullable=True)
     terminated_at = db.Column(db.DateTime, nullable=True)
     terminated_by_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='SET NULL'), nullable=True)
+    delivery_date = db.Column(db.Date, nullable=True)
+    delivery_time = db.Column(db.String(5), nullable=True)    # "HH:MM"
+    earliest_arrival_time = db.Column(db.String(5), nullable=True)  # "HH:MM"
+    latest_arrival_time = db.Column(db.String(5), nullable=True)    # "HH:MM"
+    recipient_name = db.Column(db.String(255), nullable=True)
+    recipient_phone = db.Column(db.String(30), nullable=True)
+    latitude = db.Column(db.Numeric(10, 7), nullable=True)
+    longitude = db.Column(db.Numeric(10, 7), nullable=True)
 
     contact = db.relationship('Contact', backref=db.backref('orders', passive_deletes=True))
     items = db.relationship('OrderItem', backref='order', cascade='all, delete-orphan', lazy='select')
@@ -717,6 +725,14 @@ class Order(db.Model):
             'last_edited_by': self.last_edited_by.display_name if self.last_edited_by else None,
             'terminated_at': fmt(self.terminated_at),
             'terminated_by': self.terminated_by.display_name if self.terminated_by else None,
+            'delivery_date': self.delivery_date.isoformat() if self.delivery_date else None,
+            'delivery_time': self.delivery_time,
+            'earliest_arrival_time': self.earliest_arrival_time,
+            'latest_arrival_time': self.latest_arrival_time,
+            'recipient_name': self.recipient_name,
+            'recipient_phone': self.recipient_phone,
+            'latitude': float(self.latitude) if self.latitude is not None else None,
+            'longitude': float(self.longitude) if self.longitude is not None else None,
             'items': [i.to_dict() for i in self.items],
         }
 

@@ -76,3 +76,17 @@ GRANT ALL PRIVILEGES ON SEQUENCE order_items_id_seq TO PUBLIC;
 -- ==========================================
 -- FIN
 -- ==========================================
+
+-- Agregar campos de entrega a órdenes
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date DATE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_time VARCHAR(5);
+
+-- Agregar campos de llegada y destinatario
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS earliest_arrival_time VARCHAR(5);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS latest_arrival_time VARCHAR(5);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS recipient_name VARCHAR(255);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS recipient_phone VARCHAR(30);
+
+-- Agregar lat/lng a órdenes
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);

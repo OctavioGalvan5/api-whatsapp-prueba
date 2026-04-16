@@ -335,11 +335,10 @@
                     {% set _order_raw = msg.content or '' %}
                     {% set _order_summary = _order_raw[9:-1] if _order_raw.startswith('[Pedido: ') and _order_raw.endswith(']') else _order_raw %}
                     <p class="text-xs text-gray-500 mb-1">{{ _order_summary }}</p>
-                    {% if msg.wa_message_id %}
-                    <a href="/orders" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                    {% set _oid = order_id_map.get(msg.wa_message_id) if msg.wa_message_id else None %}
+                    <a href="/orders{% if _oid %}?id={{ _oid }}{% endif %}" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                         Ver pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </a>
-                    {% endif %}
                 </div>
                 <div class="px-4 pb-2 text-[10px] text-gray-400">{{ msg_argentina.strftime('%H:%M') if msg_argentina else '' }}</div>
             </div>
@@ -399,7 +398,28 @@
                 {% endif %}
 
                 {% else %}
+                {% if msg.message_type == 'location' %}
+                {% set _loc = msg.content or '' %}
+                {% set _lat = _loc[11:].split(', ')[0] if _loc.startswith('[Ubicación: ') else '' %}
+                {% set _lng = _loc[11:].split(', ')[1].rstrip(']') if _loc.startswith('[Ubicación: ') and ', ' in _loc else '' %}
+                {% if _lat and _lng %}
+                <a href="https://www.google.com/maps?q={{ _lat }},{{ _lng }}" target="_blank" rel="noopener"
+                   class="flex items-center gap-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors min-w-[180px]">
+                    <div class="w-9 h-9 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-[20px]">location_on</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs font-semibold text-[#111812] dark:text-white">Ubicación compartida</span>
+                        <span class="text-[10px] text-gray-400">{{ _lat }}, {{ _lng }}</span>
+                        <span class="text-[10px] text-primary mt-0.5">Abrir en Google Maps →</span>
+                    </div>
+                </a>
+                {% else %}
                 <p>{{ msg.content or '[Sin contenido]' }}</p>
+                {% endif %}
+                {% else %}
+                <p>{{ msg.content or '[Sin contenido]' }}</p>
+                {% endif %}
                 {% endif %}
 
                 <div class="text-[10px] text-gray-400 text-right mt-1">{{ msg_argentina.strftime('%H:%M') if
@@ -1305,6 +1325,27 @@
                         if (msg.caption) {
                             contentHtml += `<p class="mt-1">${escapeHtml(msg.caption)}</p>`;
                         }
+                    } else if (msg.message_type === 'location') {
+                        const locMatch = (msg.content || '').match(/\[Ubicación: ([-\d.]+),\s*([-\d.]+)\]/);
+                        if (locMatch) {
+                            const lat = parseFloat(locMatch[1]).toFixed(5);
+                            const lng = parseFloat(locMatch[2]).toFixed(5);
+                            const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                            contentHtml = `
+<a href="${mapsUrl}" target="_blank" rel="noopener"
+   class="flex items-center gap-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors min-w-[180px]">
+    <div class="w-9 h-9 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+        <span class="material-symbols-outlined text-[20px]">location_on</span>
+    </div>
+    <div class="flex flex-col">
+        <span class="text-xs font-semibold text-[#111812] dark:text-white">Ubicación compartida</span>
+        <span class="text-[10px] text-gray-400">${lat}, ${lng}</span>
+        <span class="text-[10px] text-primary mt-0.5">Abrir en Google Maps →</span>
+    </div>
+</a>`;
+                        } else {
+                            contentHtml = `<p>${escapeHtml(msg.content || '[Sin contenido]')}</p>`;
+                        }
                     } else if (msg.message_type === 'order') {
                         // Burbuja especial de pedido — renderizada fuera del wrapper estándar
                         const orderMatch = (msg.content || '').match(/\[Pedido: (.+)\]/);
@@ -1318,7 +1359,7 @@
         </div>
         <div class="px-4 py-3 text-sm text-[#111812] dark:text-gray-200">
             <p class="text-xs text-gray-500 mb-1">${escapeHtml(orderSummary)}</p>
-            <a href="/orders" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            <a href="/orders${msg.order_id ? '?id=' + msg.order_id : ''}" class="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                 Ver pedido <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
             </a>
         </div>
@@ -2175,16 +2216,19 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
 
 {% if current_user and current_user.has_permission('orders') %}
 <!-- ===== MODAL CREAR ORDEN DESDE CHAT ===== -->
-<div id="modal-order-chat" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-  <div class="bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl w-full max-w-md p-6">
-    <div class="flex items-center justify-between mb-4">
+<div id="modal-order-chat" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+  <div class="bg-white dark:bg-[#1a3a1d] rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-md flex flex-col" style="max-height: 92dvh;">
+    <!-- Header fijo -->
+    <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
       <h2 class="font-semibold text-lg">Crear orden</h2>
       <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
     </div>
-    <div class="mb-3 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 text-sm text-gray-600 dark:text-gray-400">
+    <!-- Contacto fijo -->
+    <div class="px-5 py-2 bg-gray-50 dark:bg-gray-900 text-sm text-gray-600 dark:text-gray-400 shrink-0">
       Contacto: <span id="order-modal-phone" class="font-medium text-gray-800 dark:text-white"></span>
     </div>
-    <div class="flex flex-col gap-3">
+    <!-- Contenido scrolleable -->
+    <div class="flex-1 overflow-y-auto px-5 py-3 flex flex-col gap-3">
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-xs text-gray-500 mb-1 block">Estado inicial</label>
@@ -2228,14 +2272,82 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         <label class="text-xs text-gray-500 mb-1 block">Dirección de envío</label>
         <input id="om-address" type="text" placeholder="Opcional..." class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
       </div>
+
+      <!-- Geolocalización -->
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Plus code o dirección para coordenadas</label>
+        <div class="flex gap-2">
+          <input id="om-geocode-input" type="text" placeholder="Ej: 6HFG+R6Q Salta"
+            class="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <button type="button" onclick="omResolveGeocode()"
+            class="px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1 whitespace-nowrap">
+            <span class="material-symbols-outlined text-[15px]">my_location</span> Resolver
+          </button>
+        </div>
+        <div id="om-geocode-status" class="text-[11px] mt-1 hidden"></div>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <input id="om-latitude" type="number" step="any" placeholder="Latitud"
+            oninput="omUpdateMapLink()"
+            class="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <input id="om-longitude" type="number" step="any" placeholder="Longitud"
+            oninput="omUpdateMapLink()"
+            class="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div id="om-map-link-container" class="hidden mt-2">
+          <a id="om-map-link" href="#" target="_blank" rel="noopener"
+            class="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-primary px-3 py-1.5 rounded-lg hover:bg-primary/80 transition-colors">
+            <span class="material-symbols-outlined text-[14px]">map</span> Ver en Google Maps
+          </a>
+        </div>
+      </div>
+
+      <!-- Destinatario -->
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Nombre destinatario</label>
+          <input id="om-recipient-name" type="text" placeholder="Quien recibe..."
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Celular destinatario</label>
+          <input id="om-recipient-phone" type="tel" placeholder="+549..."
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+
+      <!-- Entrega -->
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Fecha de entrega</label>
+          <input id="om-delivery-date" type="date"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Hora de entrega</label>
+          <input id="om-delivery-time" type="time"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Llegada más temprana</label>
+          <input id="om-earliest-arrival" type="time"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Llegada más tardía</label>
+          <input id="om-latest-arrival" type="time"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+
       <div>
         <label class="text-xs text-gray-500 mb-1 block">Notas</label>
         <textarea id="om-notes" rows="2" class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary resize-none"></textarea>
       </div>
     </div>
-    <div class="flex gap-2 mt-5">
-      <button onclick="closeOrderModal()" class="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Cancelar</button>
-      <button onclick="submitOrderChat()" class="flex-1 py-2 rounded-xl bg-primary text-black font-medium text-sm hover:bg-primary/90">Crear orden</button>
+    <!-- Footer fijo -->
+    <div class="flex gap-2 px-5 py-4 border-t border-gray-100 dark:border-gray-800 shrink-0">
+      <button onclick="closeOrderModal()" class="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Cancelar</button>
+      <button onclick="submitOrderChat()" class="flex-1 py-2.5 rounded-xl bg-primary text-black font-medium text-sm hover:bg-primary/90">Crear orden</button>
     </div>
   </div>
 </div>
@@ -2254,6 +2366,17 @@ async function openOrderModal(phone) {
   document.getElementById('om-product-search').value = '';
   document.getElementById('om-address').value = '';
   document.getElementById('om-notes').value = '';
+  document.getElementById('om-geocode-input').value = '';
+  document.getElementById('om-geocode-status').classList.add('hidden');
+  document.getElementById('om-latitude').value = '';
+  document.getElementById('om-longitude').value = '';
+  document.getElementById('om-map-link-container').classList.add('hidden');
+  document.getElementById('om-recipient-name').value = '';
+  document.getElementById('om-recipient-phone').value = '';
+  document.getElementById('om-delivery-date').value = '';
+  document.getElementById('om-delivery-time').value = '';
+  document.getElementById('om-earliest-arrival').value = '';
+  document.getElementById('om-latest-arrival').value = '';
   // Cargar productos siempre frescos al abrir
   const res = await fetch('/api/catalog/products');
   const data = await res.json();
@@ -2263,6 +2386,56 @@ async function openOrderModal(phone) {
 }
 
 function closeOrderModal() { document.getElementById('modal-order-chat').classList.add('hidden'); }
+
+async function omResolveGeocode() {
+  const input = document.getElementById('om-geocode-input').value.trim();
+  const status = document.getElementById('om-geocode-status');
+  if (!input) return;
+  status.textContent = 'Buscando...';
+  status.className = 'text-[11px] mt-1 text-gray-400';
+  status.classList.remove('hidden');
+  try {
+    const result = await resolveLocationInput(input);
+    if (result) {
+      document.getElementById('om-latitude').value = result.lat;
+      document.getElementById('om-longitude').value = result.lng;
+      omUpdateMapLink();
+      status.textContent = '✓ ' + result.label;
+      status.className = 'text-[11px] mt-1 text-green-600 dark:text-green-400';
+    } else {
+      status.textContent = '✗ No se encontraron coordenadas';
+      status.className = 'text-[11px] mt-1 text-red-500';
+    }
+  } catch(e) {
+    console.error('[geocode] excepción:', e);
+    status.textContent = '✗ Error: ' + e.message;
+    status.className = 'text-[11px] mt-1 text-red-500';
+  }
+}
+document.getElementById('om-geocode-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); omResolveGeocode(); }
+});
+
+function omUpdateMapLink() {
+  const lat = document.getElementById('om-latitude').value;
+  const lng = document.getElementById('om-longitude').value;
+  const container = document.getElementById('om-map-link-container');
+  const link = document.getElementById('om-map-link');
+  if (lat && lng) {
+    link.href = `https://www.google.com/maps?q=${lat},${lng}`;
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+  }
+}
+
+// Resuelve un plus code o dirección a {lat, lng, label} via endpoint del servidor
+async function resolveLocationInput(input) {
+  const res = await fetch(`/api/geocode?q=${encodeURIComponent(input)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error desconocido');
+  return { lat: data.lat, lng: data.lng, label: data.label };
+}
 
 function omRenderProductList(products) {
   const el = document.getElementById('om-product-list');
@@ -2325,6 +2498,14 @@ async function submitOrderChat() {
     payment_method: document.getElementById('om-method').value,
     shipping_address: document.getElementById('om-address').value,
     notes: document.getElementById('om-notes').value,
+    recipient_name: document.getElementById('om-recipient-name').value || null,
+    recipient_phone: document.getElementById('om-recipient-phone').value || null,
+    delivery_date: document.getElementById('om-delivery-date').value || null,
+    delivery_time: document.getElementById('om-delivery-time').value || null,
+    earliest_arrival_time: document.getElementById('om-earliest-arrival').value || null,
+    latest_arrival_time: document.getElementById('om-latest-arrival').value || null,
+    latitude: document.getElementById('om-latitude').value || null,
+    longitude: document.getElementById('om-longitude').value || null,
     items: omItems,
   };
   if (omItems.length) {
