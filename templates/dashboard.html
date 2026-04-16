@@ -403,17 +403,23 @@
                 {% set _lat = _loc[11:].split(', ')[0] if _loc.startswith('[Ubicación: ') else '' %}
                 {% set _lng = _loc[11:].split(', ')[1].rstrip(']') if _loc.startswith('[Ubicación: ') and ', ' in _loc else '' %}
                 {% if _lat and _lng %}
-                <a href="https://www.google.com/maps?q={{ _lat }},{{ _lng }}" target="_blank" rel="noopener"
-                   class="flex items-center gap-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors min-w-[180px]">
-                    <div class="w-9 h-9 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span class="material-symbols-outlined text-[20px]">location_on</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-xs font-semibold text-[#111812] dark:text-white">Ubicación compartida</span>
-                        <span class="text-[10px] text-gray-400">{{ _lat }}, {{ _lng }}</span>
-                        <span class="text-[10px] text-primary mt-0.5">Abrir en Google Maps →</span>
-                    </div>
-                </a>
+                <div class="flex items-start gap-2">
+                    <a href="https://www.google.com/maps?q={{ _lat }},{{ _lng }}" target="_blank" rel="noopener"
+                       class="flex items-center gap-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors min-w-[180px] flex-1">
+                        <div class="w-9 h-9 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-[20px]">location_on</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs font-semibold text-[#111812] dark:text-white">Ubicación compartida</span>
+                            <span class="text-[10px] text-gray-400">{{ _lat }}, {{ _lng }}</span>
+                            <span class="text-[10px] text-primary mt-0.5">Abrir en Google Maps →</span>
+                        </div>
+                    </a>
+                    <button onclick="copyCoords('{{ _lat }}', '{{ _lng }}', this)" title="Copiar link de Google Maps"
+                        class="mt-1 p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0">
+                        <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                    </button>
+                </div>
                 {% else %}
                 <p>{{ msg.content or '[Sin contenido]' }}</p>
                 {% endif %}
@@ -1332,17 +1338,23 @@
                             const lng = parseFloat(locMatch[2]).toFixed(5);
                             const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
                             contentHtml = `
-<a href="${mapsUrl}" target="_blank" rel="noopener"
-   class="flex items-center gap-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors min-w-[180px]">
-    <div class="w-9 h-9 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-        <span class="material-symbols-outlined text-[20px]">location_on</span>
-    </div>
-    <div class="flex flex-col">
-        <span class="text-xs font-semibold text-[#111812] dark:text-white">Ubicación compartida</span>
-        <span class="text-[10px] text-gray-400">${lat}, ${lng}</span>
-        <span class="text-[10px] text-primary mt-0.5">Abrir en Google Maps →</span>
-    </div>
-</a>`;
+<div class="flex items-start gap-2">
+    <a href="${mapsUrl}" target="_blank" rel="noopener"
+       class="flex items-center gap-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors min-w-[180px] flex-1">
+        <div class="w-9 h-9 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-[20px]">location_on</span>
+        </div>
+        <div class="flex flex-col">
+            <span class="text-xs font-semibold text-[#111812] dark:text-white">Ubicación compartida</span>
+            <span class="text-[10px] text-gray-400">${lat}, ${lng}</span>
+            <span class="text-[10px] text-primary mt-0.5">Abrir en Google Maps →</span>
+        </div>
+    </a>
+    <button onclick="copyCoords('${lat}', '${lng}', this)" title="Copiar link de Google Maps"
+        class="mt-1 p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0">
+        <span class="material-symbols-outlined text-[16px]">content_copy</span>
+    </button>
+</div>`;
                         } else {
                             contentHtml = `<p>${escapeHtml(msg.content || '[Sin contenido]')}</p>`;
                         }
@@ -2136,21 +2148,55 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                 const total = o.total != null ? Number(o.total).toLocaleString('es-AR') + ' ' + (o.currency || '') : '—';
                 const sc = statusColor[o.status] || 'bg-gray-100 text-gray-500';
                 const sl = statusLabel[o.status] || o.status;
+                const isDone = o.status === 'terminado' || o.status === 'cancelado';
                 return `
-                <a href="/orders?id=${o.id}" class="block p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">#${o.id}</span>
-                        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${sc}">${sl}</span>
-                    </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate mb-1">${escapeHtml(itemsSummary)}</p>
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">${total}</span>
-                        <span class="text-xs text-gray-400">${date}</span>
-                    </div>
-                </a>`;
+                <div class="relative block p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 transition-colors">
+                    <a href="/orders?id=${o.id}" class="block">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">#${o.id}</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full font-medium ${sc}">${sl}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate mb-1">${escapeHtml(itemsSummary)}</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-medium text-gray-700 dark:text-gray-300">${total}</span>
+                            <span class="text-xs text-gray-400">${date}</span>
+                        </div>
+                    </a>
+                    ${!isDone ? `
+                    <button onclick="finishOrder(event, ${o.id}, this)"
+                        class="mt-2 w-full flex items-center justify-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg py-1.5 transition-colors border border-gray-100 dark:border-gray-700 hover:border-primary">
+                        <span class="material-symbols-outlined text-[14px]">check_circle</span> Terminar orden
+                    </button>` : ''}
+                </div>`;
             }).join('');
         } catch (e) {
             list.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Error cargando órdenes</p>';
+        }
+    }
+
+    async function finishOrder(event, orderId, btn) {
+        event.preventDefault();
+        event.stopPropagation();
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>';
+        try {
+            const res = await fetch(`/api/orders/${orderId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'terminado' }),
+            });
+            if (res.ok) {
+                // Quitar el botón y actualizar badge de estado
+                btn.closest('.relative').querySelector('a').querySelector('.rounded-full').textContent = 'Terminado';
+                btn.closest('.relative').querySelector('a').querySelector('.rounded-full').className = 'text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
+                btn.remove();
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">check_circle</span> Terminar orden';
+            }
+        } catch {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">check_circle</span> Terminar orden';
         }
     }
 
@@ -2269,21 +2315,15 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
       </div>
 
       <div>
-        <label class="text-xs text-gray-500 mb-1 block">Dirección de envío</label>
-        <input id="om-address" type="text" placeholder="Opcional..." class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        <label class="text-xs text-gray-500 mb-1 block">Dirección / Plus Code</label>
+        <input id="om-address" type="text" placeholder="Dirección o plus code..." class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
       </div>
 
       <!-- Geolocalización -->
       <div>
-        <label class="text-xs text-gray-500 mb-1 block">Plus code o dirección para coordenadas</label>
-        <div class="flex gap-2">
-          <input id="om-geocode-input" type="text" placeholder="Ej: 6HFG+R6Q Salta"
-            class="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-          <button type="button" onclick="omResolveGeocode()"
-            class="px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1 whitespace-nowrap">
-            <span class="material-symbols-outlined text-[15px]">my_location</span> Resolver
-          </button>
-        </div>
+        <label class="text-xs text-gray-500 mb-1 block">URL de Google Maps</label>
+        <input id="om-geocode-input" type="text" placeholder="Ej: https://maps.app.goo.gl/..."
+          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
         <div id="om-geocode-status" class="text-[11px] mt-1 hidden"></div>
         <div class="grid grid-cols-2 gap-2 mt-2">
           <input id="om-latitude" type="number" step="any" placeholder="Latitud"
@@ -2415,6 +2455,12 @@ async function omResolveGeocode() {
 document.getElementById('om-geocode-input')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); omResolveGeocode(); }
 });
+document.getElementById('om-geocode-input')?.addEventListener('paste', e => {
+  setTimeout(() => {
+    const val = document.getElementById('om-geocode-input').value.trim();
+    if (val.startsWith('http')) omResolveGeocode();
+  }, 50);
+});
 
 function omUpdateMapLink() {
   const lat = document.getElementById('om-latitude').value;
@@ -2427,6 +2473,16 @@ function omUpdateMapLink() {
   } else {
     container.classList.add('hidden');
   }
+}
+
+function copyCoords(lat, lng, btn) {
+  const url = `https://www.google.com/maps?q=${lat},${lng}`;
+  navigator.clipboard.writeText(url).then(() => {
+    const icon = btn.querySelector('.material-symbols-outlined');
+    icon.textContent = 'check';
+    btn.classList.add('text-primary');
+    setTimeout(() => { icon.textContent = 'content_copy'; btn.classList.remove('text-primary'); }, 2000);
+  });
 }
 
 // Resuelve un plus code o dirección a {lat, lng, label} via endpoint del servidor

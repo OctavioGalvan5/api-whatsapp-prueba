@@ -479,76 +479,107 @@ def api_fix_broken_media():
 
 @app.route("/api/geocode", methods=["GET"])
 def api_geocode():
-    """Resuelve un plus code o dirección a lat/lng."""
+    """Resuelve coordenadas directas, URL de Google Maps, plus code o dirección."""
     import re, urllib.request, urllib.parse, json as _json
     q = request.args.get("q", "").strip()
     logger.info(f"[geocode] query recibida: '{q}'")
     if not q:
         return jsonify({"error": "q requerido"}), 400
     try:
+        # 1. Coordenadas directas: "-24.7821, -65.4232"
+        coord_match = re.match(r'^(-?\d{1,3}\.?\d*)\s*,\s*(-?\d{1,3}\.?\d*)$', q)
+        if coord_match:
+            lat, lng = float(coord_match.group(1)), float(coord_match.group(2))
+            logger.info(f"[geocode] coordenadas directas: {lat}, {lng}")
+            return jsonify({"lat": round(lat, 7), "lng": round(lng, 7), "label": f"{lat}, {lng}"})
+
+        # 2. URL de Google Maps → seguir redirección y extraer coordenadas de la URL final
+        if q.startswith("http"):
+            logger.info(f"[geocode] detectada URL de Google Maps, siguiendo redirección...")
+            req = urllib.request.Request(q, headers={"User-Agent": "Mozilla/5.0"})
+            try:
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    final_url = r.geturl()
+            except Exception as url_err:
+                # En algunos casos la redirección falla pero la URL final queda en el error
+                final_url = str(url_err)
+            logger.info(f"[geocode] URL final: {final_url}")
+            # 1er intento: !3d{lat}!4d{lng} = pin real del lugar (más preciso)
+            # Tomar el ÚLTIMO par porque el primero puede ser la ubicación del usuario
+            all_pins = re.findall(r'!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)', final_url)
+            coord_in_url = None
+            if all_pins:
+                last_pin = all_pins[-1]
+                logger.info(f"[geocode] pines encontrados: {all_pins}, usando último: {last_pin}")
+                # Crear objeto compatible con .group()
+                class _Match:
+                    def __init__(self, g1, g2): self._g = [None, g1, g2]
+                    def group(self, n): return self._g[n]
+                coord_in_url = _Match(last_pin[0], last_pin[1])
+            if not coord_in_url:
+                # 2do intento: @lat,lng = centro del viewport
+                coord_in_url = re.search(r'@(-?\d+\.?\d+),(-?\d+\.?\d+)', final_url)
+            if not coord_in_url:
+                # Intentar formato ?q=lat,lng
+                coord_in_url = re.search(r'[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)', final_url)
+            if not coord_in_url:
+                # Intentar formato /place/lat,lng
+                coord_in_url = re.search(r'place/(-?\d+\.?\d+),(-?\d+\.?\d+)', final_url)
+            if coord_in_url:
+                lat, lng = float(coord_in_url.group(1)), float(coord_in_url.group(2))
+                logger.info(f"[geocode] coordenadas extraídas de URL: {lat}, {lng}")
+                return jsonify({"lat": round(lat, 7), "lng": round(lng, 7), "label": "Google Maps"})
+            logger.warning(f"[geocode] no se pudieron extraer coordenadas de la URL")
+            return jsonify({"error": "No se pudieron extraer coordenadas de esa URL de Google Maps"}), 404
+
+        # 3. Plus code: "6HFG+R6Q Salta"
         plus_code_pattern = re.compile(
             r'^([23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]*)\s*(.*)?$', re.IGNORECASE
         )
-        match = plus_code_pattern.match(q)
-        logger.info(f"[geocode] ¿es plus code? {'sí' if match else 'no'}")
+        pc_match = plus_code_pattern.match(q)
+        logger.info(f"[geocode] ¿es plus code? {'sí' if pc_match else 'no'}")
 
-        if match:
+        if pc_match:
             from openlocationcode import openlocationcode as olc
-            code = match.group(1).upper()
-            ref = (match.group(2) or "").strip()
+            code = pc_match.group(1).upper()
+            ref = (pc_match.group(2) or "").strip()
             logger.info(f"[geocode] plus code: '{code}' | referencia: '{ref}'")
-
             full_code = code
             is_full = olc.isFull(code)
             logger.info(f"[geocode] isFull: {is_full}")
-
             if not is_full:
                 if not ref:
-                    logger.warning("[geocode] código corto sin referencia")
                     return jsonify({"error": "Código corto requiere ciudad de referencia (ej: 6HFG+R6Q Salta)"}), 400
-                nom_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(ref)}&format=json&limit=5"
-                logger.info(f"[geocode] buscando referencia en Nominatim: {nom_url}")
+                nom_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(ref)}&format=json&limit=5&countrycodes=ar"
+                logger.info(f"[geocode] buscando referencia: {nom_url}")
                 req = urllib.request.Request(nom_url, headers={"User-Agent": "WhatsAppCRM/1.0"})
                 with urllib.request.urlopen(req, timeout=5) as r:
                     city_data = _json.loads(r.read())
-                logger.info(f"[geocode] resultados ciudad: {[{'name': r.get('name'), 'place_rank': r.get('place_rank'), 'type': r.get('type')} for r in city_data]}")
+                logger.info(f"[geocode] resultados: {[{'name': r.get('name'), 'place_rank': r.get('place_rank')} for r in city_data]}")
                 if not city_data:
-                    logger.warning(f"[geocode] ciudad '{ref}' no encontrada")
                     return jsonify({"error": f"No se encontró '{ref}' como ciudad de referencia"}), 404
-                # Preferir ciudad/pueblo sobre provincia/país (place_rank más alto = más específico)
-                best = max(city_data, key=lambda r: r.get("place_rank", 0))
-                logger.info(f"[geocode] mejor resultado: name={best.get('name')} place_rank={best.get('place_rank')} type={best.get('type')}")
-                ref_lat = float(best["lat"])
-                ref_lng = float(best["lon"])
-                logger.info(f"[geocode] coordenadas de referencia: {ref_lat}, {ref_lng}")
+                best = city_data[0]
+                ref_lat, ref_lng = float(best["lat"]), float(best["lon"])
+                logger.info(f"[geocode] referencia: {ref_lat}, {ref_lng}")
                 full_code = olc.recoverNearest(code, ref_lat, ref_lng)
-                logger.info(f"[geocode] full code recuperado: '{full_code}'")
-
+                logger.info(f"[geocode] full code: '{full_code}'")
             decoded = olc.decode(full_code)
-            result = {
-                "lat": round(decoded.latitudeCenter, 7),
-                "lng": round(decoded.longitudeCenter, 7),
-                "label": f"Plus code: {code}" + (f" ({ref})" if ref else "")
-            }
+            result = {"lat": round(decoded.latitudeCenter, 7), "lng": round(decoded.longitudeCenter, 7),
+                      "label": f"Plus code: {code}" + (f" ({ref})" if ref else "")}
             logger.info(f"[geocode] resultado plus code: {result}")
             return jsonify(result)
 
-        # Dirección normal — Nominatim
-        nom_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q)}&format=json&limit=1"
+        # 4. Dirección normal — Nominatim
+        nom_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q)}&format=json&limit=1&countrycodes=ar"
         logger.info(f"[geocode] dirección normal, Nominatim: {nom_url}")
         req = urllib.request.Request(nom_url, headers={"User-Agent": "WhatsAppCRM/1.0"})
         with urllib.request.urlopen(req, timeout=5) as r:
             data = _json.loads(r.read())
         logger.info(f"[geocode] respuesta Nominatim: {data}")
         if not data:
-            logger.warning(f"[geocode] sin resultados para '{q}'")
             return jsonify({"error": "No se encontraron coordenadas para esa dirección"}), 404
         label = ", ".join(data[0]["display_name"].split(",")[:3])
-        result = {
-            "lat": round(float(data[0]["lat"]), 7),
-            "lng": round(float(data[0]["lon"]), 7),
-            "label": label
-        }
+        result = {"lat": round(float(data[0]["lat"]), 7), "lng": round(float(data[0]["lon"]), 7), "label": label}
         logger.info(f"[geocode] resultado dirección: {result}")
         return jsonify(result)
 
@@ -6017,6 +6048,7 @@ def api_orders_list():
     payment_method = request.args.get("payment_method")
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
+    date_type = request.args.get("date_type", "created")  # "created" | "delivery"
     search = request.args.get("search", "").strip()
     vista = request.args.get("vista")  # "unseen" | "seen" | "" = todas
     phone = request.args.get("phone", "").strip()
@@ -6036,12 +6068,20 @@ def api_orders_list():
         q = q.filter(Order.payment_method == payment_method)
     if date_from:
         try:
-            q = q.filter(Order.created_at >= datetime.fromisoformat(date_from))
+            from datetime import date as _date
+            if date_type == "delivery":
+                q = q.filter(Order.delivery_date >= _date.fromisoformat(date_from))
+            else:
+                q = q.filter(Order.created_at >= datetime.fromisoformat(date_from))
         except ValueError:
             pass
     if date_to:
         try:
-            q = q.filter(Order.created_at <= datetime.fromisoformat(date_to))
+            from datetime import date as _date
+            if date_type == "delivery":
+                q = q.filter(Order.delivery_date <= _date.fromisoformat(date_to))
+            else:
+                q = q.filter(Order.created_at <= datetime.fromisoformat(date_to))
         except ValueError:
             pass
     if search:
@@ -6062,6 +6102,154 @@ def api_orders_list():
         "page": page,
         "per_page": per_page,
     })
+
+
+@app.route("/api/orders/export", methods=["GET"])
+def api_orders_export():
+    """Exporta órdenes filtradas al formato Excel de rutas."""
+    import io, openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from models import Order, Contact
+
+    if not g.current_user or not g.current_user.has_permission('orders'):
+        return jsonify({"error": "Sin permiso"}), 403
+
+    status = request.args.get("status")
+    payment_status = request.args.get("payment_status")
+    payment_method = request.args.get("payment_method")
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+    date_type = request.args.get("date_type", "created")
+    search = request.args.get("search", "").strip()
+    vista = request.args.get("vista")
+
+    q = Order.query.order_by(Order.created_at.desc())
+
+    if status:
+        q = q.filter(Order.status == status)
+    if payment_status:
+        q = q.filter(Order.payment_status == payment_status)
+    if payment_method:
+        q = q.filter(Order.payment_method == payment_method)
+    if date_from:
+        try:
+            from datetime import date as _date
+            if date_type == "delivery":
+                q = q.filter(Order.delivery_date >= _date.fromisoformat(date_from))
+            else:
+                q = q.filter(Order.created_at >= datetime.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import date as _date
+            if date_type == "delivery":
+                q = q.filter(Order.delivery_date <= _date.fromisoformat(date_to))
+            else:
+                q = q.filter(Order.created_at <= datetime.fromisoformat(date_to))
+        except ValueError:
+            pass
+    if search:
+        like = f"%{search}%"
+        q = q.join(Contact, Order.contact_id == Contact.id, isouter=True).filter(
+            or_(Contact.name.ilike(like), Order.phone_number.ilike(like))
+        )
+    if vista == "unseen":
+        q = q.filter(Order.seen_at.is_(None))
+    elif vista == "seen":
+        q = q.filter(Order.seen_at.isnot(None))
+
+    orders = q.all()
+
+    # Crear workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Órdenes"
+
+    columns = [
+        "Unit/Flat/Unit Name",
+        "Latitude",
+        "Longitude",
+        "Earliest Arrival Time",
+        "Latest Arrival Time",
+        "Time at stop (minutes)",
+        "Notes",
+        "Size",
+        "Recipient Name",
+        "Type of stop",
+        "Order",
+        "Proof of delivery",
+        "Recipient Email Address",
+        "Recipient Phone Number",
+        "Id",
+        "Package Count",
+        "Products",
+        "Seller website",
+        "Seller Name",
+        "Driver (email or phone number)",
+    ]
+
+    # Header con estilo
+    header_fill = PatternFill(start_color="13EC25", end_color="13EC25", fill_type="solid")
+    header_font = Font(bold=True, color="000000")
+    for col_idx, col_name in enumerate(columns, 1):
+        cell = ws.cell(row=1, column=col_idx, value=col_name)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    # Datos
+    for row_idx, o in enumerate(orders, 2):
+        products_str = ", ".join(
+            f"{item.product_name} x{item.quantity}" for item in (o.items or [])
+        ) if o.items else ""
+        earliest = str(o.earliest_arrival_time) if o.earliest_arrival_time else ""
+        latest = str(o.latest_arrival_time) if o.latest_arrival_time else ""
+        lat = float(o.latitude) if o.latitude is not None else ""
+        lng = float(o.longitude) if o.longitude is not None else ""
+
+        row_data = [
+            o.shipping_address or "",   # Unit/Flat/Unit Name
+            lat,                         # Latitude
+            lng,                         # Longitude
+            earliest,                    # Earliest Arrival Time
+            latest,                      # Latest Arrival Time
+            "",                          # Time at stop (minutes)
+            o.notes or "",               # Notes
+            "",                          # Size
+            o.recipient_name or "",      # Recipient Name
+            "Delivery",                  # Type of stop
+            str(o.order_number or o.id), # Order
+            "",                          # Proof of delivery
+            "",                          # Recipient Email Address
+            o.recipient_phone or "",     # Recipient Phone Number
+            str(o.id),                   # Id
+            "",                          # Package Count
+            products_str,                # Products
+            "",                          # Seller website
+            "",                          # Seller Name
+            "",                          # Driver
+        ]
+        for col_idx, value in enumerate(row_data, 1):
+            ws.cell(row=row_idx, column=col_idx, value=value)
+
+    # Ajustar anchos
+    col_widths = [30, 14, 14, 20, 20, 20, 30, 10, 25, 15, 15, 18, 28, 22, 10, 15, 40, 25, 20, 28]
+    for i, width in enumerate(col_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    from flask import send_file
+    filename = f"ordenes_{date_from or 'all'}_{date_to or 'all'}.xlsx"
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 @app.route("/api/orders", methods=["POST"])

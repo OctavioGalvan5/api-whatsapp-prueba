@@ -64,12 +64,21 @@
       </div>
 
       <!-- Filtros fecha -->
-      <div class="flex gap-2 items-center">
+      <div class="flex gap-2 items-center flex-wrap">
+        <select id="filter-date-type" onchange="loadOrders()"
+          class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <option value="created">Fecha creación</option>
+          <option value="delivery">Fecha entrega</option>
+        </select>
         <input id="filter-from" type="date" onchange="loadOrders()"
           class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
         <span class="text-xs text-gray-400">—</span>
         <input id="filter-to" type="date" onchange="loadOrders()"
           class="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary">
+        <button onclick="exportOrders()" title="Exportar a Excel"
+          class="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs text-gray-600 dark:text-gray-300 hover:bg-primary/10 hover:text-primary hover:border-primary transition-colors">
+          <span class="material-symbols-outlined text-[15px]">download</span> Excel
+        </button>
         <button onclick="clearFilters()" class="ml-auto text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Limpiar</button>
       </div>
     </div>
@@ -188,21 +197,15 @@
               </div>
             </div>
             <div>
-              <label class="text-xs text-gray-500 mb-1 block">Dirección de envío</label>
+              <label class="text-xs text-gray-500 mb-1 block">Dirección / Plus Code</label>
               <textarea id="d-shipping-address" rows="2" placeholder="Dirección..."
                 class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary resize-none"></textarea>
             </div>
             <!-- Geolocalización -->
             <div class="mt-3">
-              <label class="text-xs text-gray-500 mb-1 block">Plus code o dirección para coordenadas</label>
-              <div class="flex gap-2">
-                <input id="d-geocode-input" type="text" placeholder="Ej: 6HFG+R6Q Salta"
-                  class="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-                <button type="button" onclick="resolveGeocode()"
-                  class="px-3 py-2 rounded-xl bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1 whitespace-nowrap">
-                  <span class="material-symbols-outlined text-[15px]">my_location</span> Resolver
-                </button>
-              </div>
+              <label class="text-xs text-gray-500 mb-1 block">URL de Google Maps</label>
+              <input id="d-geocode-input" type="text" placeholder="Ej: https://maps.app.goo.gl/..."
+                class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
               <div id="d-geocode-status" class="text-[11px] mt-1 hidden"></div>
             </div>
             <div class="grid grid-cols-2 gap-3 mt-3">
@@ -463,6 +466,7 @@
       vista: document.getElementById('filter-vista').value,
       date_from: document.getElementById('filter-from').value,
       date_to: document.getElementById('filter-to').value,
+      date_type: document.getElementById('filter-date-type').value,
     });
     const res = await fetch('/api/orders?' + params);
     const data = await res.json();
@@ -525,6 +529,20 @@
     document.getElementById('search-input').value = '';
     currentPage = 1;
     loadOrders();
+  }
+
+  function exportOrders() {
+    const params = new URLSearchParams({
+      search: document.getElementById('search-input').value,
+      status: document.getElementById('filter-status').value,
+      payment_status: document.getElementById('filter-payment').value,
+      payment_method: document.getElementById('filter-method').value,
+      vista: document.getElementById('filter-vista').value,
+      date_from: document.getElementById('filter-from').value,
+      date_to: document.getElementById('filter-to').value,
+      date_type: document.getElementById('filter-date-type').value,
+    });
+    window.location.href = '/api/orders/export?' + params;
   }
 
   async function openDetail(orderId) {
@@ -818,6 +836,12 @@
   // Permitir Enter en el campo de geocode
   document.getElementById('d-geocode-input')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); resolveGeocode(); }
+  });
+  document.getElementById('d-geocode-input')?.addEventListener('paste', e => {
+    setTimeout(() => {
+      const val = document.getElementById('d-geocode-input').value.trim();
+      if (val.startsWith('http')) resolveGeocode();
+    }, 50);
   });
 
   // Init — abrir orden específica si viene ?id= en la URL
