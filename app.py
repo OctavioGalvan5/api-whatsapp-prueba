@@ -119,7 +119,7 @@ with app.app_context():
         logger.warning(f"Could not ensure system tag (run migrate_human_assistance.py first): {e}")
 
 # Rutas públicas que no requieren autenticación
-PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api/minio/diagnose', '/sw.js', '/static/manifest.json', '/api/whatsapp/send-text', '/api/whatsapp/send-media'}
+PUBLIC_PATHS = {'/', '/login', '/logout', '/webhook', '/chatwoot-webhook', '/api/minio/diagnose', '/sw.js', '/static/manifest.json', '/api/whatsapp/send-text', '/api/whatsapp/send-media', '/api/bot/catalog'}
 
 def ensure_admin_exists():
     """Crea el usuario admin inicial desde .env si no hay usuarios en la BD."""
