@@ -21,27 +21,32 @@ else:
 
 def run_auto_tagger(app_context):
     """Job principal — corre periódicamente desde el scheduler."""
+    logger.info("🔄 [AUTO_TAGGER] ========== INICIO DE CICLO ==========")
+
     if not client:
-        logger.warning("⚠️ [AUTO_TAGGER] OpenAI client not initialized - skipping")
+        logger.warning("⚠️ [AUTO_TAGGER] OpenAI client no inicializado — falta OPENAI_API_KEY")
         return
 
     with app_context:
         from models import db, Message, Contact, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpEnrollment, ChatbotConfig, Tag
 
         try:
-            if ChatbotConfig.get('auto_tagger_enabled', 'true') != 'true':
-                logger.info("⏸️ [AUTO_TAGGER] Deshabilitado — saltando")
+            enabled = ChatbotConfig.get('auto_tagger_enabled', 'true')
+            if enabled != 'true':
+                logger.info(f"⏸️ [AUTO_TAGGER] Deshabilitado en config (valor: '{enabled}') — saltando")
                 return
 
             rules = AutoTagRule.query.filter_by(is_active=True).all()
             if not rules:
+                logger.info("⚠️ [AUTO_TAGGER] No hay reglas activas — saltando")
                 return
 
-            logger.info(f"🏷️ [AUTO_TAGGER] {len(rules)} regla(s) activa(s)")
+            logger.info(f"📋 [AUTO_TAGGER] {len(rules)} regla(s) activa(s):")
+            for r in rules:
+                logger.info(f"   → Regla #{r.id} | inactividad: {r.inactivity_minutes}min | tag_id: {r.tag_id} | condición: {r.prompt_condition[:60]}")
+
             now = datetime.utcnow()
 
-            # Recolectar todos los teléfonos candidatos para cualquier regla
-            # Si activated_at es None usamos epoch (considera todos los mensajes)
             _epoch = datetime(2000, 1, 1)
             earliest_start = min(r.activated_at or _epoch for r in rules)
 
@@ -51,7 +56,10 @@ def run_auto_tagger(app_context):
                 Message.direction == 'inbound'
             ).distinct().all()
 
-            logger.info(f"[AUTO_TAGGER] {len(phones_q)} teléfono(s) candidatos (desde {earliest_start})")
+            logger.info(f"👥 [AUTO_TAGGER] {len(phones_q)} contacto(s) candidato(s) con mensajes desde {earliest_start.strftime('%Y-%m-%d %H:%M')}")
+
+            evaluados = 0
+            saltados = 0
 
             for (phone,) in phones_q:
                 last_msg = Message.query.filter(
@@ -63,25 +71,39 @@ def run_auto_tagger(app_context):
 
                 contact = Contact.query.filter_by(phone_number=phone).first()
                 if not contact:
+                    logger.debug(f"[AUTO_TAGGER] {phone}: sin contacto en BD, saltando")
                     continue
 
                 # Filtrar solo las reglas que aplican a este contacto en este momento
                 pending_rules = []
                 for rule in rules:
                     cutoff = now - timedelta(minutes=rule.inactivity_minutes)
+                    minutos_inactivo = int((now - last_msg.timestamp).total_seconds() / 60)
+
                     if last_msg.timestamp >= cutoff:
+                        logger.debug(f"[AUTO_TAGGER] {phone} | Regla #{rule.id}: activo hace {minutos_inactivo}min, necesita {rule.inactivity_minutes}min — saltando")
+                        saltados += 1
                         continue
                     if rule.activated_at and last_msg.timestamp < rule.activated_at:
+                        logger.debug(f"[AUTO_TAGGER] {phone} | Regla #{rule.id}: último msg antes de activated_at — saltando")
+                        saltados += 1
                         continue
                     if any(t.id == rule.tag_id for t in contact.tags):
+                        logger.debug(f"[AUTO_TAGGER] {phone} | Regla #{rule.id}: ya tiene el tag — saltando")
+                        saltados += 1
                         continue
                     cache_key = f"auto_tag_{rule.id}_{phone}_{last_msg.id}"
                     if ChatbotConfig.query.filter_by(key=cache_key).first():
+                        logger.debug(f"[AUTO_TAGGER] {phone} | Regla #{rule.id}: ya analizado (cache) — saltando")
+                        saltados += 1
                         continue
                     pending_rules.append(rule)
 
                 if not pending_rules:
                     continue
+
+                contact_name = contact.name or phone
+                logger.info(f"🔍 [AUTO_TAGGER] Analizando: {contact_name} ({phone}) | {len(pending_rules)} regla(s) pendiente(s) | inactivo hace {int((now - last_msg.timestamp).total_seconds() / 60)}min")
 
                 # Obtener los últimos 20 mensajes una sola vez
                 messages = Message.query.filter(
@@ -89,15 +111,20 @@ def run_auto_tagger(app_context):
                 ).order_by(Message.timestamp.desc()).limit(20).all()
                 messages = list(reversed(messages))
 
+                logger.info(f"   → Enviando {len(messages)} mensajes a la IA con {len(pending_rules)} condición(es)...")
+
                 # UNA sola llamada a la IA con todas las condiciones pendientes
                 conditions = {str(rule.id): rule.prompt_condition for rule in pending_rules}
                 try:
                     results = analyze_conversation_batch(messages, conditions)
+                    logger.info(f"   → Respuesta IA: {results}")
                 except Exception as e:
-                    logger.error(f"❌ [AUTO_TAGGER] Error IA para {phone}: {e}")
+                    logger.error(f"❌ [AUTO_TAGGER] Error llamando a IA para {phone}: {e}", exc_info=True)
                     for rule in pending_rules:
                         _write_log(db, AutoTagLog, rule, contact, phone, 'error')
                     continue
+
+                evaluados += 1
 
                 for rule in pending_rules:
                     rule_result = results.get(str(rule.id), False)
@@ -115,7 +142,6 @@ def run_auto_tagger(app_context):
                         if tag and tag not in contact.tags:
                             contact.tags.append(tag)
                             db.session.commit()
-                            contact_name = contact.name or phone
                             logger.info(f"🏷️ =============================================")
                             logger.info(f"🏷️ ETIQUETA ASIGNADA")
                             logger.info(f"🏷️   Persona  : {contact_name} ({phone})")
@@ -124,13 +150,17 @@ def run_auto_tagger(app_context):
                             logger.info(f"🏷️ =============================================")
                             _write_log(db, AutoTagLog, rule, contact, phone, 'tagged')
                             enroll_in_sequences(db, contact, rule.tag_id, FollowUpSequence, FollowUpEnrollment)
+                        elif tag and tag in contact.tags:
+                            logger.info(f"   → IA dijo SI para Regla #{rule.id} pero {contact_name} ya tiene el tag '{tag.name}'")
                     else:
+                        logger.info(f"   → IA dijo NO para Regla #{rule.id} ({rule.prompt_condition[:50]}) — sin tag")
                         _write_log(db, AutoTagLog, rule, contact, phone, 'skipped')
 
-                logger.info(f"🏷️ [AUTO_TAGGER] {phone}: {len(pending_rules)} regla(s) evaluadas en 1 llamada")
+            logger.info(f"✅ [AUTO_TAGGER] Ciclo terminado — evaluados: {evaluados} | saltados: {saltados}")
+            logger.info("🔄 [AUTO_TAGGER] ========== FIN DE CICLO ==========")
 
         except Exception as e:
-            logger.error(f"❌ [AUTO_TAGGER] Error: {e}", exc_info=True)
+            logger.error(f"❌ [AUTO_TAGGER] Error general: {e}", exc_info=True)
 
 
 def _write_log(db, AutoTagLog, rule, contact, phone, result):
