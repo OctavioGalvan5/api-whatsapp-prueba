@@ -731,27 +731,6 @@ def dashboard():
     """Dashboard para visualizar conversaciones tipo WhatsApp - OPTIMIZADO."""
     selected_phone = request.args.get('phone')
 
-    # Si no hay phone seleccionado, redirigir al primer contacto visible para el usuario
-    if not selected_phone:
-        from sqlalchemy import text as _text
-        _vis_sql, _vis_params = build_visibility_sql(g.current_user)
-        first_contact_query = _text(f"""
-            SELECT m.phone_number
-            FROM whatsapp_messages m
-            LEFT JOIN whatsapp_contacts c ON c.phone_number = m.phone_number
-            WHERE m.phone_number NOT IN ('unknown', 'outbound', '')
-            {_vis_sql}
-            ORDER BY m.timestamp DESC
-            LIMIT 1
-        """)
-        try:
-            result = db.session.execute(first_contact_query, _vis_params).fetchone()
-            if result:
-                return redirect(url_for('dashboard', phone=result.phone_number))
-        except Exception as e:
-            logger.error(f"Error getting first contact: {e}")
-            # Si falla, continuar con el flujo normal
-
     # OPTIMIZACIÓN: Removidas queries de stats generales (no se usan en UI del chat)
     # Si se necesitan, se pueden cargar via AJAX o en /analytics
     stats = {'total': 0, 'sent': 0, 'read': 0, 'failed': 0}
