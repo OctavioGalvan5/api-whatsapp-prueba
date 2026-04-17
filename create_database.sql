@@ -191,13 +191,15 @@ CREATE TABLE IF NOT EXISTS whatsapp_messages (
     media_url TEXT,
     caption TEXT,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sent_by VARCHAR(100)
+    sent_by VARCHAR(100),
+    read_at TIMESTAMP DEFAULT NULL
 );
 
 CREATE INDEX IF NOT EXISTS ix_messages_phone_ts ON whatsapp_messages(phone_number, timestamp);
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON whatsapp_messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_messages_phone ON whatsapp_messages(phone_number);
 CREATE INDEX IF NOT EXISTS idx_messages_direction ON whatsapp_messages(direction);
+CREATE INDEX IF NOT EXISTS idx_messages_read_at ON whatsapp_messages(read_at);
 
 -- ==========================================
 -- WHATSAPP MESSAGE STATUSES

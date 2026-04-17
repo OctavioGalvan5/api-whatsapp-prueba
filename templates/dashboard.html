@@ -191,12 +191,15 @@
                 </div>
                 <div class="flex justify-between items-center gap-1">
                     <p class="text-gray-400 dark:text-gray-500 text-xs truncate">{{ contact.last_message or '' }}</p>
-                    {% if is_human %}
-                    <span class="human-badge shrink-0">
-                        <span class="material-symbols-outlined text-[10px]">support_agent</span>
-                        Humano
-                    </span>
-                    {% endif %}
+                    <div class="flex items-center gap-1 shrink-0">
+                        {% if is_human %}
+                        <span class="human-badge">
+                            <span class="material-symbols-outlined text-[10px]">support_agent</span>
+                            Humano
+                        </span>
+                        {% endif %}
+                        <span class="unread-badge hidden bg-primary text-black text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -724,6 +727,30 @@
     let currentContactName = ''; // Para evitar XSS en onclick
     let currentTagFilter = ''; // Filtro activo de etiqueta
 
+    // Cargar badges de no leídos al iniciar
+    async function loadUnreadBadges() {
+        try {
+            const res = await fetch('/api/unread-counts');
+            if (!res.ok) return;
+            const counts = await res.json();
+            document.querySelectorAll('.contact-item').forEach(item => {
+                const phone = item.dataset.phone;
+                const badge = item.querySelector('.unread-badge');
+                if (!badge) return;
+                const count = counts[phone] || 0;
+                if (count > 0 && phone !== currentPhone) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            });
+        } catch(e) {}
+    }
+    loadUnreadBadges();
+    // Refrescar badges cada 30 segundos
+    setInterval(loadUnreadBadges, 30000);
+
     // En desktop (md+), ambos paneles siempre visibles
     (function initLayout() {
         if (window.innerWidth >= 768) {
@@ -1188,6 +1215,12 @@
                 renderChat(data);
                 restoreTemplateVars(phone);
                 showChatMobile();
+                // Marcar mensajes como leídos y limpiar badge
+                fetch(`/api/messages/${encodeURIComponent(phone)}/mark-read`, { method: 'POST' })
+                    .then(() => {
+                        const badge = document.querySelector(`.contact-item[data-phone="${phone}"] .unread-badge`);
+                        if (badge) badge.remove();
+                    });
             } else {
                 fallbackToReload();
                 return;

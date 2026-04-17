@@ -2294,6 +2294,31 @@ def api_get_messages(phone):
         logger.error(f"Error fetching messages API: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route("/api/messages/<phone>/mark-read", methods=["POST"])
+def api_mark_messages_read(phone):
+    """Marca todos los mensajes inbound no leídos de un contacto como leídos."""
+    now = datetime.utcnow()
+    Message.query.filter_by(phone_number=phone, direction='inbound')\
+        .filter(Message.read_at == None)\
+        .update({'read_at': now}, synchronize_session=False)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route("/api/unread-counts")
+def api_unread_counts():
+    """Devuelve el conteo de mensajes inbound no leídos por contacto."""
+    from sqlalchemy import func
+    rows = db.session.query(
+        Message.phone_number,
+        func.count(Message.id).label('unread')
+    ).filter(
+        Message.direction == 'inbound',
+        Message.read_at == None
+    ).group_by(Message.phone_number).all()
+    return jsonify({row.phone_number: row.unread for row in rows})
+
+
 @app.route("/contacts")
 def contacts_page():
     """Página para ver listado de contactos con paginación y búsqueda."""

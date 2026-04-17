@@ -84,6 +84,7 @@ class Message(db.Model):
     caption = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     sent_by = db.Column(db.String(100), nullable=True)  # NULL=entrante, 'bot'=chatbot, username=agente
+    read_at = db.Column(db.DateTime, nullable=True)  # NULL=no leído, fecha=leído por agente humano
     # Relación con estados — lazy='joined' carga statuses en un solo JOIN al traer mensajes
     statuses = db.relationship('MessageStatus', backref='message', lazy='joined', order_by='MessageStatus.timestamp')
 
