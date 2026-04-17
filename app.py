@@ -5869,6 +5869,22 @@ def api_catalog_sync():
     return jsonify({"success": True, "synced": count})
 
 
+@app.route("/api/bot/catalog", methods=["GET"])
+def api_bot_catalog():
+    """Endpoint público para el bot de n8n — devuelve nombre, precio y stock."""
+    from models import CatalogProduct
+    products = CatalogProduct.query.filter_by(availability='in stock').order_by(CatalogProduct.name).all()
+    return jsonify([
+        {
+            "nombre": p.name,
+            "precio": float(p.price) if p.price is not None else None,
+            "moneda": p.currency or "ARS",
+            "stock": "disponible" if p.availability == "in stock" else "sin stock"
+        }
+        for p in products
+    ])
+
+
 @app.route("/api/catalog/products", methods=["GET"])
 def api_catalog_products_list():
     from models import CatalogProduct

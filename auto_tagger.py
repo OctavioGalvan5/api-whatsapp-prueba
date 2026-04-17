@@ -108,7 +108,7 @@ def run_auto_tagger(app_context):
                 # Obtener los últimos 20 mensajes una sola vez
                 messages = Message.query.filter(
                     Message.phone_number == phone
-                ).order_by(Message.timestamp.desc()).limit(20).all()
+                ).order_by(Message.timestamp.desc()).limit(10).all()
                 messages = list(reversed(messages))
 
                 logger.info(f"   → Enviando {len(messages)} mensajes a la IA con {len(pending_rules)} condición(es)...")
@@ -193,6 +193,11 @@ def analyze_conversation_batch(messages, conditions):
         conv_lines.append(f"[{role}]: {content[:300]}")
 
     conversation_text = "\n".join(conv_lines)
+
+    logger.info(f"   --- CONVERSACIÓN ENVIADA A IA ({len(messages)} msgs) ---")
+    for line in conv_lines:
+        logger.info(f"   {line[:120]}")
+    logger.info(f"   --- FIN CONVERSACIÓN ---")
 
     escalated = any(
         msg.direction == 'outbound' and msg.content and '[ESCALAR_HUMANO]' in msg.content
