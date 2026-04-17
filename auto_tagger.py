@@ -71,7 +71,7 @@ def run_auto_tagger(app_context):
 
                 contact = Contact.query.filter_by(phone_number=phone).first()
                 if not contact:
-                    logger.debug(f"[AUTO_TAGGER] {phone}: sin contacto en BD, saltando")
+                    logger.info(f"   ⏩ {phone}: sin contacto en BD — saltando")
                     continue
 
                 # Filtrar solo las reglas que aplican a este contacto en este momento
@@ -81,20 +81,20 @@ def run_auto_tagger(app_context):
                     minutos_inactivo = int((now - last_msg.timestamp).total_seconds() / 60)
 
                     if last_msg.timestamp >= cutoff:
-                        logger.debug(f"[AUTO_TAGGER] {phone} | Regla #{rule.id}: activo hace {minutos_inactivo}min, necesita {rule.inactivity_minutes}min — saltando")
+                        logger.info(f"   ⏩ {phone} | Regla #{rule.id}: activo hace {minutos_inactivo}min, necesita {rule.inactivity_minutes}min — NO listo")
                         saltados += 1
                         continue
                     if rule.activated_at and last_msg.timestamp < rule.activated_at:
-                        logger.debug(f"[AUTO_TAGGER] {phone} | Regla #{rule.id}: último msg antes de activated_at — saltando")
+                        logger.info(f"   ⏩ {phone} | Regla #{rule.id}: último msg ({last_msg.timestamp}) antes de activated_at ({rule.activated_at}) — saltando")
                         saltados += 1
                         continue
                     if any(t.id == rule.tag_id for t in contact.tags):
-                        logger.debug(f"[AUTO_TAGGER] {phone} | Regla #{rule.id}: ya tiene el tag — saltando")
+                        logger.info(f"   ⏩ {phone} | Regla #{rule.id}: ya tiene el tag #{rule.tag_id} — saltando")
                         saltados += 1
                         continue
                     cache_key = f"auto_tag_{rule.id}_{phone}_{last_msg.id}"
                     if ChatbotConfig.query.filter_by(key=cache_key).first():
-                        logger.debug(f"[AUTO_TAGGER] {phone} | Regla #{rule.id}: ya analizado (cache) — saltando")
+                        logger.info(f"   ⏩ {phone} | Regla #{rule.id}: ya analizado anteriormente (cache) — saltando")
                         saltados += 1
                         continue
                     pending_rules.append(rule)
