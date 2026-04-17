@@ -3188,7 +3188,8 @@ def api_admin_create_user():
     for perm in permissions:
         db.session.add(CrmUserPermission(user_id=user.id, permission=perm))
     for tid in tag_visibility:
-        db.session.add(CrmUserTagVisibility(user_id=user.id, tag_id=int(tid)))
+        if tid is not None:
+            db.session.add(CrmUserTagVisibility(user_id=user.id, tag_id=int(tid)))
     db.session.commit()
     return jsonify({'success': True, 'user': user.to_dict()})
 
@@ -3215,7 +3216,8 @@ def api_admin_update_user(user_id):
     if 'tag_visibility' in data:
         CrmUserTagVisibility.query.filter_by(user_id=user.id).delete()
         for tid in (data['tag_visibility'] or []):
-            db.session.add(CrmUserTagVisibility(user_id=user.id, tag_id=int(tid)))
+            if tid is not None:
+                db.session.add(CrmUserTagVisibility(user_id=user.id, tag_id=int(tid)))
 
     db.session.commit()
     return jsonify({'success': True, 'user': user.to_dict()})

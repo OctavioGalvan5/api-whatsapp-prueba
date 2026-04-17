@@ -115,7 +115,13 @@ def run_auto_tagger(app_context):
                         if tag and tag not in contact.tags:
                             contact.tags.append(tag)
                             db.session.commit()
-                            logger.info(f"🏷️ [AUTO_TAGGER] Tag '{tag.name}' asignado a {phone}")
+                            contact_name = contact.name or phone
+                            logger.info(f"🏷️ =============================================")
+                            logger.info(f"🏷️ ETIQUETA ASIGNADA")
+                            logger.info(f"🏷️   Persona  : {contact_name} ({phone})")
+                            logger.info(f"🏷️   Etiqueta : {tag.name}")
+                            logger.info(f"🏷️   Regla    : #{rule.id} — {rule.prompt_condition[:60]}")
+                            logger.info(f"🏷️ =============================================")
                             _write_log(db, AutoTagLog, rule, contact, phone, 'tagged')
                             enroll_in_sequences(db, contact, rule.tag_id, FollowUpSequence, FollowUpEnrollment)
                     else:
@@ -168,7 +174,7 @@ def analyze_conversation_batch(messages, conditions):
         f'- "{rule_id}": {condition}' for rule_id, condition in conditions.items()
     )
 
-    prompt = f"""Analizá la siguiente conversación de WhatsApp y respondé cada pregunta con SÍ o NO.
+    prompt = f"""Analizá la siguiente conversación de WhatsApp y respondé cada pregunta con SÍ o NO. Es importante que analices bien la conversacion ya que segun eso seran etiquetados las personas.
 
 CONVERSACIÓN:
 {conversation_text}{escalation_note}

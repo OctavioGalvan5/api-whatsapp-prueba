@@ -72,7 +72,7 @@
                         </td>
                         <td class="px-5 py-4">
                             <div class="flex items-center justify-end gap-1">
-                                <button onclick="editUser({{ user.to_dict()|tojson }})"
+                                <button onclick='editUser({{ user.to_dict()|tojson }})'
                                     class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" title="Editar">
                                     <span class="material-symbols-outlined text-[18px] text-gray-500">edit</span>
                                 </button>
@@ -323,7 +323,7 @@
             is_admin: document.getElementById('field-is-admin').checked,
             is_active: document.getElementById('field-is-active').checked,
             can_see_untagged: document.getElementById('field-can-see-untagged').checked,
-            tag_visibility: selectedTags.map(t => t.id),
+            tag_visibility: selectedTags,
             permissions
         };
 

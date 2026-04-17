@@ -2290,11 +2290,14 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
 
 {% if current_user and current_user.has_permission('orders') %}
 <!-- ===== MODAL CREAR ORDEN DESDE CHAT ===== -->
-<div id="modal-order-chat" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-  <div class="bg-white dark:bg-[#1a3a1d] rounded-t-2xl sm:rounded-2xl shadow-xl w-full max-w-md flex flex-col" style="max-height: 92dvh;">
-    <!-- Header fijo -->
-    <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
-      <h2 id="om-modal-title" class="font-semibold text-lg">Crear orden</h2>
+<div id="modal-order-chat" class="hidden fixed z-50" style="top: 72px; right: 16px; width: 400px;">
+  <div class="bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col" style="max-height: 88dvh;">
+    <!-- Header fijo — zona de arrastre -->
+    <div id="om-drag-handle" class="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800 shrink-0 select-none" style="cursor: grab;">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-gray-400 text-[18px]">drag_indicator</span>
+        <h2 id="om-modal-title" class="font-semibold text-lg">Crear orden</h2>
+      </div>
       <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
     </div>
     <!-- Contacto fijo -->
@@ -2477,7 +2480,11 @@ async function openOrderModal(phone) {
   const data = await res.json();
   omProducts = data.products || [];
   omRenderProductList(omProducts);
-  document.getElementById('modal-order-chat').classList.remove('hidden');
+  const modal = document.getElementById('modal-order-chat');
+  modal.style.top = '72px';
+  modal.style.right = '16px';
+  modal.style.left = 'auto';
+  modal.classList.remove('hidden');
 }
 
 async function openOrderForConfirm(orderId) {
@@ -2517,10 +2524,50 @@ async function openOrderForConfirm(orderId) {
   const pData = await pRes.json();
   omProducts = pData.products || [];
   omRenderProductList(omProducts);
-  document.getElementById('modal-order-chat').classList.remove('hidden');
+  const modal = document.getElementById('modal-order-chat');
+  modal.style.top = '72px';
+  modal.style.right = '16px';
+  modal.style.left = 'auto';
+  modal.classList.remove('hidden');
 }
 
 function closeOrderModal() { document.getElementById('modal-order-chat').classList.add('hidden'); }
+
+(function initOrderModalDrag() {
+  const modal = document.getElementById('modal-order-chat');
+  const handle = document.getElementById('om-drag-handle');
+  let dragging = false, startX, startY, startLeft, startTop;
+
+  handle.addEventListener('mousedown', e => {
+    if (e.target.closest('button')) return;
+    dragging = true;
+    const rect = modal.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+    modal.style.right = 'auto';
+    modal.style.left = startLeft + 'px';
+    modal.style.top = startTop + 'px';
+    handle.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    let newLeft = startLeft + (e.clientX - startX);
+    let newTop  = startTop  + (e.clientY - startY);
+    // Mantener dentro de la ventana
+    newLeft = Math.max(0, Math.min(newLeft, window.innerWidth  - modal.offsetWidth));
+    newTop  = Math.max(0, Math.min(newTop,  window.innerHeight - 80));
+    modal.style.left = newLeft + 'px';
+    modal.style.top  = newTop  + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; handle.style.cursor = 'grab'; }
+  });
+})();
 
 async function omResolveGeocode() {
   const input = document.getElementById('om-geocode-input').value.trim();
