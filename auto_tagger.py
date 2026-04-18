@@ -224,7 +224,7 @@ Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "N
     schema_properties = {rule_id: {"type": "string", "enum": ["SI", "NO"]} for rule_id in conditions}
 
     response = client.responses.create(
-        model="gpt-5.4-nano",
+        model="gpt-5.4-mini",
         reasoning={"effort": "none"},
         input=[
             {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con un JSON de SI/NO por cada pregunta."},
