@@ -41,7 +41,7 @@ def _run_auto_tagger_inner(app_context):
         return
 
     with app_context:
-        from models import db, Message, Contact, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpEnrollment, ChatbotConfig, Tag
+        from models import db, Message, Contact, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpEnrollment, ChatbotConfig, Tag, ContactTagHistory
 
         try:
             enabled = ChatbotConfig.get('auto_tagger_enabled', 'true')
@@ -76,7 +76,8 @@ def _run_auto_tagger_inner(app_context):
 
             for (phone,) in phones_q:
                 last_msg = Message.query.filter(
-                    Message.phone_number == phone
+                    Message.phone_number == phone,
+                    Message.direction == 'inbound'
                 ).order_by(Message.timestamp.desc()).first()
 
                 if not last_msg:
@@ -155,6 +156,16 @@ def _run_auto_tagger_inner(app_context):
                         if tag and tag not in contact.tags:
                             try:
                                 contact.tags.append(tag)
+                                db.session.flush()
+                                history = ContactTagHistory(
+                                    contact_id=contact.id,
+                                    tag_id=tag.id,
+                                    tag_name_snapshot=tag.name,
+                                    action='added',
+                                    source='auto_tagger',
+                                    created_by='auto_tagger'
+                                )
+                                db.session.add(history)
                                 db.session.commit()
                                 logger.info(f"🏷️ =============================================")
                                 logger.info(f"🏷️ ETIQUETA ASIGNADA")
@@ -274,8 +285,26 @@ Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "N
 
 
 def enroll_in_sequences(db, contact, tag_id, FollowUpSequence, FollowUpEnrollment):
-    """Enrola al contacto en todas las secuencias activas que usen el tag dado."""
-    sequences = FollowUpSequence.query.filter_by(tag_id=tag_id, is_active=True).all()
+    """Enrola al contacto en todas las secuencias activas que usen el tag dado (legacy o trigger_tags)."""
+    from models import followup_sequence_tags
+    # Secuencias que tienen este tag en la tabla many-to-many
+    seq_by_trigger = FollowUpSequence.query.join(
+        followup_sequence_tags,
+        followup_sequence_tags.c.sequence_id == FollowUpSequence.id
+    ).filter(
+        followup_sequence_tags.c.tag_id == tag_id,
+        FollowUpSequence.is_active == True
+    ).all()
+    # Secuencias legacy (tag_id directo) que no tienen trigger_tags configurados
+    seq_legacy = FollowUpSequence.query.filter_by(tag_id=tag_id, is_active=True).all()
+    seq_legacy = [s for s in seq_legacy if not s.trigger_tags]
+    # Unir sin duplicados
+    seen = set()
+    sequences = []
+    for s in seq_by_trigger + seq_legacy:
+        if s.id not in seen:
+            seen.add(s.id)
+            sequences.append(s)
     for seq in sequences:
         if not seq.steps:
             continue

@@ -85,6 +85,10 @@ def to_argentina_filter(dt):
 app.config['SQLALCHEMY_DATABASE_URI'] = Config.DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = Config.SECRET_KEY
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,   # Detecta conexiones muertas antes de usarlas
+    'pool_recycle': 300,     # Recicla conexiones cada 5 min (evita timeout de Supabase)
+}
 
 # Inicializar SQLAlchemy
 db.init_app(app)
@@ -1701,6 +1705,7 @@ def api_contact_detail(identifier):
         if 'tags' in data:
             new_tag_names = set(data['tags'])
             current_tag_names = {t.name for t in contact.tags}
+            editor_name = g.current_user.username if g.current_user else 'manual'
             # Tags a agregar
             for name in new_tag_names - current_tag_names:
                 tag = Tag.query.filter_by(name=name).first()
@@ -1710,8 +1715,12 @@ def api_contact_detail(identifier):
                     db.session.flush()
                 contact.tags.append(tag)
                 newly_added_tag_ids.append(tag.id)
+                _record_tag_history(contact.id, tag, 'added', 'manual', editor_name)
             # Tags a eliminar
             to_remove = current_tag_names - new_tag_names
+            removed_tags = [t for t in contact.tags if t.name in to_remove]
+            for tag in removed_tags:
+                _record_tag_history(contact.id, tag, 'removed', 'manual', editor_name)
             contact.tags = [t for t in contact.tags if t.name not in to_remove]
 
         try:
@@ -2589,12 +2598,15 @@ def api_chat_toggle_tag(phone):
         if not tag:
             return jsonify({'error': 'Tag no encontrado'}), 404
 
+        current_user_name = g.current_user.username if g.current_user else 'manual'
         if tag in contact.tags:
             contact.tags.remove(tag)
             assigned = False
+            _record_tag_history(contact.id, tag, 'removed', 'manual', current_user_name)
         else:
             contact.tags.append(tag)
             assigned = True
+            _record_tag_history(contact.id, tag, 'added', 'manual', current_user_name)
 
         db.session.commit()
 
@@ -3844,24 +3856,26 @@ def api_followup_sequences_list():
 def api_followup_sequences_create():
     data = request.get_json() or {}
     name = (data.get('name') or '').strip()
-    tag_id = data.get('tag_id')
+    tag_ids = data.get('tag_ids') or ([data.get('tag_id')] if data.get('tag_id') else [])
     steps_data = data.get('steps', [])
 
-    if not name or not tag_id:
-        return jsonify({'error': 'name y tag_id son requeridos'}), 400
+    if not name or not tag_ids:
+        return jsonify({'error': 'name y al menos una etiqueta son requeridos'}), 400
 
-    tag = Tag.query.get(tag_id)
-    if not tag:
-        return jsonify({'error': 'Tag no encontrado'}), 404
+    tags = Tag.query.filter(Tag.id.in_(tag_ids)).all()
+    if not tags:
+        return jsonify({'error': 'Etiquetas no encontradas'}), 404
 
     seq = FollowUpSequence(
         name=name,
-        tag_id=tag_id,
+        tag_id=tags[0].id,  # legacy
         is_active=True,
+        add_tag_on_complete=bool(data.get('add_tag_on_complete', False)),
         send_window_start=data.get('send_window_start') or None,
         send_window_end=data.get('send_window_end') or None,
         send_weekdays=data.get('send_weekdays') or None
     )
+    seq.trigger_tags = tags
     db.session.add(seq)
     db.session.flush()
 
@@ -3890,10 +3904,17 @@ def api_followup_sequences_update(seq_id):
 
     if 'name' in data:
         seq.name = data['name'].strip()
-    if 'tag_id' in data:
+    if 'tag_ids' in data:
+        tags = Tag.query.filter(Tag.id.in_(data['tag_ids'])).all()
+        seq.trigger_tags = tags
+        if tags:
+            seq.tag_id = tags[0].id  # legacy
+    elif 'tag_id' in data:
         seq.tag_id = data['tag_id']
     if 'is_active' in data:
         seq.is_active = bool(data['is_active'])
+    if 'add_tag_on_complete' in data:
+        seq.add_tag_on_complete = bool(data['add_tag_on_complete'])
     if 'send_window_start' in data:
         seq.send_window_start = data['send_window_start'] or None
     if 'send_window_end' in data:
@@ -4009,6 +4030,63 @@ def api_followup_enroll_manual(seq_id):
     db.session.commit()
     logger.info(f"📋 [MANUAL] {contact.phone_number} enrollado en '{seq.name}' (paso 1)")
     return jsonify({'success': True, 'enrollment': enrollment.to_dict()})
+
+
+@app.route("/api/followup-sequences/<int:seq_id>/enroll-tagged", methods=["POST"])
+def api_followup_enroll_tagged(seq_id):
+    """Enrolla masivamente todos los contactos que ya tienen las etiquetas disparadoras de la secuencia."""
+    seq = FollowUpSequence.query.get_or_404(seq_id)
+    if not seq.steps:
+        return jsonify({'error': 'La secuencia no tiene pasos'}), 400
+
+    trigger_tags = seq.get_trigger_tags()
+    if not trigger_tags:
+        return jsonify({'error': 'La secuencia no tiene etiquetas disparadoras configuradas'}), 400
+
+    tag_ids = [t.id for t in trigger_tags]
+    contacts = Contact.query.filter(Contact.tags.any(Tag.id.in_(tag_ids))).all()
+
+    enrolled_count = 0
+    skipped_count = 0
+    _now = datetime.utcnow()
+    first_step = seq.steps[0]
+
+    for contact in contacts:
+        existing = FollowUpEnrollment.query.filter_by(
+            contact_id=contact.id,
+            sequence_id=seq.id
+        ).first()
+        if existing:
+            if existing.status == 'pending':
+                skipped_count += 1
+                continue
+            db.session.delete(existing)
+            db.session.flush()
+
+        if (first_step.schedule_type or 'delay') == 'fixed_time' and first_step.scheduled_weekday is not None and first_step.scheduled_time:
+            from followup_sender import _next_fixed_time
+            next_send = _next_fixed_time(_now, first_step.scheduled_weekday, first_step.scheduled_time)
+        else:
+            next_send = _now + timedelta(hours=first_step.delay_hours)
+
+        enrollment = FollowUpEnrollment(
+            contact_id=contact.id,
+            sequence_id=seq.id,
+            current_step=1,
+            status='pending',
+            next_send_at=next_send
+        )
+        db.session.add(enrollment)
+        enrolled_count += 1
+        logger.info(f"📋 [MANUAL-BULK] {contact.phone_number} enrollado en '{seq.name}'")
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'enrolled': enrolled_count,
+        'skipped': skipped_count,
+        'tag_names': [t.name for t in trigger_tags]
+    })
 
 
 @app.route("/api/contacts/search", methods=["GET"])
@@ -6014,6 +6092,23 @@ def _ensure_tag(name, color='green'):
     return tag
 
 
+def _record_tag_history(contact_id, tag, action, source, created_by=None):
+    """Registra un evento de etiqueta en el historial."""
+    try:
+        from models import ContactTagHistory
+        entry = ContactTagHistory(
+            contact_id=contact_id,
+            tag_id=tag.id,
+            tag_name_snapshot=tag.name,
+            action=action,
+            source=source,
+            created_by=created_by or source
+        )
+        db.session.add(entry)
+    except Exception as e:
+        logger.warning(f"No se pudo registrar historial de etiqueta: {e}")
+
+
 def _apply_order_tags(contact_id):
     """Agrega 'Con pedido' y 'Comprador' al contacto."""
     contact = Contact.query.get(contact_id)
@@ -6024,8 +6119,10 @@ def _apply_order_tags(contact_id):
     existing = {t.id for t in contact.tags}
     if tag_con_pedido.id not in existing:
         contact.tags.append(tag_con_pedido)
+        _record_tag_history(contact.id, tag_con_pedido, 'added', 'system')
     if tag_comprador.id not in existing:
         contact.tags.append(tag_comprador)
+        _record_tag_history(contact.id, tag_comprador, 'added', 'system')
     db.session.commit()
 
 
@@ -6045,6 +6142,7 @@ def _maybe_remove_con_pedido(contact_id):
         tag = Tag.query.filter_by(name='Con pedido').first()
         if tag and tag in contact.tags:
             contact.tags.remove(tag)
+            _record_tag_history(contact.id, tag, 'removed', 'system')
             db.session.commit()
 
 

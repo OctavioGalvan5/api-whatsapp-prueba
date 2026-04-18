@@ -42,10 +42,6 @@
                 class="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
                 Contactos Activos
             </button>
-            <button onclick="showTab('logs')" id="tab-logs"
-                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
-                Etiquetas puestas
-            </button>
             <button onclick="showTab('stats')" id="tab-stats"
                 class="px-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
                 Estadísticas
@@ -135,45 +131,6 @@
                     </thead>
                     <tbody id="enrollments-tbody">
                         <tr><td colspan="6" class="text-center py-8 text-gray-400">Cargando...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- ==================== TAB: ETIQUETAS PUESTAS ==================== -->
-        <div id="panel-logs" class="hidden">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <h2 class="text-base font-semibold text-gray-800 dark:text-white">Etiquetas asignadas por la IA</h2>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Contactos que recibieron una etiqueta automática. Hacé clic en un nombre para abrir la conversación.</p>
-                </div>
-                <div class="flex gap-2">
-                    <select id="tagged-log-filter" onchange="loadTaggedLogs()"
-                        class="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#1a3a1d] text-gray-700 dark:text-gray-200">
-                        <option value="tagged" selected>Solo taggeados</option>
-                        <option value="skipped">Solo omitidos (IA dijo NO)</option>
-                        <option value="">Todos</option>
-                    </select>
-                    <button onclick="loadTaggedLogs()"
-                        class="p-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                        <span class="material-symbols-outlined text-gray-500 text-lg">refresh</span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-white dark:bg-[#152a17] rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50 dark:bg-[#1a3a1d] border-b border-gray-200 dark:border-gray-700">
-                        <tr>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Contacto</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Etiqueta</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Regla que lo detectó</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Fecha</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tagged-logs-tbody">
-                        <tr><td colspan="5" class="text-center py-8 text-gray-400">Cargando...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -341,18 +298,27 @@
                         class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiqueta que la dispara</label>
-                    <select id="seq-tag" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] text-gray-800 dark:text-white text-sm">
-                        <option value="">Seleccionar...</option>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiquetas que la disparan</label>
+                    <div id="seq-tags-container" class="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#152a17] p-2 max-h-36 overflow-y-auto space-y-1">
                         {% for tag in tags %}
-                        <option value="{{ tag.id }}">{{ tag.name }}</option>
+                        <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                            <input type="checkbox" name="seq-trigger-tag" value="{{ tag.id }}" class="w-3.5 h-3.5 accent-primary">
+                            <span class="text-sm text-gray-800 dark:text-white">{{ tag.name }}</span>
+                        </label>
                         {% endfor %}
-                    </select>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Seleccioná una o más etiquetas que activan esta secuencia.</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <input type="checkbox" id="seq-active" checked class="w-4 h-4 rounded accent-primary">
-                <label for="seq-active" class="text-sm text-gray-700 dark:text-gray-300">Secuencia activa</label>
+            <div class="flex flex-wrap gap-4">
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="seq-active" checked class="w-4 h-4 rounded accent-primary">
+                    <label for="seq-active" class="text-sm text-gray-700 dark:text-gray-300">Secuencia activa</label>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="seq-add-tag-complete" class="w-4 h-4 rounded accent-primary">
+                    <label for="seq-add-tag-complete" class="text-sm text-gray-700 dark:text-gray-300">Agregar etiqueta <strong>"Seguimiento enviado"</strong> al completar</label>
+                </div>
             </div>
 
             <!-- Ventana horaria por secuencia -->
@@ -414,7 +380,7 @@
 <script>
 // ==================== TABS ====================
 function showTab(tab) {
-    ['rules','sequences','enrollments','logs','stats'].forEach(t => {
+    ['rules','sequences','enrollments','stats'].forEach(t => {
         document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
         const btn = document.getElementById(`tab-${t}`);
         btn.className = t === tab
@@ -424,7 +390,6 @@ function showTab(tab) {
     if (tab === 'rules') loadRules();
     if (tab === 'sequences') loadSequences();
     if (tab === 'enrollments') loadEnrollments();
-    if (tab === 'logs') loadTaggedLogs();
     if (tab === 'stats') { loadStats(); loadLogs(); }
 }
 
@@ -555,14 +520,19 @@ async function loadSequences() {
                             ${s.is_active ? 'Activa' : 'Inactiva'}
                         </span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-0.5">
-                        <span class="material-symbols-outlined text-sm align-middle">label</span>
-                        Se activa con: <strong>${s.tag_name}</strong>
+                    <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1 flex-wrap">
+                        <span class="material-symbols-outlined text-sm">label</span>
+                        Se activa con:
+                        ${(s.tag_names && s.tag_names.length ? s.tag_names : [s.tag_name]).map(n => `<strong class="text-gray-600 dark:text-gray-300">${n}</strong>`).join('<span class="text-gray-400">,</span> ')}
                         &nbsp;·&nbsp; ${s.steps.length} paso(s)
+                        ${s.add_tag_on_complete ? '<span class="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded text-[10px] font-medium">+ Seguimiento enviado</span>' : ''}
                     </p>
                 </div>
                 <div class="flex gap-1 flex-shrink-0">
-                    <button onclick="openEnrollModal(${s.id}, '${s.name.replace(/'/g, "\\'")}')" title="Enrollar contacto manualmente" class="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+                    <button onclick="enrollTagged(${s.id}, '${s.name.replace(/'/g, "\\'")}', this)" data-tag-names='${JSON.stringify(s.tag_names || [])}' title="Enrollar todos los contactos que ya tienen la etiqueta disparadora" class="p-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors">
+                        <span class="material-symbols-outlined text-purple-400 text-lg">group_add</span>
+                    </button>
+                    <button onclick="openEnrollModal(${s.id}, '${s.name.replace(/'/g, "\\'")}')" title="Enrollar un contacto manualmente" class="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
                         <span class="material-symbols-outlined text-blue-400 text-lg">person_add</span>
                     </button>
                     <button onclick="editSequence(${s.id})" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
@@ -606,8 +576,13 @@ async function openSequenceModal(seq = null) {
     document.getElementById('seq-id').value = seq ? seq.id : '';
     document.getElementById('seq-modal-title').textContent = seq ? 'Editar Secuencia' : 'Nueva Secuencia';
     document.getElementById('seq-name').value = seq ? seq.name : '';
-    document.getElementById('seq-tag').value = seq ? seq.tag_id : '';
     document.getElementById('seq-active').checked = seq ? seq.is_active : true;
+    document.getElementById('seq-add-tag-complete').checked = seq ? (seq.add_tag_on_complete || false) : false;
+    // Marcar checkboxes de etiquetas disparadoras
+    const activeTriggerIds = seq ? (seq.tag_ids || (seq.tag_id ? [seq.tag_id] : [])) : [];
+    document.querySelectorAll('input[name="seq-trigger-tag"]').forEach(cb => {
+        cb.checked = activeTriggerIds.includes(parseInt(cb.value));
+    });
 
     // Ventana horaria
     const hasWindow = seq && (seq.send_window_start || seq.send_weekdays);
@@ -866,17 +841,20 @@ async function saveSequence() {
         ? Array.from(document.querySelectorAll('input[name="seq-weekday"]:checked')).map(cb => parseInt(cb.value))
         : null;
 
+    const triggerTagIds = Array.from(document.querySelectorAll('input[name="seq-trigger-tag"]:checked')).map(cb => parseInt(cb.value));
     const payload = {
         name: document.getElementById('seq-name').value.trim(),
-        tag_id: parseInt(document.getElementById('seq-tag').value),
+        tag_ids: triggerTagIds,
+        tag_id: triggerTagIds[0] || null,
         is_active: document.getElementById('seq-active').checked,
+        add_tag_on_complete: document.getElementById('seq-add-tag-complete').checked,
         send_window_start: windowEnabled ? document.getElementById('seq-window-start').value : null,
         send_window_end: windowEnabled ? document.getElementById('seq-window-end').value : null,
         send_weekdays: selectedWeekdays,
         steps
     };
-    if (!payload.name || !payload.tag_id) {
-        alert('Completá el nombre y la etiqueta.');
+    if (!payload.name || !triggerTagIds.length) {
+        alert('Completá el nombre y seleccioná al menos una etiqueta.');
         return;
     }
     if (!steps.length) {
@@ -906,6 +884,23 @@ async function deleteSequence(id) {
 }
 
 // ==================== ENROLL MANUAL ====================
+async function enrollTagged(seqId, seqName, btn) {
+    const tagNames = JSON.parse(btn.dataset.tagNames || '[]');
+    const tagLabel = tagNames.length ? tagNames.join(', ') : 'las etiquetas configuradas';
+    const ok = confirm(`¿Enrollar en "${seqName}" a todos los contactos que ya tienen la etiqueta: ${tagLabel}?\n\nSolo se enrollarán los que NO estén actualmente en la secuencia.`);
+    if (!ok) return;
+
+    const res = await fetch(`/api/followup-sequences/${seqId}/enroll-tagged`, { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok) {
+        alert(`✅ Listo: ${data.enrolled} contacto(s) enrollado(s), ${data.skipped} ya estaban activos.`);
+        loadEnrollments();
+    } else {
+        alert(`Error: ${data.error || 'No se pudo enrollar'}`);
+    }
+}
+
 let _enrollSeqId = null;
 let _enrollContactPhone = null;
 
@@ -1036,58 +1031,6 @@ async function cancelEnrollment(enrollmentId) {
     } catch(e) {
         alert('Error de conexión al cancelar');
     }
-}
-
-// ==================== ETIQUETAS PUESTAS ====================
-async function loadTaggedLogs() {
-    const filter = document.getElementById('tagged-log-filter')?.value ?? 'tagged';
-    const url = `/api/auto-tagger/logs?limit=100${filter ? '&result=' + filter : ''}`;
-    const res = await fetch(url);
-    const logs = await res.json();
-    const tbody = document.getElementById('tagged-logs-tbody');
-    if (!logs.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">Sin registros.</td></tr>';
-        return;
-    }
-    const badge = {
-        tagged:  '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"><span class="material-symbols-outlined text-sm">label</span>Taggeado</span>',
-        skipped: '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"><span class="material-symbols-outlined text-sm">remove_circle</span>IA dijo NO</span>',
-        error:   '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600"><span class="material-symbols-outlined text-sm">error</span>Error</span>',
-    };
-    tbody.innerHTML = logs.map(l => `
-        <tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-            <td class="px-4 py-3">
-                <a href="/dashboard?phone=${encodeURIComponent(l.phone_number)}" target="_blank"
-                   class="group flex items-center gap-1.5 w-fit">
-                    <div>
-                        <div class="text-sm font-medium text-gray-800 dark:text-white group-hover:text-primary transition-colors">
-                            ${l.contact_name || l.phone_number}
-                        </div>
-                        ${l.contact_name ? `<div class="text-xs text-gray-400">${l.phone_number}</div>` : ''}
-                    </div>
-                    <span class="material-symbols-outlined text-gray-300 group-hover:text-primary text-sm transition-colors">open_in_new</span>
-                </a>
-            </td>
-            <td class="px-4 py-3">
-                ${l.tag_name
-                    ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                        <span class="material-symbols-outlined text-sm">label</span>${l.tag_name}
-                       </span>`
-                    : '<span class="text-xs text-gray-400">—</span>'
-                }
-            </td>
-            <td class="px-4 py-3 hidden lg:table-cell">
-                ${l.rule_condition
-                    ? `<span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 max-w-xs" title="${l.rule_condition}">${l.rule_condition.substring(0, 80)}${l.rule_condition.length > 80 ? '…' : ''}</span>`
-                    : '<span class="text-xs text-gray-400">Regla eliminada</span>'
-                }
-            </td>
-            <td class="px-4 py-3">${badge[l.result] || l.result}</td>
-            <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
-                ${new Date(l.created_at).toLocaleString('es-AR')}
-            </td>
-        </tr>
-    `).join('');
 }
 
 // ==================== STATS & LOGS ====================

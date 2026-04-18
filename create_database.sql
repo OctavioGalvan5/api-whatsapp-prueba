@@ -333,8 +333,9 @@ CREATE INDEX IF NOT EXISTS idx_auto_tag_logs_result ON auto_tag_logs(result);
 CREATE TABLE IF NOT EXISTS followup_sequences (
     id SERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
-    tag_id INTEGER NOT NULL REFERENCES whatsapp_tags(id) ON DELETE CASCADE,
+    tag_id INTEGER REFERENCES whatsapp_tags(id) ON DELETE SET NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    add_tag_on_complete BOOLEAN DEFAULT FALSE NOT NULL,
     send_window_start VARCHAR(5),
     send_window_end VARCHAR(5),
     send_weekdays JSON,
@@ -356,6 +357,15 @@ CREATE TABLE IF NOT EXISTS followup_steps (
     schedule_type VARCHAR(20) DEFAULT 'delay',
     scheduled_weekday INTEGER,
     scheduled_time VARCHAR(5)
+);
+
+-- ==========================================
+-- FOLLOW-UP SEQUENCE TAGS (many-to-many)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS followup_sequence_tags (
+    sequence_id INTEGER NOT NULL REFERENCES followup_sequences(id) ON DELETE CASCADE,
+    tag_id      INTEGER NOT NULL REFERENCES whatsapp_tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (sequence_id, tag_id)
 );
 
 -- ==========================================
@@ -448,6 +458,23 @@ CREATE TABLE IF NOT EXISTS order_items (
     unit_price NUMERIC(12, 2) NOT NULL,
     currency VARCHAR(10) DEFAULT 'ARS'
 );
+
+-- ==========================================
+-- CONTACT TAG HISTORY
+-- ==========================================
+CREATE TABLE IF NOT EXISTS contact_tag_history (
+    id SERIAL PRIMARY KEY,
+    contact_id INTEGER NOT NULL REFERENCES whatsapp_contacts(id) ON DELETE CASCADE,
+    tag_id INTEGER REFERENCES whatsapp_tags(id) ON DELETE SET NULL,
+    tag_name_snapshot VARCHAR(50) NOT NULL,
+    action VARCHAR(10) NOT NULL,        -- 'added' / 'removed'
+    source VARCHAR(20) NOT NULL,        -- 'manual' / 'auto_tagger' / 'system' / 'campaign'
+    created_by VARCHAR(100),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_tag_history_contact ON contact_tag_history(contact_id);
+CREATE INDEX IF NOT EXISTS idx_tag_history_created ON contact_tag_history(created_at);
 
 -- ==========================================
 -- ADMIN INICIAL

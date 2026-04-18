@@ -494,8 +494,53 @@ class AutoTagLog(db.Model):
 
 
 # ==========================================
+# CONTACT TAG HISTORY
+# ==========================================
+
+class ContactTagHistory(db.Model):
+    """Historial de etiquetas agregadas/quitadas por contacto."""
+    __tablename__ = 'contact_tag_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('whatsapp_contacts.id', ondelete='CASCADE'), nullable=False)
+    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id', ondelete='SET NULL'), nullable=True)
+    tag_name_snapshot = db.Column(db.String(50), nullable=False)  # nombre al momento del evento
+    action = db.Column(db.String(10), nullable=False)  # 'added' / 'removed'
+    source = db.Column(db.String(20), nullable=False)  # 'manual' / 'auto_tagger' / 'system' / 'campaign'
+    created_by = db.Column(db.String(100), nullable=True)  # username CRM, 'auto_tagger', 'system'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    contact = db.relationship('Contact', backref='tag_history')
+    tag = db.relationship('Tag', backref='tag_history')
+
+    __table_args__ = (
+        db.Index('idx_tag_history_contact', 'contact_id'),
+        db.Index('idx_tag_history_created', 'created_at'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'contact_id': self.contact_id,
+            'tag_id': self.tag_id,
+            'tag_name': self.tag_name_snapshot,
+            'action': self.action,
+            'source': self.source,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+# ==========================================
 # FOLLOW-UP SEQUENCES
 # ==========================================
+
+# Tabla de asociación secuencia <-> etiquetas disparadoras
+followup_sequence_tags = db.Table('followup_sequence_tags',
+    db.Column('sequence_id', db.Integer, db.ForeignKey('followup_sequences.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('whatsapp_tags.id', ondelete='CASCADE'), primary_key=True)
+)
+
 
 class FollowUpSequence(db.Model):
     """Secuencias de mensajes de seguimiento automático."""
@@ -503,26 +548,40 @@ class FollowUpSequence(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id'), nullable=False)  # Tag que dispara la secuencia
+    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id'), nullable=True)  # Legacy — mantenido para compatibilidad
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    add_tag_on_complete = db.Column(db.Boolean, default=False, nullable=False)  # Agregar "Seguimiento enviado" al finalizar
 
     # Ventana horaria de envío (por secuencia)
-    send_window_start = db.Column(db.String(5), nullable=True)   # "09:00", None = sin restricción
-    send_window_end   = db.Column(db.String(5), nullable=True)   # "20:00"
-    send_weekdays     = db.Column(db.JSON, nullable=True)        # [0,1,2,3,4] = Lu-Vi, None = todos
+    send_window_start = db.Column(db.String(5), nullable=True)
+    send_window_end   = db.Column(db.String(5), nullable=True)
+    send_weekdays     = db.Column(db.JSON, nullable=True)
 
-    tag = db.relationship('Tag', backref='followup_sequences')
+    tag = db.relationship('Tag', foreign_keys=[tag_id], backref='followup_sequences_legacy')
+    trigger_tags = db.relationship('Tag', secondary=followup_sequence_tags, backref='followup_sequences')
     steps = db.relationship('FollowUpStep', backref='sequence', lazy='select', order_by='FollowUpStep.order', cascade='all, delete-orphan')
     enrollments = db.relationship('FollowUpEnrollment', backref='sequence', lazy='select', cascade='all, delete-orphan')
 
+    def get_trigger_tags(self):
+        """Retorna las etiquetas disparadoras (nueva tabla, con fallback al tag_id legacy)."""
+        if self.trigger_tags:
+            return self.trigger_tags
+        if self.tag:
+            return [self.tag]
+        return []
+
     def to_dict(self):
+        trigger = self.get_trigger_tags()
         return {
             'id': self.id,
             'name': self.name,
-            'tag_id': self.tag_id,
-            'tag_name': self.tag.name if self.tag else None,
+            'tag_id': trigger[0].id if trigger else self.tag_id,
+            'tag_name': trigger[0].name if trigger else (self.tag.name if self.tag else None),
+            'tag_ids': [t.id for t in trigger],
+            'tag_names': [t.name for t in trigger],
             'is_active': self.is_active,
+            'add_tag_on_complete': self.add_tag_on_complete,
             'send_window_start': self.send_window_start,
             'send_window_end': self.send_window_end,
             'send_weekdays': self.send_weekdays,

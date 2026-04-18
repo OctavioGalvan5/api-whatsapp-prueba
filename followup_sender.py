@@ -12,6 +12,36 @@ logger = logging.getLogger(__name__)
 TZ_AR = pytz.timezone('America/Argentina/Buenos_Aires')
 
 
+def _maybe_add_seguimiento_enviado(db, contact, sequence, ContactTagHistory):
+    """Si la secuencia tiene add_tag_on_complete, agrega la etiqueta 'Seguimiento enviado'."""
+    logger.info(f"🔎 [FOLLOWUP] _maybe_add_seguimiento_enviado → secuencia='{sequence.name}' add_tag_on_complete={getattr(sequence, 'add_tag_on_complete', 'ATTR_MISSING')} contacto={contact.phone_number}")
+    if not getattr(sequence, 'add_tag_on_complete', False):
+        logger.info(f"   ↳ add_tag_on_complete es False/None — no se agrega etiqueta")
+        return
+    from models import Tag
+    tag = Tag.query.filter_by(name='Seguimiento enviado').first()
+    if not tag:
+        logger.info(f"   ↳ Etiqueta 'Seguimiento enviado' no existe — creando...")
+        tag = Tag(name='Seguimiento enviado', color='blue', is_active=True)
+        db.session.add(tag)
+        db.session.flush()
+    else:
+        logger.info(f"   ↳ Etiqueta 'Seguimiento enviado' existe (id={tag.id})")
+    if tag not in contact.tags:
+        contact.tags.append(tag)
+        db.session.add(ContactTagHistory(
+            contact_id=contact.id,
+            tag_id=tag.id,
+            tag_name_snapshot=tag.name,
+            action='added',
+            source='system',
+            created_by='followup_sender'
+        ))
+        logger.info(f"🏷️ [FOLLOWUP] Etiqueta 'Seguimiento enviado' agregada a {contact.phone_number}")
+    else:
+        logger.info(f"   ↳ Contacto ya tiene la etiqueta 'Seguimiento enviado' — nada que hacer")
+
+
 def _next_fixed_time(now_utc, weekday, time_str):
     """
     Dado el momento actual (UTC), retorna el próximo datetime UTC en que
@@ -100,6 +130,9 @@ def run_followup_sender(app_context):
                 FollowUpEnrollment.next_send_at <= now
             ).with_for_update(skip_locked=True).all()
 
+            total_pending = FollowUpEnrollment.query.filter_by(status='pending').count()
+            logger.info(f"🔍 [FOLLOWUP] Ciclo — {len(pending)} listos para enviar / {total_pending} pendientes en total")
+
             if not pending:
                 return
 
@@ -110,22 +143,33 @@ def run_followup_sender(app_context):
                     _process_enrollment(db, enrollment, whatsapp_api, now)
                 except Exception as e:
                     logger.error(f"❌ [FOLLOWUP] Error procesando enrollment {enrollment.id}: {e}", exc_info=True)
+                    # Evitar loop infinito: si crashea, posponerlo 10 minutos
+                    try:
+                        enrollment.next_send_at = now + timedelta(minutes=10)
+                        db.session.commit()
+                    except:
+                        db.session.rollback()
 
         except Exception as e:
             logger.error(f"❌ [FOLLOWUP] Error general: {e}", exc_info=True)
 
 
+
 def _resolve_components(template_params, contact):
     """
     Convierte el mapeo guardado {"body-1": "first_name", "header-1": "name"}
-    en el formato de components que espera la API de WhatsApp:
-    [
-      {"type": "header", "parameters": [{"type": "text", "text": "valor"}]},
-      {"type": "body",   "parameters": [{"type": "text", "text": "valor"}, ...]}
-    ]
+    en el formato de components que espera la API de WhatsApp.
     """
     if not template_params:
         return None
+
+    if isinstance(template_params, str):
+        import json
+        try:
+            template_params = json.loads(template_params)
+        except Exception:
+            return None
+
 
     # Resolver campo del contacto a su valor real
     def get_value(field):
@@ -212,6 +256,9 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
     ).first()
 
     if not step:
+        from models import ContactTagHistory
+        contact = enrollment.contact
+        _maybe_add_seguimiento_enviado(db, contact, sequence, ContactTagHistory)
         enrollment.status = 'finished'
         db.session.commit()
         logger.info(f"✅ [FOLLOWUP] Secuencia '{sequence.name}' finalizada para {contact.phone_number}")
@@ -227,9 +274,15 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
         components=components
     )
 
+    logger.info(f"📬 [FOLLOWUP] Resultado envío paso {step.order} → {contact.phone_number}: {result}")
     sent_ok = result and (result.get('messages') or result.get('message_id') or result.get('success'))
     if sent_ok:
-        logger.info(f"✅ [FOLLOWUP] Paso {step.order} enviado a {contact.phone_number} (secuencia: {sequence.name})")
+        logger.info(f"📤 =============================================")
+        logger.info(f"📤 MENSAJE DE SEGUIMIENTO ENVIADO")
+        logger.info(f"📤   Contacto  : {contact.name or contact.phone_number} ({contact.phone_number})")
+        logger.info(f"📤   Secuencia : {sequence.name}")
+        logger.info(f"📤   Paso      : {step.order} — template '{step.template_name}'")
+        logger.info(f"📤 =============================================")
         # Guardar en DB para que aparezca en el dashboard
         try:
             from event_handlers import save_message
@@ -268,22 +321,27 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
         except Exception as e:
             logger.warning(f"⚠️ [FOLLOWUP] No se pudo guardar mensaje en DB: {e}")
     else:
-        logger.warning(f"⚠️ [FOLLOWUP] Fallo enviando paso {step.order} a {contact.phone_number}: {result}")
+        logger.warning(f"⚠️ [FOLLOWUP] sent_ok=False — result={result}")
 
     # Si el paso tiene remove_tag_on_execute, quitar la etiqueta y finalizar
     if step.remove_tag_on_execute:
-        tag = sequence.tag
-        if tag:
-            from models import contact_tags
-            db.session.execute(
-                contact_tags.delete().where(
-                    db.and_(
-                        contact_tags.c.contact_id == contact.id,
-                        contact_tags.c.tag_id == tag.id
-                    )
-                )
-            )
-            logger.info(f"🏷️ [FOLLOWUP] Etiqueta '{tag.name}' quitada de {contact.phone_number}")
+        from models import ContactTagHistory
+        tags_to_remove = sequence.get_trigger_tags()
+        
+        for tag_to_remove in tags_to_remove:
+            if tag_to_remove in contact.tags:
+                contact.tags.remove(tag_to_remove)
+                db.session.add(ContactTagHistory(
+                    contact_id=contact.id,
+                    tag_id=tag_to_remove.id,
+                    tag_name_snapshot=tag_to_remove.name,
+                    action='removed',
+                    source='system',
+                    created_by='followup_sender'
+                ))
+                logger.info(f"🏷️ [FOLLOWUP] Etiqueta '{tag_to_remove.name}' quitada de {contact.phone_number}")
+
+        _maybe_add_seguimiento_enviado(db, contact, sequence, ContactTagHistory)
         enrollment.status = 'finished'
         logger.info(f"✅ [FOLLOWUP] Secuencia '{sequence.name}' finalizada (remove_tag) para {contact.phone_number}")
         db.session.commit()
@@ -303,6 +361,8 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
             enrollment.next_send_at = now + timedelta(hours=next_step.delay_hours)
         logger.info(f"📅 [FOLLOWUP] Próximo paso ({next_step.order}) programado para {enrollment.next_send_at}")
     else:
+        from models import ContactTagHistory
+        _maybe_add_seguimiento_enviado(db, contact, sequence, ContactTagHistory)
         enrollment.status = 'finished'
         logger.info(f"✅ [FOLLOWUP] Secuencia completa para {contact.phone_number}")
 
