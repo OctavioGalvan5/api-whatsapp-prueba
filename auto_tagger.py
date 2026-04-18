@@ -5,6 +5,7 @@ basándose en reglas configuradas (prompt SÍ/NO + IA).
 """
 import os
 import logging
+import threading
 from datetime import datetime, timedelta
 from openai import OpenAI
 
@@ -18,9 +19,21 @@ if OPENAI_API_KEY:
 else:
     logger.warning("OPENAI_API_KEY not set - auto tagger disabled")
 
+_running_lock = threading.Lock()
+
 
 def run_auto_tagger(app_context):
     """Job principal — corre periódicamente desde el scheduler."""
+    if not _running_lock.acquire(blocking=False):
+        logger.info("⏭️ [AUTO_TAGGER] Ya hay un ciclo corriendo — saltando")
+        return
+    try:
+        _run_auto_tagger_inner(app_context)
+    finally:
+        _running_lock.release()
+
+
+def _run_auto_tagger_inner(app_context):
     logger.info("🔄 [AUTO_TAGGER] ========== INICIO DE CICLO ==========")
 
     if not client:
@@ -108,7 +121,7 @@ def run_auto_tagger(app_context):
                 # Obtener los últimos 20 mensajes una sola vez
                 messages = Message.query.filter(
                     Message.phone_number == phone
-                ).order_by(Message.timestamp.desc()).limit(10).all()
+                ).order_by(Message.timestamp.desc()).limit(15).all()
                 messages = list(reversed(messages))
 
                 logger.info(f"   → Enviando {len(messages)} mensajes a la IA con {len(pending_rules)} condición(es)...")
@@ -140,16 +153,20 @@ def run_auto_tagger(app_context):
                     if rule_result:
                         tag = Tag.query.get(rule.tag_id)
                         if tag and tag not in contact.tags:
-                            contact.tags.append(tag)
-                            db.session.commit()
-                            logger.info(f"🏷️ =============================================")
-                            logger.info(f"🏷️ ETIQUETA ASIGNADA")
-                            logger.info(f"🏷️   Persona  : {contact_name} ({phone})")
-                            logger.info(f"🏷️   Etiqueta : {tag.name}")
-                            logger.info(f"🏷️   Regla    : #{rule.id} — {rule.prompt_condition[:60]}")
-                            logger.info(f"🏷️ =============================================")
-                            _write_log(db, AutoTagLog, rule, contact, phone, 'tagged')
-                            enroll_in_sequences(db, contact, rule.tag_id, FollowUpSequence, FollowUpEnrollment)
+                            try:
+                                contact.tags.append(tag)
+                                db.session.commit()
+                                logger.info(f"🏷️ =============================================")
+                                logger.info(f"🏷️ ETIQUETA ASIGNADA")
+                                logger.info(f"🏷️   Persona  : {contact_name} ({phone})")
+                                logger.info(f"🏷️   Etiqueta : {tag.name}")
+                                logger.info(f"🏷️   Regla    : #{rule.id} — {rule.prompt_condition[:60]}")
+                                logger.info(f"🏷️ =============================================")
+                                _write_log(db, AutoTagLog, rule, contact, phone, 'tagged')
+                                enroll_in_sequences(db, contact, rule.tag_id, FollowUpSequence, FollowUpEnrollment)
+                            except Exception as e:
+                                db.session.rollback()
+                                logger.warning(f"   ⚠️ No se pudo asignar '{tag.name}' a {contact_name} (ya existe o error de BD): {e}")
                         elif tag and tag in contact.tags:
                             logger.info(f"   → IA dijo SI para Regla #{rule.id} pero {contact_name} ya tiene el tag '{tag.name}'")
                     else:
