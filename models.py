@@ -484,6 +484,7 @@ class AutoTagLog(db.Model):
         return {
             'id': self.id,
             'rule_id': self.rule_id,
+            'rule_condition': self.rule.prompt_condition if self.rule else None,
             'phone_number': self.phone_number,
             'contact_name': self.contact.name if self.contact else None,
             'tag_name': self.tag.name if self.tag else None,
