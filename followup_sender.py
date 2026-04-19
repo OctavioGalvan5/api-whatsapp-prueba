@@ -4,12 +4,15 @@ Procesa enrollments pendientes y envía templates de WhatsApp
 en los tiempos configurados.
 """
 import logging
+import threading
 from datetime import datetime, timedelta
 import pytz
 
 logger = logging.getLogger(__name__)
 
 TZ_AR = pytz.timezone('America/Argentina/Buenos_Aires')
+
+_running_lock = threading.Lock()
 
 
 def _maybe_add_seguimiento_enviado(db, contact, sequence, ContactTagHistory):
@@ -118,6 +121,16 @@ def _next_window_start(now_utc, window_start_str, window_end_str, weekdays=None)
 
 def run_followup_sender(app_context):
     """Job principal — corre cada minuto desde el scheduler."""
+    if not _running_lock.acquire(blocking=False):
+        logger.info("⏭️ [FOLLOWUP] Ya hay un ciclo corriendo — saltando")
+        return
+    try:
+        _run_followup_sender_inner(app_context)
+    finally:
+        _running_lock.release()
+
+
+def _run_followup_sender_inner(app_context):
     with app_context:
         from models import db, FollowUpEnrollment, FollowUpStep, FollowUpSequence, Contact
         from whatsapp_service import whatsapp_api
