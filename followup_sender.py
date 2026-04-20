@@ -165,16 +165,23 @@ def _run_followup_sender_inner(app_context):
 
             for enrollment in pending:
                 try:
-                    # Re-fetch desde DB para detectar si otro hilo ya lo procesó
-                    db.session.refresh(enrollment)
-                    if enrollment.status != 'pending':
-                        logger.info(f"⏭️ [FOLLOWUP] Enrollment {enrollment.id} ya no es pending ({enrollment.status}) — saltando")
+                    # Claim atómico: UPDATE en DB para que ningún otro proceso lo tome al mismo tiempo
+                    from sqlalchemy import text
+                    result = db.session.execute(
+                        text("UPDATE followup_enrollments SET status='processing' WHERE id=:id AND status='pending'"),
+                        {'id': enrollment.id}
+                    )
+                    db.session.commit()
+                    if result.rowcount == 0:
+                        logger.info(f"⏭️ [FOLLOWUP] Enrollment {enrollment.id} ya tomado por otro proceso — saltando")
                         continue
+                    db.session.refresh(enrollment)
                     _process_enrollment(db, enrollment, whatsapp_api, now)
                 except Exception as e:
                     logger.error(f"❌ [FOLLOWUP] Error procesando enrollment {enrollment.id}: {e}", exc_info=True)
-                    # Evitar loop infinito: si crashea, posponerlo 10 minutos
+                    # Evitar loop infinito: si crashea, resetear a pending y posponer 10 minutos
                     try:
+                        enrollment.status = 'pending'
                         enrollment.next_send_at = now + timedelta(minutes=10)
                         db.session.commit()
                     except:
