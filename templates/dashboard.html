@@ -217,8 +217,7 @@
 </aside>
 
 <!-- Main Chat Area (70%) -->
-<main id="chat-area" class="flex flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden" {% if not
-    selected_contact %}style="display: none" {% endif %}>
+<main id="chat-area" class="{% if not selected_contact %}hidden md:flex{% endif %} flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
     {% if selected_contact %}
     <!-- Chat Header -->
     <header
@@ -621,7 +620,7 @@
     </footer>
     {% else %}
     <!-- Empty State -->
-    <div class="flex-1 flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0c1a0e] text-gray-400">
+    <div id="chat-messages" data-placeholder="true" class="flex-1 flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0c1a0e] text-gray-400">
         <div class="bg-white dark:bg-[#152a17] p-8 rounded-full shadow-sm mb-4">
             <span class="material-symbols-outlined text-6xl text-primary">chat</span>
         </div>
@@ -1166,7 +1165,8 @@
             window.location.href = `/dashboard?phone=${encodeURIComponent(phone)}`;
         };
 
-        if (!document.getElementById('chat-messages')) {
+        const _chatEl = document.getElementById('chat-messages');
+        if (!_chatEl || _chatEl.dataset.placeholder === 'true') {
             fallbackToReload();
             return;
         }
@@ -1941,15 +1941,6 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                 const editBtn = headerActions.querySelector('button');
                 if (editBtn) editBtn.onclick = () => editContactName(currentPhone);
             }
-        } else {
-            // Sin ?phone= en URL: cargar el primer contacto via AJAX (evita SSR pesado)
-            // Usar setTimeout para asegurar que el event listener del scroll ya está registrado
-            setTimeout(() => {
-                const firstContact = document.querySelector('.contact-item[data-phone]');
-                if (firstContact) {
-                    selectContact(firstContact.dataset.phone);
-                }
-            }, 100);
         }
 
         console.log('Dashboard inicializado correctamente');

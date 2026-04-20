@@ -138,10 +138,22 @@ def _run_followup_sender_inner(app_context):
         try:
             now = datetime.utcnow()
 
-            pending = FollowUpEnrollment.query.filter(
+            from sqlalchemy import func
+            # Deduplicar: si hay varios enrollments pending para el mismo (contact, sequence),
+            # procesar solo el más reciente para evitar envíos dobles por duplicados en DB
+            subq = db.session.query(
+                func.max(FollowUpEnrollment.id).label('max_id')
+            ).filter(
                 FollowUpEnrollment.status == 'pending',
                 FollowUpEnrollment.next_send_at <= now
-            ).with_for_update(skip_locked=True).all()
+            ).group_by(
+                FollowUpEnrollment.contact_id,
+                FollowUpEnrollment.sequence_id
+            ).subquery()
+
+            pending = FollowUpEnrollment.query.filter(
+                FollowUpEnrollment.id == subq.c.max_id
+            ).all()
 
             total_pending = FollowUpEnrollment.query.filter_by(status='pending').count()
             logger.info(f"🔍 [FOLLOWUP] Ciclo — {len(pending)} listos para enviar / {total_pending} pendientes en total")
@@ -153,6 +165,11 @@ def _run_followup_sender_inner(app_context):
 
             for enrollment in pending:
                 try:
+                    # Re-fetch desde DB para detectar si otro hilo ya lo procesó
+                    db.session.refresh(enrollment)
+                    if enrollment.status != 'pending':
+                        logger.info(f"⏭️ [FOLLOWUP] Enrollment {enrollment.id} ya no es pending ({enrollment.status}) — saltando")
+                        continue
                     _process_enrollment(db, enrollment, whatsapp_api, now)
                 except Exception as e:
                     logger.error(f"❌ [FOLLOWUP] Error procesando enrollment {enrollment.id}: {e}", exc_info=True)
