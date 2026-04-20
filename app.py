@@ -3644,8 +3644,9 @@ def api_send_media():
                 tmp_in.write(file_bytes)
                 tmp_in_path = tmp_in.name
             tmp_out_path = tmp_in_path.replace('.webm', '.mp3')
+            ffmpeg_bin = r'C:\Users\octav\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg.Essentials_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe'
             result = subprocess.run(
-                ['ffmpeg', '-y', '-i', tmp_in_path,
+                [ffmpeg_bin, '-y', '-i', tmp_in_path,
                  '-c:a', 'libmp3lame', '-q:a', '2', '-ar', '44100', '-ac', '1',
                  tmp_out_path],
                 capture_output=True, timeout=30
