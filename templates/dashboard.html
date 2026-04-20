@@ -217,7 +217,7 @@
 </aside>
 
 <!-- Main Chat Area (70%) -->
-<main id="chat-area" class="{% if not selected_contact %}hidden md:flex{% endif %} flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
+<main id="chat-area" class="{% if not selected_contact %}hidden md:flex{% else %}flex{% endif %} flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] relative overflow-hidden">
     {% if selected_contact %}
     <!-- Chat Header -->
     <header
