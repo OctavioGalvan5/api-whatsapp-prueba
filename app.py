@@ -3632,6 +3632,40 @@ def api_send_media():
     original_filename = file.filename or "archivo"
     mime_type = file.content_type or mimetypes.guess_type(original_filename)[0] or "application/octet-stream"
     
+    # Convertir audio no soportado por WhatsApp a MP3
+    WHATSAPP_AUDIO_OK = {'audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg', 'audio/opus'}
+    base_mime = mime_type.split(';')[0].strip().lower()
+    if base_mime.startswith("audio/") and base_mime not in WHATSAPP_AUDIO_OK:
+        import subprocess, tempfile, os as _os
+        tmp_in_path = None
+        tmp_out_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as tmp_in:
+                tmp_in.write(file_bytes)
+                tmp_in_path = tmp_in.name
+            tmp_out_path = tmp_in_path.replace('.webm', '.mp3')
+            result = subprocess.run(
+                ['ffmpeg', '-y', '-i', tmp_in_path,
+                 '-c:a', 'libmp3lame', '-q:a', '2', '-ar', '44100', '-ac', '1',
+                 tmp_out_path],
+                capture_output=True, timeout=30
+            )
+            if result.returncode == 0:
+                with open(tmp_out_path, 'rb') as f:
+                    file_bytes = f.read()
+                mime_type = 'audio/mpeg'
+                original_filename = original_filename.rsplit('.', 1)[0] + '.mp3'
+                logger.info(f"✅ Audio convertido webm→mp3 ({len(file_bytes)} bytes)")
+            else:
+                logger.warning(f"ffmpeg no pudo convertir webm a mp3: {result.stderr.decode()}")
+        except Exception as e:
+            logger.warning(f"Error convirtiendo audio webm: {e}")
+        finally:
+            for p in [tmp_in_path, tmp_out_path]:
+                if p:
+                    try: _os.unlink(p)
+                    except: pass
+
     # Determinar media_type para WhatsApp
     if mime_type.startswith("image/"):
         media_type = "image"
@@ -3641,7 +3675,7 @@ def api_send_media():
         media_type = "audio"
     else:
         media_type = "document"
-    
+
     # 1. Subir a WhatsApp API
     upload_result = whatsapp_api.upload_media(file_bytes, mime_type, original_filename)
     if not upload_result.get("success"):
