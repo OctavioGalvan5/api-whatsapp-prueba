@@ -725,6 +725,12 @@
     let currentPhone = "{{ selected_contact or '' }}";
     let currentContactName = ''; // Para evitar XSS en onclick
     let currentTagFilter = ''; // Filtro activo de etiqueta
+    let contactsOffset = {{ contacts|length }};
+    let contactsLoading = false;
+    let contactsHasMore = {{ 'true' if has_more_contacts else 'false' }};
+    let searchTimeout = null;
+    let currentSearch = '';
+    let isSearchMode = false;
 
     // Cargar badges de no leídos al iniciar
     async function loadUnreadBadges() {
@@ -1566,7 +1572,7 @@
     }
 
     // Template Selection Logic
-    document.getElementById('template-select').addEventListener('change', function (e) {
+    document.getElementById('template-select')?.addEventListener('change', function (e) {
         const templateName = e.target.value;
         const container = document.getElementById('template-variables-container');
         container.innerHTML = '';
@@ -1735,12 +1741,6 @@
 
     // ========== SCROLL INFINITO HÍBRIDO + BÚSQUEDA ==========
     // Los primeros 50 contactos ya están renderizados desde el servidor
-    let contactsOffset = {{ contacts| length }}; // Offset inicial = contactos ya cargados
-    let contactsLoading = false;
-    let contactsHasMore = {{ 'true' if has_more_contacts else 'false' }};
-    let searchTimeout = null;
-    let currentSearch = '';
-    let isSearchMode = false;
 
     console.log('Scroll Infinito Inicializado:', {
         contactsOffset,

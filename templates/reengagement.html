@@ -125,8 +125,8 @@
                             <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Secuencia</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Paso</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Enrollado el</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Próximo envío</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Enrollado el</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Próximo envío estimado</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Acciones</th>
                         </tr>
                     </thead>
@@ -1004,11 +1004,11 @@ async function loadEnrollments() {
             <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">${e.sequence_name || '-'}</td>
             <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">Paso ${e.current_step}</td>
             <td class="px-4 py-3">${statusBadge[e.status] || e.status}</td>
-            <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
-                ${e.enrolled_at ? new Date(e.enrolled_at).toLocaleString('es-AR') : '-'}
+            <td class="px-4 py-3 text-xs text-gray-400">
+                ${e.enrolled_at ? new Date(e.enrolled_at + 'Z').toLocaleString('es-AR') : '-'}
             </td>
-            <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
-                ${e.next_send_at ? new Date(e.next_send_at).toLocaleString('es-AR') : '-'}
+            <td class="px-4 py-3 text-xs text-gray-400">
+                ${e.next_send_at ? new Date(e.next_send_at + 'Z').toLocaleString('es-AR') : '-'}
             </td>
             <td class="px-4 py-3">
                 ${e.status === 'pending' ? `
