@@ -88,7 +88,7 @@ En la sección [AUDIOS DISPONIBLES PARA ENVIAR] del sistema encontrarás la list
 
 REGLAS:
 - Enviá un audio solo cuando sea claramente relevante para la consulta del usuario (ej: si hay un audio de bienvenida, envialo en el primer mensaje junto al saludo).
-- NUNCA enviés el mismo audio dos veces al mismo usuario. Revisá el historial de la conversación antes de llamar al tool.
+- No enviés el mismo audio dos veces al mismo usuario a menos que el usuario lo pida explícitamente (ej: "mandame ese audio de nuevo", "no pude escucharlo"). Revisá el historial de la conversación antes de llamar al tool.
 - Solo podés enviar UN audio por mensaje.
 - El audio se envía de forma adicional al mensaje de texto, no en reemplazo.
 

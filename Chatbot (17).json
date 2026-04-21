@@ -1669,7 +1669,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, nombre, descripcion FROM bot_audios ORDER BY created_at",
+        "query": "SELECT COALESCE(json_agg(json_build_object('id', id, 'nombre', nombre, 'descripcion', descripcion) ORDER BY created_at), '[]'::json) as audios FROM bot_audios",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -1694,7 +1694,7 @@
             {
               "id": "merge-prompt-audios",
               "name": "value",
-              "value": "={{ $('Execute a SQL query').item.json.value + ($('Get Bot Audios').all().length > 0 ? '\\n\\n[AUDIOS DISPONIBLES PARA ENVIAR]\\nPodés enviar estos audios pregrabados usando el tool enviar_audio(audio_id). IMPORTANTE: Solo enviá un audio por conversación. No vuelvas a enviar un audio que ya enviaste anteriormente a este usuario (revisá el historial de la conversación).\\n' + $('Get Bot Audios').all().map(a => `- ID ${a.json.id}: \"${a.json.nombre}\" — ${a.json.descripcion}`).join('\\n') : '') }}",
+              "value": "={{ (() => { const audios = $('Get Bot Audios').item.json.audios; const lista = Array.isArray(audios) && audios.length > 0 ? '\\n\\n[AUDIOS DISPONIBLES PARA ENVIAR]\\nPodés enviar estos audios pregrabados usando el tool enviar_audio(audio_id). No repitas un audio ya enviado salvo que el usuario lo pida explícitamente.\\n' + audios.map(a => `- ID ${a.id}: \"${a.nombre}\" — ${a.descripcion}`).join('\\n') : ''; return $('Execute a SQL query').item.json.value + lista; })() }}",
               "type": "string"
             }
           ]

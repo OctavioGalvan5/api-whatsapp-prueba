@@ -6024,14 +6024,21 @@ def api_bot_send_audio():
     if not audio:
         return jsonify({"error": "Audio no encontrado"}), 404
 
-    # Descargar el archivo desde MinIO
+    # Descargar el archivo desde MinIO o local
     try:
         import requests as _requests
-        resp = _requests.get(audio.file_url, timeout=30)
-        resp.raise_for_status()
-        file_bytes = resp.content
+        file_url = audio.file_url
+        if file_url.startswith('/') or not file_url.startswith('http'):
+            # URL relativa — leer desde disco local
+            local_path = os.path.join(os.path.dirname(__file__), 'static', 'media', file_url.lstrip('/media/').lstrip('static/media/'))
+            with open(local_path, 'rb') as f:
+                file_bytes = f.read()
+        else:
+            resp = _requests.get(file_url, timeout=30)
+            resp.raise_for_status()
+            file_bytes = resp.content
     except Exception as e:
-        logger.error(f"Error descargando audio {audio_id} desde MinIO: {e}")
+        logger.error(f"Error descargando audio {audio_id}: {e}")
         return jsonify({"error": "No se pudo descargar el audio"}), 500
 
     # Subir a WhatsApp y enviar
