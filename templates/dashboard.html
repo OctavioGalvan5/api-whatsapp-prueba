@@ -324,6 +324,7 @@
         {% set ns.last_date = msg_date %}
         {% endif %}
 
+        {% if not msg.content and not msg.media_url %}{% continue %}{% endif %}
         {% if msg.direction == 'inbound' %}
         <div class="flex flex-col items-start max-w-[80%]">
             {% if msg.message_type == 'order' %}
@@ -1441,6 +1442,9 @@
                 let lastDate = '';
 
                 data.messages.forEach(msg => {
+                    // Saltar mensajes sin contenido ni media (ej: respuestas vacías del bot al enviar audio)
+                    if (!msg.content && !msg.media_url) return;
+
                     if (msg.date !== lastDate) {
                         html += `
 <div class="flex justify-center my-4 date-separator">

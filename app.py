@@ -6047,6 +6047,23 @@ def api_bot_send_audio():
     if not send_result.get("success"):
         return jsonify({"error": "Error enviando audio: " + send_result.get("error", "")}), 500
 
+    # Guardar el mensaje en la BD para que aparezca en el chat del dashboard
+    try:
+        from models import Message
+        msg = Message(
+            wa_message_id=send_result.get("wa_message_id"),
+            phone_number=phone_number,
+            direction="outbound",
+            message_type="audio",
+            media_url=audio.file_url,
+            content=None,
+            sent_by="bot",
+        )
+        db.session.add(msg)
+        db.session.commit()
+    except Exception as e:
+        logger.warning(f"No se pudo guardar el mensaje de audio en BD: {e}")
+
     logger.info(f"🎵 Audio '{audio.nombre}' enviado a {phone_number} por el bot")
     return jsonify({"success": True, "audio": audio.nombre})
 
