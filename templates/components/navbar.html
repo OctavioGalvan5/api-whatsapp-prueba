@@ -136,11 +136,25 @@
 
     <!-- Chatbot -->
     {% if not current_user or current_user.has_permission('chatbot') %}
-    <a href="/chatbot"
-        class="p-3 rounded-xl {% if request.path == '/chatbot' %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
-        title="Chatbot">
-        <span class="material-symbols-outlined {% if request.path != '/chatbot' %}text-gray-500 dark:text-gray-400{% endif %}">smart_toy</span>
-    </a>
+    <div class="relative group">
+        <button
+            class="p-3 rounded-xl {% if request.path in ['/chatbot', '/bot-audios'] %}bg-primary/10 text-primary{% else %}hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors{% endif %}"
+            title="Chatbot">
+            <span class="material-symbols-outlined {% if request.path not in ['/chatbot', '/bot-audios'] %}text-gray-500 dark:text-gray-400{% endif %}">smart_toy</span>
+        </button>
+        <div class="absolute left-full ml-2 top-0 bg-white dark:bg-[#1a3a1d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            <a href="/chatbot" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/chatbot' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">smart_toy</span>
+                <span class="text-sm font-medium">Chatbot</span>
+            </a>
+            {% if not current_user or current_user.is_admin %}
+            <a href="/bot-audios" class="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors {% if request.path == '/bot-audios' %}text-primary{% endif %}">
+                <span class="material-symbols-outlined text-xl">audio_file</span>
+                <span class="text-sm font-medium">Audios del Bot</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
     {% endif %}
 
     <!-- Admin -->

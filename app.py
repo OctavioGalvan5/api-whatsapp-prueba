@@ -5905,6 +5905,13 @@ def catalog_page():
     return render_template('catalog.html')
 
 
+@app.route("/bot-audios")
+def bot_audios_page():
+    if not g.current_user or not g.current_user.is_admin:
+        return redirect(url_for('login'))
+    return render_template('bot_audios.html')
+
+
 @app.route("/api/catalog/upload-image", methods=["POST"])
 def api_catalog_upload_image():
     """Sube una imagen de producto a MinIO y devuelve la URL pública absoluta."""
@@ -5991,6 +5998,118 @@ def api_bot_catalog():
         }
         for p in products
     ])
+
+
+@app.route("/api/bot/audios", methods=["GET"])
+def api_bot_audios_list():
+    """Endpoint para el bot de n8n — devuelve lista de audios disponibles."""
+    from models import BotAudio
+    audios = BotAudio.query.order_by(BotAudio.created_at).all()
+    return jsonify([a.to_dict() for a in audios])
+
+
+@app.route("/api/bot/send-audio", methods=["POST"])
+def api_bot_send_audio():
+    """Endpoint para el bot de n8n — envía un audio pregrabado a un usuario."""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data"}), 400
+    audio_id = data.get("audio_id")
+    phone_number = str(data.get("phone_number", "")).replace("+", "").strip()
+    if not audio_id or not phone_number:
+        return jsonify({"error": "audio_id y phone_number son requeridos"}), 400
+
+    from models import BotAudio
+    audio = BotAudio.query.get(audio_id)
+    if not audio:
+        return jsonify({"error": "Audio no encontrado"}), 404
+
+    # Descargar el archivo desde MinIO
+    try:
+        import requests as _requests
+        resp = _requests.get(audio.file_url, timeout=30)
+        resp.raise_for_status()
+        file_bytes = resp.content
+    except Exception as e:
+        logger.error(f"Error descargando audio {audio_id} desde MinIO: {e}")
+        return jsonify({"error": "No se pudo descargar el audio"}), 500
+
+    # Subir a WhatsApp y enviar
+    filename = f"{audio.nombre.replace(' ', '_')}.mp3"
+    upload_result = whatsapp_api.upload_media(file_bytes, audio.mime_type, filename)
+    if not upload_result.get("success"):
+        return jsonify({"error": "Error subiendo audio a WhatsApp: " + upload_result.get("error", "")}), 500
+
+    send_result = whatsapp_api.send_media_message(phone_number, "audio", upload_result["media_id"])
+    if not send_result.get("success"):
+        return jsonify({"error": "Error enviando audio: " + send_result.get("error", "")}), 500
+
+    logger.info(f"🎵 Audio '{audio.nombre}' enviado a {phone_number} por el bot")
+    return jsonify({"success": True, "audio": audio.nombre})
+
+
+@app.route("/api/bot/audios", methods=["POST"])
+def api_bot_audios_upload():
+    """Sube un nuevo audio a la biblioteca del bot."""
+    nombre = request.form.get("nombre", "").strip()
+    descripcion = request.form.get("descripcion", "").strip()
+    file = request.files.get("file")
+
+    if not nombre or not descripcion or not file:
+        return jsonify({"error": "nombre, descripcion y file son requeridos"}), 400
+
+    file_bytes = file.read()
+    if len(file_bytes) == 0:
+        return jsonify({"error": "El archivo está vacío"}), 400
+
+    mime_type = file.content_type or "audio/mpeg"
+    original_filename = file.filename or f"{nombre}.mp3"
+
+    # Convertir a MP3 si es necesario
+    WHATSAPP_AUDIO_OK = {'audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg', 'audio/opus'}
+    base_mime = mime_type.split(';')[0].strip().lower()
+    if base_mime.startswith("audio/") and base_mime not in WHATSAPP_AUDIO_OK:
+        try:
+            import av, io
+            input_buf = io.BytesIO(file_bytes)
+            output_buf = io.BytesIO()
+            with av.open(input_buf) as in_container:
+                in_stream = in_container.streams.audio[0]
+                with av.open(output_buf, 'w', format='mp3') as out_container:
+                    out_stream = out_container.add_stream('libmp3lame', rate=44100)
+                    out_stream.layout = 'mono'
+                    for frame in in_container.decode(in_stream):
+                        frame.pts = None
+                        for packet in out_stream.encode(frame):
+                            out_container.mux(packet)
+                    for packet in out_stream.encode(None):
+                        out_container.mux(packet)
+            file_bytes = output_buf.getvalue()
+            mime_type = 'audio/mpeg'
+            original_filename = original_filename.rsplit('.', 1)[0] + '.mp3'
+        except Exception as e:
+            logger.warning(f"Error convirtiendo audio: {e}")
+
+    # Subir a MinIO
+    file_url = whatsapp_api.upload_to_minio(file_bytes, mime_type, f"bot_audios/{original_filename}")
+    if not file_url:
+        return jsonify({"error": "Error subiendo archivo a MinIO"}), 500
+
+    from models import BotAudio
+    audio = BotAudio(nombre=nombre, descripcion=descripcion, file_url=file_url, mime_type=mime_type)
+    db.session.add(audio)
+    db.session.commit()
+    return jsonify({"success": True, "audio": audio.to_dict()})
+
+
+@app.route("/api/bot/audios/<int:audio_id>", methods=["DELETE"])
+def api_bot_audios_delete(audio_id):
+    """Elimina un audio de la biblioteca."""
+    from models import BotAudio
+    audio = BotAudio.query.get_or_404(audio_id)
+    db.session.delete(audio)
+    db.session.commit()
+    return jsonify({"success": True})
 
 
 @app.route("/api/catalog/products", methods=["GET"])

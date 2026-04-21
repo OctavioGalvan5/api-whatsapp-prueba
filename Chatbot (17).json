@@ -1668,6 +1668,79 @@
     },
     {
       "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nombre, descripcion FROM bot_audios ORDER BY created_at",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3904,
+        1184
+      ],
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Get Bot Audios",
+      "credentials": {
+        "postgres": {
+          "id": "nwnTHWt70EHj2kzw",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "merge-prompt-audios",
+              "name": "value",
+              "value": "={{ $('Execute a SQL query').item.json.value + ($('Get Bot Audios').all().length > 0 ? '\\n\\n[AUDIOS DISPONIBLES PARA ENVIAR]\\nPodés enviar estos audios pregrabados usando el tool enviar_audio(audio_id). IMPORTANTE: Solo enviá un audio por conversación. No vuelvas a enviar un audio que ya enviaste anteriormente a este usuario (revisá el historial de la conversación).\\n' + $('Get Bot Audios').all().map(a => `- ID ${a.json.id}: \"${a.json.nombre}\" — ${a.json.descripcion}`).join('\\n') : '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3712,
+        1240
+      ],
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Merge Prompt With Audios"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Envía un audio pregrabado al usuario. Llamá este tool cuando la conversación lo justifique según las instrucciones del sistema. REGLAS: 1) Solo enviá UN audio por conversación. 2) NUNCA enviés un audio que ya aparezca en el historial de esta conversación como enviado. 3) El parámetro phone_number ya está configurado automáticamente.",
+        "method": "POST",
+        "url": "https://whatsapp-crm.countrylife.online/api/bot/send-audio",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "audio_id",
+              "value": "={{ $fromAI('audio_id', 'El ID numérico del audio a enviar según la lista de audios disponibles') }}"
+            },
+            {
+              "name": "phone_number",
+              "value": "={{ $('Webhook').item.json.body.user_number }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -3680,
+        1968
+      ],
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "enviar_audio"
+    },
+    {
+      "parameters": {
         "toolDescription": "\"Consulta el catálogo actualizado de productos de CountryLife con nombre, precio y disponibilidad de stock. Usá esta tool SIEMPRE que el cliente pregunte por precios, productos disponibles o stock. No uses precios de memoria, siempre consultá esta tool.\"",
         "url": "https://whatsapp-crm.countrylife.online/api/bot/catalog",
         "options": {}
@@ -2295,8 +2368,41 @@
       "main": [
         [
           {
+            "node": "Get Bot Audios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Bot Audios": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompt With Audios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Prompt With Audios": {
+      "main": [
+        [
+          {
             "node": "AI Agent",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "enviar_audio": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
             "index": 0
           }
         ]

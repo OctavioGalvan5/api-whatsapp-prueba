@@ -871,3 +871,29 @@ class ChatbotConfig(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
+
+# ==========================================
+# BOT AUDIOS
+# ==========================================
+
+class BotAudio(db.Model):
+    """Audios pregrabados que el bot puede enviar a los usuarios."""
+    __tablename__ = 'bot_audios'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    descripcion = db.Column(db.Text, nullable=False)
+    file_url = db.Column(db.String(500), nullable=False)
+    mime_type = db.Column(db.String(100), nullable=False, default='audio/mpeg')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'descripcion': self.descripcion,
+            'file_url': self.file_url,
+            'mime_type': self.mime_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+

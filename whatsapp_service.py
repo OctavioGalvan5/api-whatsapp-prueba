@@ -594,9 +594,8 @@ class WhatsAppAPI:
             # Fallback: guardar localmente
             base_dir = os.path.dirname(os.path.abspath(__file__))
             local_dir = os.path.join(base_dir, "static", "media")
-            if not os.path.exists(local_dir):
-                os.makedirs(local_dir)
             local_path = os.path.join(local_dir, filename)
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
             with open(local_path, 'wb') as f:
                 f.write(file_bytes)
             logger.warning(f"⚠️ Fallback a almacenamiento local: {local_path}")

@@ -477,6 +477,18 @@ CREATE INDEX IF NOT EXISTS idx_tag_history_contact ON contact_tag_history(contac
 CREATE INDEX IF NOT EXISTS idx_tag_history_created ON contact_tag_history(created_at);
 
 -- ==========================================
+-- BOT AUDIOS
+-- ==========================================
+CREATE TABLE IF NOT EXISTS bot_audios (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion TEXT NOT NULL,
+    file_url VARCHAR(500) NOT NULL,
+    mime_type VARCHAR(100) NOT NULL DEFAULT 'audio/mpeg',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ==========================================
 -- ADMIN INICIAL
 -- Contraseña por defecto: admin
 -- Cambiala desde el panel en /admin/users
