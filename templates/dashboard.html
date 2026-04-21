@@ -324,7 +324,7 @@
         {% set ns.last_date = msg_date %}
         {% endif %}
 
-        {% if not msg.content and not msg.media_url %}{% continue %}{% endif %}
+        {% if msg.content or msg.media_url %}
         {% if msg.direction == 'inbound' %}
         <div class="flex flex-col items-start max-w-[80%]">
             {% if msg.message_type == 'order' %}
@@ -502,6 +502,7 @@
             </div>
         </div>
         {% endif %}
+        {% endif %}{# end msg.content or msg.media_url #}
 
         {% else %}
         <div class="flex-1 flex flex-col items-center justify-center text-gray-400">
