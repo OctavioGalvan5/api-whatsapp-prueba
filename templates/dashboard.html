@@ -2097,12 +2097,14 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
 
     // Polling: actualiza chat cada 5s
     setInterval(() => {
-        if (currentPhone) {
-            fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
-                .then(r => r.json())
-                .then(data => { if (data.success) renderChat(data); })
-                .catch(() => { });
-        }
+        if (!currentPhone) return;
+        // No re-renderizar si hay un audio/video reproduciéndose
+        const playing = [...document.querySelectorAll('audio, video')].some(el => !el.paused);
+        if (playing) return;
+        fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
+            .then(r => r.json())
+            .then(data => { if (data.success) renderChat(data); })
+            .catch(() => { });
     }, 5000);
 
     // ========== BANNER ASISTENCIA HUMANA ==========

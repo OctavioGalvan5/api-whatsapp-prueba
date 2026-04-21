@@ -488,6 +488,7 @@ CREATE TABLE IF NOT EXISTS bot_audios (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+
 -- ==========================================
 -- ADMIN INICIAL
 -- Contraseña por defecto: admin
