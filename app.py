@@ -5988,7 +5988,7 @@ def api_catalog_sync():
 def api_bot_catalog():
     """Endpoint público para el bot de n8n — devuelve nombre, precio y stock."""
     from models import CatalogProduct
-    products = CatalogProduct.query.filter_by(availability='in stock').order_by(CatalogProduct.name).all()
+    products = CatalogProduct.query.order_by(CatalogProduct.name).all()
     return jsonify([
         {
             "nombre": p.name,
