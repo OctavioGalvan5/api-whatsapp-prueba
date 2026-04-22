@@ -992,6 +992,7 @@ async function loadEnrollments() {
     }
     const statusBadge = {
         pending: '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Pendiente</span>',
+        processing: '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Enviando...</span>',
         finished: '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Finalizado</span>',
         cancelled: '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Cancelado</span>'
     };
@@ -1011,7 +1012,7 @@ async function loadEnrollments() {
                 ${e.next_send_at ? new Date(e.next_send_at + 'Z').toLocaleString('es-AR') : '-'}
             </td>
             <td class="px-4 py-3">
-                ${e.status === 'pending' ? `
+                ${(e.status === 'pending' || e.status === 'processing') ? `
                     <button onclick="cancelEnrollment(${e.id})" title="Cancelar enrollment"
                         class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors group">
                         <span class="material-symbols-outlined text-red-400 group-hover:text-red-600 text-lg">cancel</span>
