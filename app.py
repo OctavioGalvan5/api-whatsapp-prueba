@@ -3998,8 +3998,8 @@ def api_all_enrollments():
 def api_cancel_enrollment(enrollment_id):
     """Cancelar un enrollment activo (pendiente)."""
     enrollment = FollowUpEnrollment.query.get_or_404(enrollment_id)
-    if enrollment.status != 'pending':
-        return jsonify({'error': 'Solo se pueden cancelar enrollments pendientes'}), 400
+    if enrollment.status not in ('pending', 'processing'):
+        return jsonify({'error': 'Solo se pueden cancelar enrollments pendientes o en proceso'}), 400
     enrollment.status = 'cancelled'
     enrollment.cancelled_at = datetime.utcnow()
     db.session.commit()

@@ -2095,6 +2095,56 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         initializeDashboard();
     }
 
+    // Polling: actualiza lista de contactos cada 15s
+    function refreshContactsList() {
+        fetch('/api/dashboard/contacts?limit=25')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) return;
+                const list = document.getElementById('contacts-list');
+                if (!list) return;
+                const contacts = data.contacts;
+                if (contacts.length === 0) return;
+
+                let html = '';
+                contacts.forEach(c => {
+                    const isHuman = c.has_human_assistance;
+                    const isActive = currentPhone === c.phone_number;
+                    const initial = c.name ? c.name[0] : c.phone_number.slice(-2);
+                    const timeStr = c.last_timestamp
+                        ? (() => { const d = new Date(c.last_timestamp + 'Z'); const now = new Date(); const diff = now - d; const argOffset = -3 * 60; const local = new Date(d.getTime() + (argOffset + d.getTimezoneOffset()) * 60000); return local.toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',',''); })()
+                        : '';
+                    const activeClass = isActive ? 'bg-primary/10 dark:bg-primary/20 border-primary active' : 'bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 ' + (isHuman ? '' : 'border-transparent');
+                    const humanBadge = isHuman ? `<span class="human-badge"><span class="material-symbols-outlined text-[10px]">support_agent</span>Humano</span>` : '';
+                    const avatarClass = isHuman ? 'human-avatar' : 'bg-gray-200 text-gray-500';
+                    html += `
+<div onclick="selectContact('${escapeHtml(c.phone_number)}')" data-phone="${escapeHtml(c.phone_number)}"
+    class="contact-item flex items-center gap-3 px-4 min-h-[72px] py-2 cursor-pointer transition-colors border-l-4 ${isHuman ? 'needs-human' : ''} ${activeClass}">
+    <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-12 shrink-0 flex items-center justify-center font-bold text-lg ${avatarClass}">
+        ${escapeHtml(initial)}
+    </div>
+    <div class="flex flex-col justify-center flex-1 min-w-0">
+        <div class="flex justify-between items-center gap-1">
+            <p class="text-[#111812] dark:text-white text-sm font-semibold truncate">${escapeHtml(c.name)}</p>
+            <p class="text-[10px] text-gray-400 shrink-0">${escapeHtml(timeStr)}</p>
+        </div>
+        <div class="flex justify-between items-center gap-1">
+            <p class="text-gray-400 dark:text-gray-500 text-xs truncate">${escapeHtml(c.last_message)}</p>
+            <div class="flex items-center gap-1 shrink-0">
+                ${humanBadge}
+                <span class="unread-badge hidden bg-primary text-black text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"></span>
+            </div>
+        </div>
+    </div>
+</div>`;
+                });
+                list.innerHTML = html;
+                loadUnreadBadges();
+            })
+            .catch(() => {});
+    }
+    setInterval(refreshContactsList, 15000);
+
     // Polling: actualiza chat cada 5s
     setInterval(() => {
         if (!currentPhone) return;
