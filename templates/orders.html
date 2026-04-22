@@ -250,9 +250,19 @@
                   class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
               </div>
             </div>
-            <!-- Campos ocultos -->
-            <input type="hidden" id="d-earliest-arrival">
-            <input type="hidden" id="d-latest-arrival">
+            <!-- Ventana horaria -->
+            <div class="grid grid-cols-2 gap-3 mt-1">
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Ventana horaria desde</label>
+                <input id="d-earliest-arrival" type="time"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Ventana horaria hasta</label>
+                <input id="d-latest-arrival" type="time"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+              </div>
+            </div>
           </div>
 
           <!-- Destinatario -->
