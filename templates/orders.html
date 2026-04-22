@@ -335,18 +335,19 @@
 
 <!-- ===== MODAL CREAR ORDEN ===== -->
 <div id="modal-create" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-  <div class="bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl w-full max-w-md p-6">
+  <div class="bg-white dark:bg-[#1a3a1d] rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-4">
       <h2 class="font-semibold text-lg">Nueva orden manual</h2>
       <button onclick="closeCreateModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
     </div>
     <div class="flex flex-col gap-3">
-      <div>
-        <label class="text-xs text-gray-500 mb-1 block">Teléfono del contacto *</label>
-        <input id="create-phone" type="text" placeholder="5491123456789"
-          class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
-      </div>
+      <!-- Contacto y estado -->
       <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2">
+          <label class="text-xs text-gray-500 mb-1 block">Teléfono del contacto *</label>
+          <input id="create-phone" type="text" placeholder="5491123456789"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">Estado inicial</label>
           <select id="create-status"
@@ -368,11 +369,75 @@
           </select>
         </div>
       </div>
+      <!-- Destinatario -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Nombre de quien recibe</label>
+          <input id="create-recipient-name" type="text" placeholder="Opcional..."
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Celular de quien recibe</label>
+          <input id="create-recipient-phone" type="tel" placeholder="Opcional..."
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      <!-- Dirección -->
       <div>
-        <label class="text-xs text-gray-500 mb-1 block">Dirección de envío</label>
-        <input id="create-address" type="text" placeholder="Opcional..."
+        <label class="text-xs text-gray-500 mb-1 block">Dirección</label>
+        <input id="create-address" type="text" placeholder="Calle, número, piso..."
           class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
       </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Provincia</label>
+          <input id="create-province" type="text" placeholder="Ej: Salta"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Código postal</label>
+          <input id="create-postal-code" type="text" placeholder="Ej: 4400"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Latitud</label>
+          <input id="create-latitude" type="number" step="any" placeholder="Ej: -24.7733"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Longitud</label>
+          <input id="create-longitude" type="number" step="any" placeholder="Ej: -65.4036"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      <!-- Entrega -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Fecha de entrega</label>
+          <input id="create-delivery-date" type="date"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Hora de entrega</label>
+          <input id="create-delivery-time" type="time"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Ventana horaria desde</label>
+          <input id="create-earliest-arrival" type="time"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Ventana horaria hasta</label>
+          <input id="create-latest-arrival" type="time"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      <!-- Notas -->
       <div>
         <label class="text-xs text-gray-500 mb-1 block">Notas</label>
         <textarea id="create-notes" rows="2" placeholder="Opcional..."
@@ -722,6 +787,17 @@
       status: document.getElementById('create-status').value,
       payment_method: document.getElementById('create-method').value,
       shipping_address: document.getElementById('create-address').value,
+      address: document.getElementById('create-address').value,
+      province: document.getElementById('create-province').value || null,
+      postal_code: document.getElementById('create-postal-code').value || null,
+      latitude: document.getElementById('create-latitude').value || null,
+      longitude: document.getElementById('create-longitude').value || null,
+      recipient_name: document.getElementById('create-recipient-name').value || null,
+      recipient_phone: document.getElementById('create-recipient-phone').value || null,
+      delivery_date: document.getElementById('create-delivery-date').value || null,
+      delivery_time: document.getElementById('create-delivery-time').value || null,
+      earliest_arrival_time: document.getElementById('create-earliest-arrival').value || null,
+      latest_arrival_time: document.getElementById('create-latest-arrival').value || null,
       notes: document.getElementById('create-notes').value,
     };
     const res = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

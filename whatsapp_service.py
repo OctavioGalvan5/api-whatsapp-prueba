@@ -382,18 +382,21 @@ class WhatsAppAPI:
                 "to": to_phone
             }
             
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.HTTPError as e:
             logger.error(f"Error enviando template '{template_name}' a {to_phone}: {e}")
             error_detail = ""
-            if hasattr(e, 'response') and e.response:
-                try:
-                    error_detail = e.response.json()
-                    logger.error(f"📛 Detalle del error de Meta: {json.dumps(error_detail)}")
-                except:
-                    error_detail = e.response.text
-                    logger.error(f"📛 Respuesta de Meta: {error_detail}")
+            try:
+                error_detail = e.response.json()
+                logger.error(f"📛 Detalle del error de Meta: {json.dumps(error_detail)}")
+            except Exception:
+                error_detail = e.response.text if e.response else str(e)
+                logger.error(f"📛 Respuesta de Meta: {error_detail}")
             logger.error(f"📦 Payload enviado: {json.dumps(payload)}")
             return {"error": str(e), "detail": error_detail}
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error enviando template '{template_name}' a {to_phone}: {e}")
+            logger.error(f"📦 Payload enviado: {json.dumps(payload)}")
+            return {"error": str(e)}
     
     def create_template(self, name, category, language, components):
         """

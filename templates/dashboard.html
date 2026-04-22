@@ -542,8 +542,13 @@
                         class="flex cursor-pointer h-full items-center justify-center rounded-md px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-gray-700 has-[:checked]:shadow-sm text-xs font-semibold text-gray-500 dark:text-gray-400 has-[:checked]:text-primary transition-all">
                         <span>Template</span>
                         <input class="invisible w-0" name="composer-mode" type="radio" value="template"
-                            id="template-mode-btn" onclick="switchMode('template')" {% if not can_send_free_text
-                            %}checked{% endif %} />
+                            id="template-mode-btn" onclick="switchMode('template')" />
+                    </label>
+                    <label
+                        class="flex cursor-pointer h-full items-center justify-center rounded-md px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-gray-700 has-[:checked]:shadow-sm text-xs font-semibold text-gray-500 dark:text-gray-400 has-[:checked]:text-primary transition-all">
+                        <span>Mensaje libre</span>
+                        <input class="invisible w-0" name="composer-mode" type="radio" value="free-message"
+                            id="free-message-mode-btn" onclick="switchMode('free-message')" {% if not can_send_free_text %}checked{% endif %} />
                     </label>
                 </div>
             </div>
@@ -612,7 +617,7 @@
             </div>
 
             <!-- Template Mode Input -->
-            <div id="template-mode" class="{% if can_send_free_text %}hidden{% endif %}">
+            <div id="template-mode" class="hidden">
                 <form class="flex flex-col gap-3" onsubmit="sendTemplateMessage(event)">
                     <div class="flex items-center gap-3">
                         <select id="template-select"
@@ -627,6 +632,31 @@
                     <div id="template-variables-container" class="grid grid-cols-2 gap-2">
                         <!-- Variables will be injected here -->
                     </div>
+                </form>
+            </div>
+
+            <!-- Free Message Mode -->
+            <div id="free-message-mode" class="{% if can_send_free_text %}hidden{% endif %}">
+                <form class="flex flex-col gap-3" onsubmit="sendFreeMessage(event)">
+                    <div class="flex items-center gap-2">
+                        <select id="free-template-select"
+                            class="flex-1 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm py-2.5 px-4 focus:border-primary focus:ring-0"
+                            onchange="saveFreeTemplate(this.value)">
+                            <option value="">-- Seleccionar template predeterminada --</option>
+                        </select>
+                    </div>
+                    <div class="relative">
+                        <textarea id="free-message-input" rows="3"
+                            class="w-full bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 p-3 text-sm focus:outline-none focus:border-primary resize-none pr-16"
+                            placeholder="Escribí el mensaje..." maxlength="1024"
+                            oninput="updateFreeCharCount()"></textarea>
+                        <span id="free-char-count" class="absolute bottom-2 right-3 text-[10px] text-gray-400">0/1024</span>
+                    </div>
+                    <button type="submit"
+                        class="bg-primary text-white rounded-xl py-2.5 flex items-center justify-center gap-2 hover:bg-primary/90 text-sm font-medium transition-all">
+                        <span class="material-symbols-outlined fill-1 text-[18px]">send</span>
+                        Enviar mensaje
+                    </button>
                 </form>
             </div>
 
@@ -723,6 +753,7 @@
     // Cargar templates en background
     (async function loadTemplatesAsync() {
         try {
+            await loadFreeTemplateConfig();
             const resp = await fetch('/api/whatsapp/templates');
             const data = await resp.json();
             allTemplates = data.templates || [];
@@ -738,6 +769,8 @@
                     select.appendChild(opt);
                 });
             }
+            // Poblar select de mensaje libre
+            populateFreeTemplateSelect();
         } catch (e) {
             console.warn('Error cargando templates:', e);
         }
@@ -1633,34 +1666,125 @@
         // Hide all statuses first
         statusDivs.forEach(d => d.classList.add('hidden'));
 
+        // Detectar modo actual seleccionado por el usuario
+        const currentMode = [...document.getElementsByName('composer-mode')].find(r => r.checked)?.value;
+
         if (canSendText) {
-            // Show 'can-text' status
             const okDiv = document.querySelector('.composer-status.can-text');
             if (okDiv) okDiv.classList.remove('hidden');
-
             if (textBtn) textBtn.disabled = false;
-            switchMode('text');
+            // Solo cambiar a texto si el usuario no eligió un modo manualmente
+            if (!currentMode || currentMode === 'template' || currentMode === 'free-message') {
+                switchMode('text');
+            }
         } else {
-            // Show 'template-only' status
             const warnDiv = document.querySelector('.composer-status.template-only');
             if (warnDiv) warnDiv.classList.remove('hidden');
-
             if (textBtn) textBtn.disabled = true;
-            switchMode('template');
+            // Solo cambiar si el usuario no está ya en template o free-message
+            if (!currentMode || currentMode === 'text') {
+                switchMode('free-message');
+            }
         }
     }
 
     function switchMode(mode) {
         document.getElementById('text-mode').classList.toggle('hidden', mode !== 'text');
         document.getElementById('template-mode').classList.toggle('hidden', mode !== 'template');
-
-        // Visual toggle of radio buttons is handled by browser native radio behavior usually,
-        // but we might need to force check if they are custom styled.
-        // In this design, they are radio inputs.
+        document.getElementById('free-message-mode').classList.toggle('hidden', mode !== 'free-message');
         const radios = document.getElementsByName('composer-mode');
-        radios.forEach(r => {
-            if (r.value === mode) r.checked = true;
+        radios.forEach(r => { if (r.value === mode) r.checked = true; });
+    }
+
+    // ── Modo Mensaje Libre ──────────────────────────────────────────
+    let defaultFreeTemplate = '';
+
+    async function loadFreeTemplateConfig() {
+        try {
+            const res = await fetch('/api/config/default-free-template');
+            const data = await res.json();
+            defaultFreeTemplate = data.template || '';
+        } catch(e) {}
+    }
+
+    function populateFreeTemplateSelect() {
+        const select = document.getElementById('free-template-select');
+        if (!select) return;
+        select.innerHTML = '<option value="">-- Seleccionar template predeterminada --</option>';
+        allTemplates.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.name;
+            opt.textContent = t.name;
+            opt.dataset.lang = t.language || 'es';
+            if (t.name === defaultFreeTemplate) opt.selected = true;
+            select.appendChild(opt);
         });
+    }
+
+    async function saveFreeTemplate(name) {
+        defaultFreeTemplate = name;
+        await fetch('/api/config/default-free-template', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ template: name })
+        });
+    }
+
+    function updateFreeCharCount() {
+        const input = document.getElementById('free-message-input');
+        const count = document.getElementById('free-char-count');
+        if (input && count) count.textContent = `${input.value.length}/1024`;
+    }
+
+    async function sendFreeMessage(e) {
+        e.preventDefault();
+        const select = document.getElementById('free-template-select');
+        const templateName = select.value;
+        const text = document.getElementById('free-message-input').value.trim();
+        if (!templateName) { alert('Seleccioná una template primero.'); return; }
+        if (!text) { alert('Escribí el mensaje.'); return; }
+        if (!currentPhone) { alert('Seleccioná un contacto primero.'); return; }
+
+        const lang = select.options[select.selectedIndex]?.dataset.lang || 'es';
+        const template = allTemplates.find(t => t.name === templateName);
+        if (!template) { alert('Template no encontrada.'); return; }
+
+        // Detectar variable del body ({{1}} o {{mensaje}})
+        const bodyComp = template.components?.find(c => c.type === 'BODY');
+        const components = [];
+        if (bodyComp && /\{\{/.test(bodyComp.text || '')) {
+            const varMatch = (bodyComp.text || '').match(/\{\{([^}]+)\}\}/);
+            const varName = varMatch ? varMatch[1] : null;
+            const param = { type: 'text', text };
+            if (varName && isNaN(varName)) param.parameter_name = varName;
+            components.push({ type: 'body', parameters: [param] });
+        }
+
+        const resDiv = document.getElementById('send-result');
+        resDiv.textContent = 'Enviando...';
+        resDiv.className = 'text-xs font-medium pt-1 text-gray-400';
+
+        try {
+            const res = await fetch('/api/whatsapp/send-template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: currentPhone, template_name: templateName, language: lang, components })
+            });
+            const data = await res.json();
+            if (data.success) {
+                resDiv.textContent = '✓ Mensaje enviado';
+                resDiv.className = 'text-xs font-medium pt-1 text-green-500';
+                document.getElementById('free-message-input').value = '';
+                updateFreeCharCount();
+                setTimeout(() => { resDiv.textContent = ''; }, 3000);
+            } else {
+                resDiv.textContent = '✗ Error: ' + (data.error || 'desconocido');
+                resDiv.className = 'text-xs font-medium pt-1 text-red-500';
+            }
+        } catch(err) {
+            resDiv.textContent = '✗ Error de conexión';
+            resDiv.className = 'text-xs font-medium pt-1 text-red-500';
+        }
     }
 
     async function sendTextMessage(e) {
@@ -2639,11 +2763,21 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         </div>
       </div>
 
-      <!-- Campos ocultos para compatibilidad -->
+      <!-- Latitud / Longitud -->
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Latitud</label>
+          <input id="om-latitude" type="number" step="any" placeholder="Ej: -24.7733"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Longitud</label>
+          <input id="om-longitude" type="number" step="any" placeholder="Ej: -65.4036"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
       <input type="hidden" id="om-geocode-input">
       <div id="om-geocode-status" class="hidden"></div>
-      <input type="hidden" id="om-latitude">
-      <input type="hidden" id="om-longitude">
       <div id="om-map-link-container" class="hidden"><a id="om-map-link" href="#"></a></div>
 
       <div>

@@ -3482,37 +3482,53 @@ def api_send_template():
                 "parameters": parameters
             }]
     
-    # Obtener el contenido del template para guardarlo en el historial
-    # Esto es una aproximación, ya que no tenemos el texto final renderizado por WhatsApp
+    import re as _re
     template_content = f"[Template: {template_name}]"
     templates_result = whatsapp_api.get_templates()
+
+    # Paso 1: agregar parameter_name a los componentes si la template usa variables con nombre
+    if components:
+        for t in templates_result.get("templates", []):
+            if t.get("name") == template_name:
+                for comp in t.get("components", []):
+                    if comp.get("type") == "BODY":
+                        named_vars = _re.findall(r'\{\{([^}]+)\}\}', comp.get("text", ""))
+                        named_vars = [v for v in named_vars if not v.isdigit()]
+                        if named_vars:
+                            for c in components:
+                                if c.get("type") == "body":
+                                    for i, param in enumerate(c.get("parameters", [])):
+                                        if i < len(named_vars):
+                                            param["parameter_name"] = named_vars[i]
+                        break
+                break
+
+    # Paso 2: construir el texto del template para el historial local
     for t in templates_result.get("templates", []):
         if t.get("name") == template_name and t.get("language") == language:
             for comp in t.get("components", []):
                 if comp.get("type") == "BODY":
                     text = comp.get("text", "")
-                    # Intentar rellenar variables para el historial local
                     if variable_mapping and contact:
-                        # Caso 1: variable_mapping con campos del contacto
                         for i, field in enumerate(variable_mapping):
                             val = getattr(contact, field, "") or "-"
                             text = text.replace(f"{{{{{i+1}}}}}", str(val))
                     elif components:
-                        # Caso 2: components enviados directamente desde el dashboard
-                        # Extraer los valores de los body parameters
                         for c in components:
                             if c.get("type") == "body":
                                 for i, param in enumerate(c.get("parameters", [])):
                                     val = param.get("text", "-")
                                     text = text.replace(f"{{{{{i+1}}}}}", str(val))
+                                    pname = param.get("parameter_name")
+                                    if pname:
+                                        text = text.replace(f"{{{{{pname}}}}}", str(val))
                     template_content = text
                     break
             break
-            
-    # Fallback si por alguna razón el contenido está vacío
+
     if not template_content:
         template_content = f"[Template: {template_name}]"
-    
+
     result = whatsapp_api.send_template_message(to_phone, template_name, language, components)
     
     if result.get("success"):
@@ -5632,6 +5648,17 @@ def api_update_chatbot_config():
     return jsonify({'success': True})
 
 
+@app.route("/api/config/default-free-template", methods=["GET"])
+def api_get_default_free_template():
+    return jsonify({'template': ChatbotConfig.get('default_free_template', '')})
+
+@app.route("/api/config/default-free-template", methods=["POST"])
+def api_set_default_free_template():
+    data = request.get_json()
+    ChatbotConfig.set('default_free_template', data.get('template', ''))
+    return jsonify({'success': True})
+
+
 @app.route("/api/chatbot/system-prompt", methods=["GET"])
 def api_get_system_prompt():
     """Obtiene el system prompt del chatbot."""
@@ -6452,9 +6479,12 @@ def api_orders_export():
     ws.title = "Órdenes"
 
     columns = [
-        "Dirección línea 1",
+        "orden",
+        "nombre de quien recibe",
+        "pedido",
+        "latitud",
+        "longitud",
         "Dirección línea 2",
-        "Barrio/Ciudad",
         "Estado/Provincia",
         "Código postal",
         "País/Región",
@@ -6476,10 +6506,16 @@ def api_orders_export():
 
     # Datos
     for row_idx, o in enumerate(orders, 2):
+        pedido = ", ".join(
+            f"{item.product_name} x{item.quantity}" for item in o.items
+        ) if o.items else ""
         row_data = [
-            o.plus_code or "",                                          # Dirección línea 1
+            o.order_number,                                             # orden
+            o.recipient_name or "",                                     # nombre de quien recibe
+            pedido,                                                     # pedido
+            float(o.latitude) if o.latitude else "",                   # latitud
+            float(o.longitude) if o.longitude else "",                 # longitud
             o.address or "",                                            # Dirección línea 2
-            o.city or "",                                               # Barrio/Ciudad
             o.province or "",                                           # Estado/Provincia
             o.postal_code or "",                                        # Código postal
             "Argentina",                                                # País/Región
@@ -6493,7 +6529,7 @@ def api_orders_export():
             ws.cell(row=row_idx, column=col_idx, value=value)
 
     # Ajustar anchos
-    col_widths = [20, 35, 20, 20, 15, 15, 18, 14, 22, 22, 40]
+    col_widths = [10, 25, 35, 14, 14, 35, 20, 15, 15, 18, 14, 22, 22, 40]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
 
