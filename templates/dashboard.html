@@ -2101,6 +2101,9 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         // No re-renderizar si hay un audio/video reproduciéndose
         const playing = [...document.querySelectorAll('audio, video')].some(el => !el.paused);
         if (playing) return;
+        // No re-renderizar si el usuario tiene texto seleccionado
+        const selection = window.getSelection();
+        if (selection && selection.toString().length > 0) return;
         fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
             .then(r => r.json())
             .then(data => { if (data.success) renderChat(data); })
@@ -2572,14 +2575,26 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         </div>
       </div>
 
+      <!-- Ventana horaria -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Ventana horaria desde</label>
+          <input id="om-earliest-arrival" type="time"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">Ventana horaria hasta</label>
+          <input id="om-latest-arrival" type="time"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+
       <!-- Campos ocultos para compatibilidad -->
       <input type="hidden" id="om-geocode-input">
       <div id="om-geocode-status" class="hidden"></div>
       <input type="hidden" id="om-latitude">
       <input type="hidden" id="om-longitude">
       <div id="om-map-link-container" class="hidden"><a id="om-map-link" href="#"></a></div>
-      <input type="hidden" id="om-earliest-arrival">
-      <input type="hidden" id="om-latest-arrival">
 
       <div>
         <label class="text-xs text-gray-500 mb-1 block">Notas</label>

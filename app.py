@@ -6452,12 +6452,17 @@ def api_orders_export():
     ws.title = "Órdenes"
 
     columns = [
-        "Address Line 1",
-        "Address Line 2",
-        "City",
-        "State",
-        "Postal Code",
-        "Extra info (Optional)",
+        "Dirección línea 1",
+        "Dirección línea 2",
+        "Barrio/Ciudad",
+        "Estado/Provincia",
+        "Código postal",
+        "País/Región",
+        "Teléfono",
+        "Fecha",
+        "Ventana horaria desde",
+        "Ventana horaria hasta",
+        "Notas",
     ]
 
     # Header con estilo
@@ -6471,28 +6476,24 @@ def api_orders_export():
 
     # Datos
     for row_idx, o in enumerate(orders, 2):
-        extra_parts = []
-        if o.recipient_name:
-            extra_parts.append(f"Persona que recibe: {o.recipient_name}")
-        if o.recipient_phone:
-            extra_parts.append(f"Celular: {o.recipient_phone}")
-        if o.notes:
-            extra_parts.append(o.notes)
-        extra_info = " | ".join(extra_parts)
-
         row_data = [
-            o.plus_code or "",      # Address Line 1
-            o.address or "",        # Address Line 2
-            o.city or "",           # City
-            o.province or "",       # State
-            o.postal_code or "",    # Postal Code
-            extra_info,             # Extra info
+            o.plus_code or "",                                          # Dirección línea 1
+            o.address or "",                                            # Dirección línea 2
+            o.city or "",                                               # Barrio/Ciudad
+            o.province or "",                                           # Estado/Provincia
+            o.postal_code or "",                                        # Código postal
+            "Argentina",                                                # País/Región
+            o.phone_number or "",                                       # Teléfono
+            o.delivery_date.strftime("%d/%m/%Y") if o.delivery_date else "",  # Fecha
+            o.earliest_arrival_time or "",                              # Ventana horaria desde
+            o.latest_arrival_time or "",                                # Ventana horaria hasta
+            o.notes or "",                                              # Notas
         ]
         for col_idx, value in enumerate(row_data, 1):
             ws.cell(row=row_idx, column=col_idx, value=value)
 
     # Ajustar anchos
-    col_widths = [20, 35, 20, 20, 15, 50]
+    col_widths = [20, 35, 20, 20, 15, 15, 18, 14, 22, 22, 40]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = width
 
