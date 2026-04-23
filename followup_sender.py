@@ -276,6 +276,7 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
         sequence.send_weekdays
     )
     if next_open is not None:
+        enrollment.status = 'pending'
         enrollment.next_send_at = next_open
         db.session.commit()
         logger.info(f"🕐 [FOLLOWUP] Fuera de ventana — reprogramado para {next_open} UTC")
@@ -392,6 +393,7 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
 
     if next_step:
         enrollment.current_step += 1
+        enrollment.status = 'pending'
         if (next_step.schedule_type or 'delay') == 'fixed_time' and next_step.scheduled_weekday is not None and next_step.scheduled_time:
             enrollment.next_send_at = _next_fixed_time(now, next_step.scheduled_weekday, next_step.scheduled_time)
         else:
