@@ -2671,22 +2671,27 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
         </div>
       </div>
 
+      <!-- Lista de items del pedido -->
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Productos del pedido</label>
+        <div id="om-items-list" class="flex flex-col gap-1 max-h-36 overflow-y-auto rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2 min-h-[2.5rem]">
+          <p class="text-xs text-gray-400 text-center py-1">Sin productos</p>
+        </div>
+      </div>
+      <div class="flex justify-between text-sm font-medium border-t border-gray-100 dark:border-gray-800 pt-2">
+        <span>Total</span>
+        <span id="om-total-label">—</span>
+      </div>
+
       <!-- Lista de productos del catálogo -->
       <div>
-        <label class="text-xs text-gray-500 mb-1 block">Productos del catálogo</label>
+        <label class="text-xs text-gray-500 mb-1 block">Agregar del catálogo</label>
         <input id="om-product-search" type="text" placeholder="Filtrar productos..."
           oninput="omFilterProducts(this.value)"
           class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary mb-2">
         <div id="om-product-list" class="flex flex-col gap-1 max-h-44 overflow-y-auto rounded-xl border border-gray-100 dark:border-gray-700 p-1">
           <p class="text-xs text-gray-400 text-center py-3">Cargando catálogo...</p>
         </div>
-      </div>
-
-      <!-- Lista de items -->
-      <div id="om-items-list" class="flex flex-col gap-1 max-h-32 overflow-y-auto"></div>
-      <div class="flex justify-between text-sm font-medium border-t border-gray-100 dark:border-gray-800 pt-2">
-        <span>Total</span>
-        <span id="om-total-label">—</span>
       </div>
 
       <!-- Dirección estructurada -->
@@ -2799,7 +2804,7 @@ let omEditId = null; // null = crear, número = editar/confirmar
 
 function omResetFields() {
   omItems = [];
-  document.getElementById('om-items-list').innerHTML = '';
+  document.getElementById('om-items-list').innerHTML = '<p class="text-xs text-gray-400 text-center py-1">Sin productos</p>';
   document.getElementById('om-total-label').textContent = '—';
   document.getElementById('om-product-search').value = '';
   document.getElementById('om-plus-code').value = '';
@@ -2881,7 +2886,7 @@ async function openOrderForConfirm(orderId) {
   document.getElementById('om-latitude').value = o.latitude || '';
   document.getElementById('om-longitude').value = o.longitude || '';
   // Cargar items existentes
-  omItems = (o.items || []).map(i => ({ product_id: i.product_id, product_name: i.product_name, unit_price: i.unit_price, quantity: i.quantity }));
+  omItems = (o.items || []).map(i => ({ retailer_id: i.retailer_id, product_id: i.product_id, product_name: i.product_name, unit_price: i.unit_price, quantity: i.quantity }));
   omRenderItems();
   // Cargar catálogo
   const pRes = await fetch('/api/catalog/products');
@@ -2998,6 +3003,11 @@ function omSelectProduct(p) {
 
 function omRenderItems() {
   const el = document.getElementById('om-items-list');
+  if (!omItems.length) {
+    el.innerHTML = '<p class="text-xs text-gray-400 text-center py-1">Sin productos</p>';
+    document.getElementById('om-total-label').textContent = '—';
+    return;
+  }
   let total = 0;
   el.innerHTML = omItems.map((it, idx) => {
     total += (it.unit_price || 0) * (it.quantity || 1);
