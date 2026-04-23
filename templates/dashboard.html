@@ -2776,8 +2776,6 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
             class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
         </div>
       </div>
-      <input type="hidden" id="om-geocode-input">
-      <div id="om-geocode-status" class="hidden"></div>
       <div id="om-map-link-container" class="hidden"><a id="om-map-link" href="#"></a></div>
 
       <div>
@@ -2935,40 +2933,6 @@ function closeOrderModal() { document.getElementById('modal-order-chat').classLi
   });
 })();
 
-async function omResolveGeocode() {
-  const input = document.getElementById('om-geocode-input').value.trim();
-  const status = document.getElementById('om-geocode-status');
-  if (!input) return;
-  status.textContent = 'Buscando...';
-  status.className = 'text-[11px] mt-1 text-gray-400';
-  status.classList.remove('hidden');
-  try {
-    const result = await resolveLocationInput(input);
-    if (result) {
-      document.getElementById('om-latitude').value = result.lat;
-      document.getElementById('om-longitude').value = result.lng;
-      omUpdateMapLink();
-      status.textContent = '✓ ' + result.label;
-      status.className = 'text-[11px] mt-1 text-green-600 dark:text-green-400';
-    } else {
-      status.textContent = '✗ No se encontraron coordenadas';
-      status.className = 'text-[11px] mt-1 text-red-500';
-    }
-  } catch(e) {
-    console.error('[geocode] excepción:', e);
-    status.textContent = '✗ Error: ' + e.message;
-    status.className = 'text-[11px] mt-1 text-red-500';
-  }
-}
-document.getElementById('om-geocode-input')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); omResolveGeocode(); }
-});
-document.getElementById('om-geocode-input')?.addEventListener('paste', e => {
-  setTimeout(() => {
-    const val = document.getElementById('om-geocode-input').value.trim();
-    if (val.startsWith('http')) omResolveGeocode();
-  }, 50);
-});
 
 function omUpdateMapLink() {
   const lat = document.getElementById('om-latitude').value;
@@ -2993,13 +2957,6 @@ function copyCoords(lat, lng, btn) {
   });
 }
 
-// Resuelve un plus code o dirección a {lat, lng, label} via endpoint del servidor
-async function resolveLocationInput(input) {
-  const res = await fetch(`/api/geocode?q=${encodeURIComponent(input)}`);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error desconocido');
-  return { lat: data.lat, lng: data.lng, label: data.label };
-}
 
 function omRenderProductList(products) {
   const el = document.getElementById('om-product-list');

@@ -227,12 +227,21 @@
                   class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
               </div>
             </div>
-            <!-- Campos ocultos para compatibilidad -->
-            <input type="hidden" id="d-geocode-input">
-            <div id="d-geocode-status" class="hidden"></div>
-            <input type="hidden" id="d-latitude">
-            <input type="hidden" id="d-longitude">
-            <div id="d-map-link-container" class="hidden"><a id="d-map-link" href="#"></a></div>
+            <div class="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Latitud</label>
+                <input id="d-latitude" type="number" step="any" placeholder="Ej: -24.7733"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 mb-1 block">Longitud</label>
+                <input id="d-longitude" type="number" step="any" placeholder="Ej: -65.4036"
+                  class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+              </div>
+            </div>
+            <div id="d-map-link-container" class="hidden mt-1">
+              <a id="d-map-link" href="#" target="_blank" class="text-xs text-primary hover:underline">Ver en Google Maps →</a>
+            </div>
           </div>
 
           <!-- Entrega -->
@@ -658,8 +667,6 @@
     document.getElementById('d-recipient-phone').value = o.recipient_phone || '';
     document.getElementById('d-latitude').value = o.latitude ?? '';
     document.getElementById('d-longitude').value = o.longitude ?? '';
-    document.getElementById('d-geocode-input').value = '';
-    document.getElementById('d-geocode-status').classList.add('hidden');
     updateMapLink();
 
     // Items
@@ -909,48 +916,6 @@
   document.getElementById('d-latitude')?.addEventListener('input', updateMapLink);
   document.getElementById('d-longitude')?.addEventListener('input', updateMapLink);
 
-  async function resolveLocationInput(input) {
-    const res = await fetch(`/api/geocode?q=${encodeURIComponent(input)}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error desconocido');
-    return { lat: data.lat, lng: data.lng, label: data.label };
-  }
-
-  async function resolveGeocode() {
-    const input = document.getElementById('d-geocode-input').value.trim();
-    const status = document.getElementById('d-geocode-status');
-    if (!input) return;
-    status.textContent = 'Buscando...';
-    status.className = 'text-[11px] mt-1 text-gray-400';
-    status.classList.remove('hidden');
-    try {
-      const result = await resolveLocationInput(input);
-      if (result) {
-        document.getElementById('d-latitude').value = result.lat;
-        document.getElementById('d-longitude').value = result.lng;
-        status.textContent = '✓ ' + result.label;
-        status.className = 'text-[11px] mt-1 text-green-600 dark:text-green-400';
-        updateMapLink();
-      } else {
-        status.textContent = '✗ No se encontraron coordenadas para esa ubicación';
-        status.className = 'text-[11px] mt-1 text-red-500';
-      }
-    } catch(e) {
-      status.textContent = '✗ Error al resolver la ubicación';
-      status.className = 'text-[11px] mt-1 text-red-500';
-    }
-  }
-
-  // Permitir Enter en el campo de geocode
-  document.getElementById('d-geocode-input')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); resolveGeocode(); }
-  });
-  document.getElementById('d-geocode-input')?.addEventListener('paste', e => {
-    setTimeout(() => {
-      const val = document.getElementById('d-geocode-input').value.trim();
-      if (val.startsWith('http')) resolveGeocode();
-    }, 50);
-  });
 
   // Init — abrir orden específica si viene ?id= en la URL
   const _initOrderId = new URLSearchParams(window.location.search).get('id');
