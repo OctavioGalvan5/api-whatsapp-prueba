@@ -6149,6 +6149,22 @@ def api_bot_audios_upload():
     return jsonify({"success": True, "audio": audio.to_dict()})
 
 
+@app.route("/api/bot/audios/<int:audio_id>", methods=["PUT"])
+def api_bot_audios_update(audio_id):
+    """Edita el nombre y descripción de un audio."""
+    from models import BotAudio
+    audio = BotAudio.query.get_or_404(audio_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "error": "No data"}), 400
+    if "nombre" in data and data["nombre"].strip():
+        audio.nombre = data["nombre"].strip()
+    if "descripcion" in data and data["descripcion"].strip():
+        audio.descripcion = data["descripcion"].strip()
+    db.session.commit()
+    return jsonify({"success": True, "audio": audio.to_dict()})
+
+
 @app.route("/api/bot/audios/<int:audio_id>", methods=["DELETE"])
 def api_bot_audios_delete(audio_id):
     """Elimina un audio de la biblioteca."""
