@@ -2506,7 +2506,7 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                 const isDone = o.status === 'terminado' || o.status === 'cancelado';
                 return `
                 <div class="relative block p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-primary dark:hover:border-primary hover:bg-primary/5 transition-colors">
-                    <a href="/orders?id=${o.id}" class="block">
+                    <div onclick="openOrderForConfirm(${o.id})" class="block cursor-pointer">
                         <div class="flex items-center justify-between mb-1">
                             <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">#${o.id}</span>
                             <span class="text-xs px-2 py-0.5 rounded-full font-medium ${sc}">${sl}</span>
@@ -2516,7 +2516,7 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                             <span class="text-xs font-medium text-gray-700 dark:text-gray-300">${total}</span>
                             <span class="text-xs text-gray-400">${date}</span>
                         </div>
-                    </a>
+                    </div>
                     ${!isDone ? `
                     <div id="finish-wrap-${o.id}" class="mt-2">
                         <button onclick="toggleFinishOptions(event, ${o.id})"
