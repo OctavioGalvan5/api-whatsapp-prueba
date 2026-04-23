@@ -2652,10 +2652,14 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
     <div class="flex-1 overflow-y-auto px-5 py-3 flex flex-col gap-3">
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-xs text-gray-500 mb-1 block">Estado inicial</label>
+          <label class="text-xs text-gray-500 mb-1 block" id="om-status-label">Estado</label>
           <select id="om-status" class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
             <option value="pendiente">Pendiente</option>
             <option value="confirmado">Confirmado</option>
+            <option value="pendiente_envio">Pendiente envío</option>
+            <option value="enviado">Enviado</option>
+            <option value="entregado">Entregado</option>
+            <option value="cancelado">Cancelado</option>
           </select>
         </div>
         <div>
@@ -3048,9 +3052,7 @@ async function submitOrderChat() {
 
   let res;
   if (omEditId) {
-    // Editar orden existente → confirmar si estaba pendiente
-    const currentStatus = document.getElementById('om-status').value;
-    payload.status = currentStatus === 'pendiente' ? 'confirmado' : currentStatus;
+    payload.status = document.getElementById('om-status').value;
     res = await fetch(`/api/orders/${omEditId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
   } else {
     // Crear orden nueva
@@ -3061,13 +3063,14 @@ async function submitOrderChat() {
   if (res.ok) {
     const data = await res.json();
     closeOrderModal();
+    if (ordersOpen) loadContactOrders();
     const order = data.order || data;
     const msg = omEditId
-      ? `Orden ${order.order_number || ''} confirmada`
+      ? `Orden ${order.order_number || ''} guardada`
       : `Orden ${order.order_number || ''} creada`;
     const t = document.createElement('div');
     t.className = 'fixed bottom-20 md:bottom-6 right-4 z-50 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium bg-primary text-black';
-    t.innerHTML = `${msg} — <a href="/orders" class="underline font-bold">Ver</a>`;
+    t.innerHTML = `${msg} — <a href="/orders" class="underline font-bold">Ver en /orders</a>`;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 5000);
   } else {
