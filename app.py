@@ -1561,6 +1561,16 @@ def api_dashboard_contacts():
 # API CRM CONTACTOS
 # ==========================================
 
+@app.route("/api/contacts/lookup", methods=["GET"])
+def api_contacts_lookup():
+    phone = request.args.get("phone", "").strip()
+    if not phone:
+        return jsonify({"contact": None}), 200
+    contact = Contact.query.filter_by(phone_number=phone).first()
+    if contact:
+        return jsonify({"contact": {"id": contact.id, "name": contact.name or contact.phone_number, "phone_number": contact.phone_number}})
+    return jsonify({"contact": None})
+
 @app.route("/api/contacts", methods=["POST"])
 def api_create_contact():
     """API para crear un nuevo contacto."""
@@ -6575,6 +6585,14 @@ def api_orders_create():
         return jsonify({"error": "phone_number requerido"}), 400
 
     contact = Contact.query.filter_by(phone_number=phone_number).first()
+    if not contact and data.get("contact_name"):
+        contact = Contact(
+            phone_number=phone_number,
+            name=data["contact_name"].strip(),
+        )
+        db.session.add(contact)
+        db.session.flush()
+        logger.info(f"[orders] Contacto creado automáticamente: {phone_number} — {contact.name}")
 
     from datetime import date as _date
     def _parse_date(v):

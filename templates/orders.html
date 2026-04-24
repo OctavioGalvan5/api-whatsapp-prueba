@@ -355,6 +355,13 @@
         <div class="col-span-2">
           <label class="text-xs text-gray-500 mb-1 block">Teléfono del contacto *</label>
           <input id="create-phone" type="text" placeholder="5491123456789"
+            oninput="lookupCreateContact()"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+          <div id="create-contact-status" class="text-[11px] mt-1 hidden"></div>
+        </div>
+        <div class="col-span-2" id="create-name-row">
+          <label class="text-xs text-gray-500 mb-1 block">Nombre del contacto</label>
+          <input id="create-contact-name" type="text" placeholder="Ej: Juan Pérez"
             class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
         </div>
         <div>
@@ -783,14 +790,56 @@
   }
 
   // ---- Crear orden ----
-  function openCreateModal() { document.getElementById('modal-create').classList.remove('hidden'); }
+  function openCreateModal() {
+    document.getElementById('modal-create').classList.remove('hidden');
+    document.getElementById('create-contact-name').value = '';
+    document.getElementById('create-contact-status').classList.add('hidden');
+    document.getElementById('create-name-row').classList.remove('hidden');
+  }
   function closeCreateModal() { document.getElementById('modal-create').classList.add('hidden'); }
+
+  let _lookupTimer = null;
+  function lookupCreateContact() {
+    clearTimeout(_lookupTimer);
+    const phone = document.getElementById('create-phone').value.trim();
+    const status = document.getElementById('create-contact-status');
+    const nameRow = document.getElementById('create-name-row');
+    const nameInput = document.getElementById('create-contact-name');
+    if (!phone || phone.length < 8) {
+      status.classList.add('hidden');
+      nameRow.classList.remove('hidden');
+      nameInput.value = '';
+      return;
+    }
+    _lookupTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/contacts/lookup?phone=${encodeURIComponent(phone)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.contact) {
+            status.textContent = `✓ Contacto existente: ${data.contact.name || data.contact.phone_number}`;
+            status.className = 'text-[11px] mt-1 text-green-600 dark:text-green-400';
+            status.classList.remove('hidden');
+            nameRow.classList.add('hidden');
+            nameInput.value = '';
+          } else {
+            status.textContent = 'Nuevo contacto — se creará al guardar la orden';
+            status.className = 'text-[11px] mt-1 text-blue-500';
+            status.classList.remove('hidden');
+            nameRow.classList.remove('hidden');
+          }
+        }
+      } catch(e) {}
+    }, 400);
+  }
 
   async function submitCreateOrder() {
     const phone = document.getElementById('create-phone').value.trim();
     if (!phone) { alert('El teléfono es obligatorio'); return; }
+    const contactName = document.getElementById('create-contact-name').value.trim();
     const payload = {
       phone_number: phone,
+      contact_name: contactName || null,
       status: document.getElementById('create-status').value,
       payment_method: document.getElementById('create-method').value,
       shipping_address: document.getElementById('create-address').value,
