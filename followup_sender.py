@@ -288,6 +288,14 @@ def _process_enrollment(db, enrollment, whatsapp_api, now):
         db.session.commit()
         return
 
+    # Si el contacto tiene tag "Asistencia Humana", posponer 1 hora y no enviar
+    if any(t.name == 'Asistencia Humana' for t in contact.tags):
+        enrollment.status = 'pending'
+        enrollment.next_send_at = now + timedelta(hours=1)
+        db.session.commit()
+        logger.info(f"⏸️ [FOLLOWUP] {contact.phone_number} tiene 'Asistencia Humana' — seguimiento pospuesto 1 hora")
+        return
+
     step = FollowUpStep.query.filter_by(
         sequence_id=enrollment.sequence_id,
         order=enrollment.current_step
