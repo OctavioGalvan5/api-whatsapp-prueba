@@ -35,3 +35,8 @@ class Config:
     N8N_API_URL = os.getenv("N8N_API_URL")
     N8N_API_KEY = os.getenv("N8N_API_KEY")
     N8N_CHATBOT_WORKFLOW_ID = os.getenv("N8N_CHATBOT_WORKFLOW_ID")  # ID del workflow del chatbot
+
+    # Web Push (VAPID)
+    VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY")
+    VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "").replace("\\n", "\n")
+    VAPID_EMAIL = os.getenv("VAPID_EMAIL", "admin@example.com")

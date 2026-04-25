@@ -7,7 +7,7 @@ import pandas as pd
 import re
 from flask import Flask, request, jsonify, render_template, send_file, session, redirect, url_for, abort, g
 from config import Config
-from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpStep, FollowUpEnrollment, CrmUserTagVisibility, CatalogProduct, Order, OrderItem
+from models import db, Message, MessageStatus, Contact, Tag, contact_tags, Campaign, CampaignLog, ConversationTopic, ConversationSession, RagDocument, ChatbotConfig, ConversationNote, AutoTagRule, AutoTagLog, FollowUpSequence, FollowUpStep, FollowUpEnrollment, CrmUserTagVisibility, CatalogProduct, Order, OrderItem, PushSubscription
 import threading
 import time as time_module
 from event_handlers import process_event
@@ -2315,6 +2315,50 @@ def api_unread_counts():
         Message.read_at == None
     ).group_by(Message.phone_number).all()
     return jsonify({row.phone_number: row.unread for row in rows})
+
+
+@app.route("/api/push/vapid-public-key")
+def api_push_vapid_key():
+    """Devuelve la clave pública VAPID para que el frontend pueda suscribirse."""
+    return jsonify({"publicKey": Config.VAPID_PUBLIC_KEY})
+
+
+@app.route("/api/push/subscribe", methods=["POST"])
+def api_push_subscribe():
+    """Guarda una suscripción Web Push para el usuario autenticado."""
+    data = request.json or {}
+    endpoint = data.get("endpoint")
+    keys = data.get("keys", {})
+    p256dh = keys.get("p256dh")
+    auth = keys.get("auth")
+    if not endpoint or not p256dh or not auth:
+        return jsonify({"error": "Datos incompletos"}), 400
+    user_id = g.current_user.id if g.current_user else None
+    if not user_id:
+        return jsonify({"error": "No autenticado"}), 401
+
+    # Upsert: si ya existe el endpoint, actualizamos las keys
+    sub = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if sub:
+        sub.p256dh = p256dh
+        sub.auth = auth
+        sub.user_id = user_id
+    else:
+        sub = PushSubscription(user_id=user_id, endpoint=endpoint, p256dh=p256dh, auth=auth)
+        db.session.add(sub)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/push/unsubscribe", methods=["POST"])
+def api_push_unsubscribe():
+    """Elimina una suscripción Web Push."""
+    data = request.json or {}
+    endpoint = data.get("endpoint")
+    if endpoint:
+        PushSubscription.query.filter_by(endpoint=endpoint).delete()
+        db.session.commit()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/inbox-pulse")

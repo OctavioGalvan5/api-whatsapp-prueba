@@ -897,3 +897,19 @@ class BotAudio(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
+
+# ==========================================
+# WEB PUSH SUBSCRIPTIONS
+# ==========================================
+
+class PushSubscription(db.Model):
+    """Suscripciones Web Push de los usuarios del CRM."""
+    __tablename__ = 'push_subscriptions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('crm_users.id', ondelete='CASCADE'), nullable=False)
+    endpoint = db.Column(db.Text, nullable=False, unique=True)
+    p256dh = db.Column(db.Text, nullable=False)
+    auth = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+

@@ -1,15 +1,38 @@
 // Service Worker para WhatsApp CRM PWA
 const CACHE_NAME = 'crm-whatsapp-v1';
 
+// Recibir Web Push del servidor y mostrar notificación
+self.addEventListener('push', (event) => {
+    let title = '💬 Nuevo mensaje';
+    let options = {
+        body: 'Tenés un mensaje sin leer',
+        icon: '/static/icons/icon-192x192.png',
+        badge: '/static/icons/icon-192x192.png',
+        tag: 'inbox-push',
+        requireInteraction: false,
+        data: { url: '/dashboard' }
+    };
+    try {
+        const payload = event.data ? event.data.json() : {};
+        if (payload.title) title = payload.title;
+        if (payload.body) options.body = payload.body;
+        if (payload.url) options.data.url = payload.url;
+    } catch(e) {}
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
 // Manejar clic en notificación (abre/enfoca la app)
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+    const url = (event.notification.data && event.notification.data.url) || '/dashboard';
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (const client of clientList) {
-                if ('focus' in client) return client.focus();
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    return client.focus();
+                }
             }
-            return clients.openWindow('/');
+            return clients.openWindow(url);
         })
     );
 });

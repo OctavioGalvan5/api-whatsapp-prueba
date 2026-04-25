@@ -369,6 +369,23 @@ def process_event(data):
                     except Exception as e:
                         logger.warning(f"No se pudo cancelar follow-up para {sender}: {e}")
 
+                    # Enviar Web Push a todos los usuarios del CRM
+                    try:
+                        import threading
+                        from push_service import send_push_to_all
+                        contact_name = wa_names.get(sender) or sender
+                        push_body = content or "Nuevo mensaje"
+                        # Recortar body largo
+                        if len(push_body) > 80:
+                            push_body = push_body[:77] + "..."
+                        threading.Thread(
+                            target=send_push_to_all,
+                            args=(f"💬 {contact_name}", push_body, "/dashboard"),
+                            daemon=True
+                        ).start()
+                    except Exception as e:
+                        logger.warning(f"No se pudo enviar Web Push: {e}")
+
                     # Enviar mensaje al chatbot n8n
                     media_data = message.get(msg_type, {}) if msg_type in {'image','audio','video','document','sticker'} else None
                     forward_to_n8n(sender, content, msg_type, media_url=media_url, media_data=media_data, message_id=msg_id)
