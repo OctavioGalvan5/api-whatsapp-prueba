@@ -38,5 +38,5 @@ class Config:
 
     # Web Push (VAPID)
     VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY")
-    VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "").replace("\\n", "\n")
+    VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")  # base64url raw scalar
     VAPID_EMAIL = os.getenv("VAPID_EMAIL", "admin@example.com")
