@@ -819,20 +819,20 @@
             subscribeToPush();
             playMessageSound();
         } else {
-            // Al desactivar: eliminar suscripción push del servidor
+            // Al desactivar: eliminar suscripción push del servidor y del navegador
             if ('serviceWorker' in navigator && 'PushManager' in window) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.pushManager.getSubscription().then(sub => {
-                        if (sub) {
-                            fetch('/api/push/unsubscribe', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ endpoint: sub.endpoint })
-                            });
-                            sub.unsubscribe();
-                        }
-                    });
-                });
+                (async () => {
+                    const reg = await navigator.serviceWorker.ready;
+                    const sub = await reg.pushManager.getSubscription();
+                    if (sub) {
+                        await fetch('/api/push/unsubscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ endpoint: sub.endpoint })
+                        });
+                        await sub.unsubscribe();
+                    }
+                })();
             }
         }
     }
@@ -1017,6 +1017,7 @@
     }
 
     async function showBrowserNotification(totalUnread) {
+        if (!_soundEnabled) return;
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
         const title = '💬 Nuevo mensaje de cliente';
         const options = {
