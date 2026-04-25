@@ -937,23 +937,56 @@
     // ===== PULSE: Web Worker hace fetch + comparación internamente =====
     // El Worker NO se throttlea en background, a diferencia del hilo principal.
 
-    // Pedir permiso de notificaciones al cargar
-    if ('Notification' in window && Notification.permission === 'default') {
-        setTimeout(() => Notification.requestPermission(), 5000);
+    // Pedir permiso de notificaciones — requiere gesto del usuario (obligatorio en iOS)
+    function requestNotifPermission() {
+        if (!('Notification' in window)) return;
+        Notification.requestPermission().then(result => {
+            const banner = document.getElementById('notif-permission-banner');
+            if (banner) banner.remove();
+        });
     }
 
-    function showBrowserNotification(totalUnread) {
+    // Mostrar banner si el permiso no fue otorgado aún
+    if ('Notification' in window && Notification.permission === 'default') {
+        const banner = document.createElement('div');
+        banner.id = 'notif-permission-banner';
+        banner.style.cssText = 'position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:9999;background:#1a2e1b;color:white;padding:0.75rem 1.25rem;border-radius:12px;display:flex;align-items:center;gap:0.75rem;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-size:0.85rem;max-width:90vw;';
+        banner.innerHTML = `
+            <span class="material-symbols-outlined" style="font-size:1.2rem;color:#13ec25">notifications</span>
+            <span>Activar notificaciones para nuevos mensajes</span>
+            <button onclick="requestNotifPermission()" style="background:#13ec25;color:#102212;border:none;border-radius:8px;padding:0.35rem 0.9rem;font-weight:600;cursor:pointer;font-size:0.82rem;white-space:nowrap;">Activar</button>
+            <button onclick="this.closest('#notif-permission-banner').remove()" style="background:transparent;border:none;color:#aaa;cursor:pointer;font-size:1rem;padding:0 0.25rem;">✕</button>
+        `;
+        document.body.appendChild(banner);
+    }
+
+    async function showBrowserNotification(totalUnread) {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        const title = '💬 Nuevo mensaje de cliente';
+        const options = {
+            body: `Tenés ${totalUnread} mensaje${totalUnread > 1 ? 's' : ''} sin leer`,
+            icon: '/static/icons/icon-192x192.png',
+            tag: 'inbox-pulse',
+            requireInteraction: false
+        };
         try {
-            const notif = new Notification('💬 Nuevo mensaje de cliente', {
-                body: `Tenés ${totalUnread} mensaje${totalUnread > 1 ? 's' : ''} sin leer`,
-                icon: '/static/icons/icon-192x192.png',
-                tag: 'inbox-pulse',
-                requireInteraction: false
-            });
-            notif.onclick = () => { window.focus(); notif.close(); };
-            setTimeout(() => notif.close(), 6000);
-        } catch(e) {}
+            // iOS Safari PWA requiere showNotification() desde el service worker
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                await reg.showNotification(title, options);
+            } else {
+                const notif = new Notification(title, options);
+                notif.onclick = () => { window.focus(); notif.close(); };
+                setTimeout(() => notif.close(), 6000);
+            }
+        } catch(e) {
+            // Fallback si el SW falla
+            try {
+                const notif = new Notification(title, options);
+                notif.onclick = () => { window.focus(); notif.close(); };
+                setTimeout(() => notif.close(), 6000);
+            } catch(e2) {}
+        }
     }
 
     // Web Worker inline: hace el fetch Y la comparación dentro del worker

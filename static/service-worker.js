@@ -1,6 +1,19 @@
 // Service Worker para WhatsApp CRM PWA
 const CACHE_NAME = 'crm-whatsapp-v1';
 
+// Manejar clic en notificación (abre/enfoca la app)
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (const client of clientList) {
+                if ('focus' in client) return client.focus();
+            }
+            return clients.openWindow('/');
+        })
+    );
+});
+
 // Archivos de la shell de la app que se cachean al instalar
 const SHELL_ASSETS = [
   '/static/manifest.json',
