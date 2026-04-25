@@ -814,8 +814,27 @@
         localStorage.setItem('notifSound', _soundEnabled ? 'on' : 'off');
         const icon = document.getElementById('sound-toggle-icon');
         if (icon) icon.textContent = _soundEnabled ? 'volume_up' : 'volume_off';
-        // Feedback: reproducir sonido al activar para que el usuario escuche cómo suena
-        if (_soundEnabled) playMessageSound();
+        if (_soundEnabled) {
+            // Al activar: suscribir al push y reproducir sonido de feedback
+            subscribeToPush();
+            playMessageSound();
+        } else {
+            // Al desactivar: eliminar suscripción push del servidor
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.pushManager.getSubscription().then(sub => {
+                        if (sub) {
+                            fetch('/api/push/unsubscribe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ endpoint: sub.endpoint })
+                            });
+                            sub.unsubscribe();
+                        }
+                    });
+                });
+            }
+        }
     }
 
     function _ensureAudioContext() {
