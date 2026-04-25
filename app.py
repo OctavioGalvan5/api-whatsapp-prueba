@@ -2317,6 +2317,26 @@ def api_unread_counts():
     return jsonify({row.phone_number: row.unread for row in rows})
 
 
+@app.route("/api/inbox-pulse")
+def api_inbox_pulse():
+    """Endpoint ultra-liviano para polling rápido (cada 3s).
+    Devuelve un 'fingerprint' que cambia cuando hay un nuevo mensaje inbound no leído.
+    El frontend compara con el valor anterior y solo hace refresh pesado si cambió.
+    """
+    from sqlalchemy import func
+    result = db.session.query(
+        func.max(Message.id).label('max_id'),
+        func.count(Message.id).label('total')
+    ).filter(
+        Message.direction == 'inbound',
+        Message.read_at == None
+    ).first()
+    return jsonify({
+        'max_id': result.max_id or 0,
+        'total': result.total or 0
+    })
+
+
 @app.route("/contacts")
 def contacts_page():
     """Página para ver listado de contactos con paginación y búsqueda."""

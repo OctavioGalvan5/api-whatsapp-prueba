@@ -76,6 +76,11 @@
                 </div>
             </div>
             <div class="flex gap-1">
+                <button id="sound-toggle-btn" onclick="toggleNotificationSound()" 
+                    class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    title="Activar/desactivar sonido de notificaciones">
+                    <span class="material-symbols-outlined text-gray-500 dark:text-gray-400" id="sound-toggle-icon">volume_up</span>
+                </button>
                 <a href="/contacts" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                     title="Manage Contacts">
                     <span class="material-symbols-outlined text-gray-500 dark:text-gray-400">group</span>
@@ -786,12 +791,133 @@
     let currentSearch = '';
     let isSearchMode = false;
 
-    // Cargar badges de no leídos al iniciar
+    // ============================================================
+    // SISTEMA DE NOTIFICACIONES EN TIEMPO REAL (pulse-based)
+    // ============================================================
+    // Polling rápido (3s) a endpoint ultra-liviano /api/inbox-pulse
+    // Solo cuando detecta cambio, hace los fetches pesados
+    // ============================================================
+
+    let _audioCtx = null;
+    let _originalTitle = document.title;
+    let _titleFlashInterval = null;
+    let _soundEnabled = localStorage.getItem('notifSound') !== 'off'; // default ON
+
+    // Inicializar icono del toggle
+    (function initSoundIcon() {
+        const icon = document.getElementById('sound-toggle-icon');
+        if (icon) icon.textContent = _soundEnabled ? 'volume_up' : 'volume_off';
+    })();
+
+    function toggleNotificationSound() {
+        _soundEnabled = !_soundEnabled;
+        localStorage.setItem('notifSound', _soundEnabled ? 'on' : 'off');
+        const icon = document.getElementById('sound-toggle-icon');
+        if (icon) icon.textContent = _soundEnabled ? 'volume_up' : 'volume_off';
+        // Feedback: reproducir sonido al activar para que el usuario escuche cómo suena
+        if (_soundEnabled) playMessageSound();
+    }
+
+    function _ensureAudioContext() {
+        if (!_audioCtx) {
+            try {
+                _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e) {}
+        }
+        if (_audioCtx && _audioCtx.state === 'suspended') {
+            _audioCtx.resume();
+        }
+        return _audioCtx;
+    }
+
+    // Activar AudioContext al primer click (política autoplay de Chrome)
+    document.addEventListener('click', function _initAudio() {
+        _ensureAudioContext();
+        document.removeEventListener('click', _initAudio);
+    });
+
+    // Sonido profesional tipo WhatsApp: acorde de tres tonos
+    function playMessageSound() {
+        if (!_soundEnabled) return;
+        const ctx = _ensureAudioContext();
+        if (!ctx) return;
+        try {
+            const now = ctx.currentTime;
+            const vol = 0.5; // Volumen principal (0-1)
+
+            // Tono 1: E5 (659 Hz) - ataque
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.value = 659.25;
+            gain1.gain.setValueAtTime(0, now);
+            gain1.gain.linearRampToValueAtTime(vol, now + 0.015);
+            gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.20);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.25);
+
+            // Tono 2: A5 (880 Hz) - acorde
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.value = 880;
+            gain2.gain.setValueAtTime(0, now + 0.06);
+            gain2.gain.linearRampToValueAtTime(vol * 0.8, now + 0.08);
+            gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(now + 0.06);
+            osc2.stop(now + 0.40);
+
+            // Tono 3: C#6 (1109 Hz) - brillo final
+            const osc3 = ctx.createOscillator();
+            const gain3 = ctx.createGain();
+            osc3.type = 'sine';
+            osc3.frequency.value = 1108.73;
+            gain3.gain.setValueAtTime(0, now + 0.12);
+            gain3.gain.linearRampToValueAtTime(vol * 0.5, now + 0.14);
+            gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.50);
+            osc3.connect(gain3);
+            gain3.connect(ctx.destination);
+            osc3.start(now + 0.12);
+            osc3.stop(now + 0.55);
+
+            console.log('🔔 Notificación de mensaje nuevo');
+        } catch(e) {}
+    }
+
+    // Flash del título del browser cuando hay mensajes sin leer
+    function startTitleFlash(unreadTotal) {
+        stopTitleFlash();
+        let show = true;
+        _titleFlashInterval = setInterval(() => {
+            document.title = show ? `(${unreadTotal}) 💬 Nuevo mensaje` : _originalTitle;
+            show = !show;
+        }, 1500);
+    }
+
+    function stopTitleFlash() {
+        if (_titleFlashInterval) {
+            clearInterval(_titleFlashInterval);
+            _titleFlashInterval = null;
+            document.title = _originalTitle;
+        }
+    }
+
+    // Cuando el usuario vuelve a la pestaña, parar el flash
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) stopTitleFlash();
+    });
+
+    // Actualizar badges visuales de no leídos
     async function loadUnreadBadges() {
         try {
             const res = await fetch('/api/unread-counts');
             if (!res.ok) return;
             const counts = await res.json();
+
             document.querySelectorAll('.contact-item').forEach(item => {
                 const phone = item.dataset.phone;
                 const badge = item.querySelector('.unread-badge');
@@ -807,8 +933,109 @@
         } catch(e) {}
     }
     loadUnreadBadges();
-    // Refrescar badges cada 30 segundos
-    setInterval(loadUnreadBadges, 30000);
+
+    // ===== PULSE: Web Worker hace fetch + comparación internamente =====
+    // El Worker NO se throttlea en background, a diferencia del hilo principal.
+
+    // Pedir permiso de notificaciones al cargar
+    if ('Notification' in window && Notification.permission === 'default') {
+        setTimeout(() => Notification.requestPermission(), 5000);
+    }
+
+    function showBrowserNotification(totalUnread) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+            const notif = new Notification('💬 Nuevo mensaje de cliente', {
+                body: `Tenés ${totalUnread} mensaje${totalUnread > 1 ? 's' : ''} sin leer`,
+                icon: '/static/icons/icon-192x192.png',
+                tag: 'inbox-pulse',
+                requireInteraction: false
+            });
+            notif.onclick = () => { window.focus(); notif.close(); };
+            setTimeout(() => notif.close(), 6000);
+        } catch(e) {}
+    }
+
+    // Web Worker inline: hace el fetch Y la comparación dentro del worker
+    // para que funcione incluso cuando la pestaña está en background
+    const _pulseWorkerCode = `
+        let maxId = 0;
+        let total = 0;
+        let initialized = false;
+        const PULSE_URL = '${location.origin}/api/inbox-pulse';
+
+        async function poll() {
+            try {
+                const res = await fetch(PULSE_URL, { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const pulse = await res.json();
+
+                if (!initialized) {
+                    maxId = pulse.max_id || 0;
+                    total = pulse.total || 0;
+                    initialized = true;
+                    return;
+                }
+
+                const hasNew = (pulse.max_id || 0) > maxId || (pulse.total || 0) > total;
+                maxId = pulse.max_id || 0;
+                total = pulse.total || 0;
+
+                if (hasNew) {
+                    self.postMessage({ type: 'new_message', total: total, max_id: maxId });
+                }
+            } catch(e) {}
+        }
+
+        // Polling cada 3 segundos
+        setInterval(poll, 3000);
+        poll(); // primer check inmediato
+    `;
+    const _pulseWorkerBlob = new Blob([_pulseWorkerCode], { type: 'application/javascript' });
+    const _pulseWorker = new Worker(URL.createObjectURL(_pulseWorkerBlob));
+
+    // El Worker solo nos avisa cuando HAY algo nuevo
+    _pulseWorker.onmessage = (e) => {
+        if (e.data.type !== 'new_message') return;
+        const total = e.data.total;
+
+        console.log('🆕 Worker detectó nuevo mensaje de cliente. Total no leídos:', total);
+
+        // 1. Notificación nativa (funciona SIEMPRE, incluso en background)
+        showBrowserNotification(total);
+
+        // 2. Sonido (solo funciona si la pestaña está activa)
+        playMessageSound();
+
+        // 3. Flash del título si estamos en background
+        if (document.hidden) {
+            startTitleFlash(total);
+        }
+
+        // 4. Refrescar UI (contacts, badges, chat)
+        refreshContactsList();
+        loadUnreadBadges();
+        if (currentPhone) {
+            fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
+                .then(r => r.json())
+                .then(data => { if (data.success) renderChat(data); })
+                .catch(() => {});
+        }
+    };
+
+    // Cuando el usuario vuelve a la pestaña, hacer refresh inmediato
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            refreshContactsList();
+            loadUnreadBadges();
+            if (currentPhone) {
+                fetch(`/api/messages/${encodeURIComponent(currentPhone)}`)
+                    .then(r => r.json())
+                    .then(data => { if (data.success) renderChat(data); })
+                    .catch(() => {});
+            }
+        }
+    });
 
     // En desktop (md+), ambos paneles siempre visibles
     (function initLayout() {
@@ -2213,22 +2440,34 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
 
     // Ejecutar inicialización cuando el DOM esté listo
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeDashboard);
+        document.addEventListener('DOMContentLoaded', () => {
+            try { initializeDashboard(); } catch(e) { console.error('Error inicializando dashboard:', e); }
+        });
     } else {
         // DOM ya está listo, ejecutar inmediatamente
-        initializeDashboard();
+        try { initializeDashboard(); } catch(e) { console.error('Error inicializando dashboard:', e); }
     }
 
-    // Polling: actualiza lista de contactos cada 15s
+    // (Audio functions moved above loadUnreadBadges)
+
+    // Polling: actualiza lista de contactos cada 8s
     function refreshContactsList() {
-        fetch('/api/dashboard/contacts?limit=25')
+        // No actualizar si hay una búsqueda activa (evitar pisar resultados del usuario)
+        if (isSearchMode) {
+            console.log('⏭️ refreshContactsList: omitido (modo búsqueda activo)');
+            return;
+        }
+        const url = `/api/dashboard/contacts?limit=50&search=${encodeURIComponent(currentSearch)}&tag=${encodeURIComponent(currentTagFilter)}`;
+        fetch(url)
             .then(r => r.json())
             .then(data => {
-                if (!data.success) return;
                 const list = document.getElementById('contacts-list');
                 if (!list) return;
                 const contacts = data.contacts;
-                if (contacts.length === 0) return;
+                if (!contacts || contacts.length === 0) return;
+
+                // Nota: la detección de nuevos mensajes y sonido se manejan
+                // en checkInboxPulse() que corre cada 3s vía /api/inbox-pulse
 
                 let html = '';
                 contacts.forEach(c => {
@@ -2265,9 +2504,9 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
                 list.innerHTML = html;
                 loadUnreadBadges();
             })
-            .catch(() => {});
+            .catch(e => console.error('Error actualizando lista de contactos:', e));
     }
-    setInterval(refreshContactsList, 15000);
+    setInterval(refreshContactsList, 8000);
 
     // Polling: actualiza chat cada 5s
     setInterval(() => {
