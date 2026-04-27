@@ -3011,9 +3011,39 @@ bg-white dark:bg-[#152a17] hover:bg-gray-50 dark:hover:bg-gray-800/50 border-tra
           <p class="text-xs text-gray-400 text-center py-1">Sin productos</p>
         </div>
       </div>
-      <div class="flex justify-between text-sm font-medium border-t border-gray-100 dark:border-gray-800 pt-2">
-        <span>Total</span>
-        <span id="om-total-label">—</span>
+      <!-- Descuento a nivel orden -->
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Descuento sobre la orden (opcional)</label>
+        <div class="grid grid-cols-2 gap-2">
+          <select id="om-discount-type" onchange="omRenderItems()"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+            <option value="">Sin descuento</option>
+            <option value="percentage">Porcentaje (%)</option>
+            <option value="fixed">Monto fijo ($)</option>
+          </select>
+          <input id="om-discount-value" type="number" min="0" step="0.01" placeholder="0"
+            oninput="omRenderItems()"
+            class="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:border-primary">
+        </div>
+      </div>
+      <!-- Desglose totales -->
+      <div class="space-y-1 border-t border-gray-100 dark:border-gray-800 pt-2 text-sm">
+        <div class="flex justify-between text-gray-500">
+          <span>Subtotal bruto</span>
+          <span id="om-subtotal-gross">—</span>
+        </div>
+        <div id="om-items-disc-row" class="hidden flex justify-between text-green-600 dark:text-green-400 text-xs">
+          <span>Desc. productos</span>
+          <span id="om-items-disc-label">—</span>
+        </div>
+        <div id="om-order-disc-row" class="hidden flex justify-between text-green-600 dark:text-green-400 text-xs">
+          <span id="om-order-disc-title">Desc. orden</span>
+          <span id="om-order-disc-label">—</span>
+        </div>
+        <div class="flex justify-between font-medium">
+          <span>Total</span>
+          <span id="om-total-label">—</span>
+        </div>
       </div>
 
       <!-- Lista de productos del catálogo -->
@@ -3139,6 +3169,11 @@ function omResetFields() {
   omItems = [];
   document.getElementById('om-items-list').innerHTML = '<p class="text-xs text-gray-400 text-center py-1">Sin productos</p>';
   document.getElementById('om-total-label').textContent = '—';
+  document.getElementById('om-subtotal-gross').textContent = '—';
+  document.getElementById('om-items-disc-row').classList.add('hidden');
+  document.getElementById('om-order-disc-row').classList.add('hidden');
+  document.getElementById('om-discount-type').value = '';
+  document.getElementById('om-discount-value').value = '';
   document.getElementById('om-product-search').value = '';
   document.getElementById('om-plus-code').value = '';
   document.getElementById('om-address').value = '';
@@ -3218,8 +3253,10 @@ async function openOrderForConfirm(orderId) {
   document.getElementById('om-latest-arrival').value = o.latest_arrival_time || '';
   document.getElementById('om-latitude').value = o.latitude || '';
   document.getElementById('om-longitude').value = o.longitude || '';
+  document.getElementById('om-discount-type').value = o.discount_type || '';
+  document.getElementById('om-discount-value').value = o.discount_value != null ? o.discount_value : '';
   // Cargar items existentes
-  omItems = (o.items || []).map(i => ({ retailer_id: i.retailer_id, product_id: i.product_id, product_name: i.product_name, unit_price: i.unit_price, quantity: i.quantity }));
+  omItems = (o.items || []).map(i => ({ retailer_id: i.retailer_id, product_id: i.product_id, product_name: i.product_name, unit_price: i.unit_price, quantity: i.quantity, discount_type: i.discount_type || null, discount_value: i.discount_value || null }));
   omRenderItems();
   // Cargar catálogo
   const pRes = await fetch('/api/catalog/products');
@@ -3334,24 +3371,73 @@ function omSelectProduct(p) {
   omRenderItems();
 }
 
+function omCalcItemNet(it) {
+  const gross = (it.unit_price || 0) * (it.quantity || 1);
+  let disc = 0;
+  if (it.discount_type === 'percentage' && it.discount_value) disc = gross * it.discount_value / 100;
+  else if (it.discount_type === 'fixed' && it.discount_value) disc = Math.min(it.discount_value, gross);
+  return { gross, disc, net: gross - disc };
+}
+
 function omRenderItems() {
   const el = document.getElementById('om-items-list');
   if (!omItems.length) {
     el.innerHTML = '<p class="text-xs text-gray-400 text-center py-1">Sin productos</p>';
+    document.getElementById('om-subtotal-gross').textContent = '—';
     document.getElementById('om-total-label').textContent = '—';
+    document.getElementById('om-items-disc-row').classList.add('hidden');
+    document.getElementById('om-order-disc-row').classList.add('hidden');
     return;
   }
-  let total = 0;
+  let grossTotal = 0, itemsDisc = 0, itemsNet = 0;
   el.innerHTML = omItems.map((it, idx) => {
-    total += (it.unit_price || 0) * (it.quantity || 1);
-    return `<div class="flex items-center gap-2 text-xs py-1 border-b border-gray-50 dark:border-gray-800">
-      <span class="flex-1 truncate">${it.product_name}</span>
-      <input type="number" min="1" value="${it.quantity}" onchange="omItems[${idx}].quantity=parseInt(this.value)||1;omRenderItems()" class="w-12 text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent focus:outline-none py-0.5">
-      <span class="w-20 text-right">${Number((it.unit_price||0)*(it.quantity||1)).toLocaleString('es-AR')}</span>
-      <button onclick="omItems.splice(${idx},1);omRenderItems()" class="text-gray-300 hover:text-red-400"><span class="material-symbols-outlined text-[14px]">close</span></button>
+    const { gross, disc, net } = omCalcItemNet(it);
+    grossTotal += gross; itemsDisc += disc; itemsNet += net;
+    const discBadge = disc > 0
+      ? `<span class="text-green-600 dark:text-green-400">-${Number(disc).toLocaleString('es-AR')}</span>`
+      : '';
+    return `<div class="flex flex-col gap-0.5 py-1 border-b border-gray-50 dark:border-gray-800 text-xs">
+      <div class="flex items-center gap-2">
+        <span class="flex-1 truncate font-medium">${it.product_name}</span>
+        <input type="number" min="1" value="${it.quantity}" onchange="omItems[${idx}].quantity=parseInt(this.value)||1;omRenderItems()" class="w-10 text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent focus:outline-none py-0.5">
+        <span class="w-16 text-right">${Number(net).toLocaleString('es-AR')} ${discBadge}</span>
+        <button onclick="omItems.splice(${idx},1);omRenderItems()" class="text-gray-300 hover:text-red-400"><span class="material-symbols-outlined text-[14px]">close</span></button>
+      </div>
+      <div class="flex items-center gap-1 pl-0.5">
+        <span class="text-gray-400">Desc:</span>
+        <select onchange="omItems[${idx}].discount_type=this.value||null;omRenderItems()" class="text-[11px] rounded border border-gray-200 dark:border-gray-700 bg-transparent py-0 focus:outline-none">
+          <option value="" ${!it.discount_type ? 'selected' : ''}>Sin desc.</option>
+          <option value="percentage" ${it.discount_type==='percentage' ? 'selected' : ''}>%</option>
+          <option value="fixed" ${it.discount_type==='fixed' ? 'selected' : ''}>$</option>
+        </select>
+        <input type="number" min="0" step="0.01" placeholder="0" value="${it.discount_value || ''}"
+          onchange="omItems[${idx}].discount_value=parseFloat(this.value)||null;omRenderItems()"
+          class="w-14 text-[11px] rounded border border-gray-200 dark:border-gray-700 bg-transparent px-1 py-0 focus:outline-none">
+      </div>
     </div>`;
   }).join('');
-  document.getElementById('om-total-label').textContent = total > 0 ? Number(total).toLocaleString('es-AR') + ' ARS' : '—';
+
+  // Order discount
+  const ordDiscType = document.getElementById('om-discount-type').value;
+  const ordDiscVal = parseFloat(document.getElementById('om-discount-value').value) || 0;
+  let ordDisc = 0;
+  if (ordDiscType === 'percentage') ordDisc = itemsNet * ordDiscVal / 100;
+  else if (ordDiscType === 'fixed') ordDisc = Math.min(ordDiscVal, itemsNet);
+  const finalTotal = itemsNet - ordDisc;
+  const cur = omItems[0]?.currency || 'ARS';
+  const fmt = n => Number(n).toLocaleString('es-AR') + ' ' + cur;
+
+  document.getElementById('om-subtotal-gross').textContent = fmt(grossTotal);
+  const itemsDiscRow = document.getElementById('om-items-disc-row');
+  if (itemsDisc > 0) { itemsDiscRow.classList.remove('hidden'); document.getElementById('om-items-disc-label').textContent = '-' + fmt(itemsDisc); }
+  else itemsDiscRow.classList.add('hidden');
+  const ordDiscRow = document.getElementById('om-order-disc-row');
+  if (ordDisc > 0) {
+    ordDiscRow.classList.remove('hidden');
+    document.getElementById('om-order-disc-title').textContent = ordDiscType === 'percentage' ? `Desc. orden (${ordDiscVal}%)` : 'Desc. orden';
+    document.getElementById('om-order-disc-label').textContent = '-' + fmt(ordDisc);
+  } else ordDiscRow.classList.add('hidden');
+  document.getElementById('om-total-label').textContent = finalTotal >= 0 ? fmt(finalTotal) : '—';
 }
 
 async function submitOrderChat() {
@@ -3373,10 +3459,27 @@ async function submitOrderChat() {
     latest_arrival_time: document.getElementById('om-latest-arrival').value || null,
     latitude: document.getElementById('om-latitude').value || null,
     longitude: document.getElementById('om-longitude').value || null,
-    items: omItems,
+    discount_type: document.getElementById('om-discount-type').value || null,
+    discount_value: document.getElementById('om-discount-value').value !== '' ? parseFloat(document.getElementById('om-discount-value').value) : null,
+    items: omItems.map(i => ({
+      retailer_id: i.retailer_id,
+      product_name: i.product_name,
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+      currency: i.currency || 'ARS',
+      discount_type: i.discount_type || null,
+      discount_value: i.discount_value || null,
+    })),
   };
   if (omItems.length) {
-    payload.total = omItems.reduce((s, i) => s + (i.unit_price||0)*(i.quantity||1), 0);
+    // Total calculado con descuentos aplicados
+    const ordDiscType = payload.discount_type;
+    const ordDiscVal = payload.discount_value;
+    let itemsNet = omItems.reduce((s, i) => { const { net } = omCalcItemNet(i); return s + net; }, 0);
+    let ordDisc = 0;
+    if (ordDiscType === 'percentage' && ordDiscVal) ordDisc = itemsNet * ordDiscVal / 100;
+    else if (ordDiscType === 'fixed' && ordDiscVal) ordDisc = Math.min(ordDiscVal, itemsNet);
+    payload.total = Math.max(0, itemsNet - ordDisc);
   }
 
   let res;
