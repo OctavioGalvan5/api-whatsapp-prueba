@@ -1,0 +1,1034 @@
+{
+  "name": "Chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('chat input').item.json.chat_input }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ $json.value }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [-3904, 1488],
+      "id": "78b79dd8-8d4a-4fda-84b7-ab0034425bc5",
+      "name": "AI Agent",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://whatsapp-crm.countrylife.online/api/whatsapp/send-text\n",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{}]},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "text", "value": "={{ $json.output.Parte1.replace(/\\[audio_id:\\d+\\]/g, '').trim() }}"},
+            {"name": "to", "value": "={{ $('Set Fields').item.json.user_number.replace('+', '') }}\n"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-2640, 1552],
+      "id": "f5417ea3-7d45-4459-81c7-f07dbe83c7e4",
+      "name": "Send Message"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Set Fields').item.json.user_number }}"
+      },
+      "id": "ca103167-aa68-40d6-b321-e2c67ad07a45",
+      "name": "Postgres Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1,
+      "position": [-4208, 1808],
+      "credentials": {"postgres": {"id": "nwnTHWt70EHj2kzw", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to fetch all available documents, including the table schema if the file is a CSV or Excel file.",
+        "operation": "select",
+        "schema": {"__rl": true, "mode": "list", "value": "public"},
+        "table": {"__rl": true, "value": "document_metadata", "mode": "list", "cachedResultName": "document_metadata"},
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [-4080, 1824],
+      "id": "eae9559e-8efa-44c3-a613-3f9745b71cc1",
+      "name": "List Documents",
+      "credentials": {"postgres": {"id": "nwnTHWt70EHj2kzw", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Given a file ID, fetches the text from the document.",
+        "operation": "executeQuery",
+        "query": "SELECT \n    string_agg(content, ' ') as document_text\nFROM documents\n  WHERE metadata->>'file_id' = $1\nGROUP BY metadata->>'file_id';",
+        "options": {"queryReplacement": "={{ $fromAI('file_id') }}"}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [-3952, 1808],
+      "id": "bafd657c-a172-4464-8d9d-2ad5de762293",
+      "name": "Get File Contents",
+      "credentials": {"postgres": {"id": "nwnTHWt70EHj2kzw", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Run a SQL query - use this to query from the document_rows table once you know the file ID you are querying.",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('sql_query') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [-3808, 1808],
+      "id": "64a6cd0b-3756-408f-8552-27859de95d8c",
+      "name": "Query Document Rows",
+      "credentials": {"postgres": {"id": "nwnTHWt70EHj2kzw", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "model": {"__rl": true, "value": "gpt-4.1-mini", "mode": "list", "cachedResultName": "gpt-4.1-mini"},
+        "options": {"maxTokens": 12000, "timeout": 60000}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [-4208, 1648],
+      "id": "3ff0fd1c-9f49-4aa6-b799-83b3f2d8f495",
+      "name": "OpenAI Chat Model",
+      "credentials": {"openAiApi": {"id": "92K8qFb4g0dIwi0g", "name": "OpenAI account"}}
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-7760, 1664],
+      "id": "737e9443-d292-41ef-b256-6b2d550bd84b",
+      "name": "Webhook",
+      "webhookId": "e644720b-033c-4eda-a31b-7c79e695b946"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "a3", "name": "message_type", "value": "={{ $json.body.message_type }}", "type": "string"},
+            {"id": "a4", "name": "user_message", "value": "={{ $json.body.user_message }}\n", "type": "string"},
+            {"id": "a5", "name": "user_number", "value": "={{ $json.body.user_number }}", "type": "string"},
+            {"id": "a6", "name": "has_attachments", "value": "={{ !!$json.body.has_attachments }}", "type": "boolean"},
+            {"id": "a7", "name": "attachment_type", "value": "={{ $json.body.attachment_type }}", "type": "string"},
+            {"id": "a9", "name": "attachment_content_type", "value": "={{ $json.body.attachment_content_type }}\n", "type": "string"},
+            {"id": "a10", "name": "attachment_extension", "value": "={{ $json.body.attachment_extension }}\n", "type": "string"},
+            {"id": "044910b9-14be-4f11-8131-bd384e392d30", "name": "attachment_url", "value": "={{ $json.body.attachment_url }}", "type": "string"},
+            {"id": "5cded28e-2614-4080-b4d1-4d45d0674372", "name": "message_id", "value": "={{ $json.body.message_id }}", "type": "string"},
+            {"id": "e2a22208-92f5-4b7d-8590-40fe789a8540", "name": "updated_at", "value": "={{ $json.body.updated_at }}", "type": "string"},
+            {"id": "user-name-field", "name": "user_name", "value": "={{ $json.body.user_name || '' }}", "type": "string"}
+          ]
+        },
+        "options": {"ignoreConversionErrors": true}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-7552, 1664],
+      "id": "77be3e5c-33ad-4cca-89d8-535d5ae07ed3",
+      "name": "Set Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"leftValue": "={{ $json.message_type }}", "rightValue": "0", "operator": {"type": "string", "operation": "equals"}, "id": "c1"}], "combinator": "and"},
+              "renameOutput": true, "outputKey": "Mensaje Entrante"
+            },
+            {
+              "conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "c2", "leftValue": "={{ $json.message_type }}", "rightValue": "1", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"},
+              "renameOutput": true, "outputKey": "Mensaje Saliente (ignorar)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [-7344, 1664],
+      "id": "361140e5-caf2-4d21-89f1-bdecf91f58ad",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "={{ $('Set Fields').item.json.user_number }}",
+        "messageData": "={{ JSON.stringify({ message_id: $('Set Fields').item.json.message_id, updated_at: $('Set Fields').item.json.updated_at, content: $('Set Fields').item.json.user_message }) }}\n",
+        "tail": true
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-7040, 1648],
+      "id": "0e88c54b-d3e4-4f2d-8b05-7675169a7b55",
+      "name": "Redis",
+      "credentials": {"redis": {"id": "CWeplbmVYOzcByi9", "name": "Redis account"}}
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "message",
+        "key": "={{ $('Set Fields').item.json.user_number }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-6832, 1648],
+      "id": "fb2b61c3-1069-4655-9738-b8b9de668241",
+      "name": "Redis1",
+      "credentials": {"redis": {"id": "CWeplbmVYOzcByi9", "name": "Redis account"}}
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"leftValue": "={{ JSON.parse($json.message.last()).message_id }}", "rightValue": "={{ $('Webhook').item.json.body.message_id }}", "operator": {"type": "string", "operation": "notEquals"}, "id": "38d07fa2-6fdc-4cf9-a194-e9093ad8a68c"}], "combinator": "and"},
+              "renameOutput": true, "outputKey": "No hacer nada"
+            },
+            {
+              "conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "5dac6c03-9018-4018-934b-217f268ee9eb", "leftValue": "={{ new Date(JSON.parse($json.message.last()).updated_at).getTime() }}", "rightValue": "={{ $now.minus(5, 'seconds').toMillis() }}", "operator": {"type": "number", "operation": "lt"}}], "combinator": "and"},
+              "renameOutput": true, "outputKey": "Seguir"
+            },
+            {
+              "conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "58e0e651-5ac0-479c-ad2a-ffb116b19020", "leftValue": "", "rightValue": "", "operator": {"type": "string", "operation": "equals", "name": "filter.operator.equals"}}], "combinator": "and"},
+              "renameOutput": true, "outputKey": "Esperar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [-6624, 1648],
+      "id": "6d3268cf-21b0-4e7c-9f5b-17bdd5bfdb40",
+      "name": "Switch2"
+    },
+    {
+      "parameters": {"amount": 30},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-6416, 1760],
+      "id": "d924c53c-3b72-4954-9f11-690e063bd894",
+      "name": "Wait",
+      "webhookId": "96a72bda-3ef5-4d83-a81b-a9a31af87b55"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-6416, 1504],
+      "id": "0b71f0eb-55b8-462d-bab4-67262ebbf0e6",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $('Set Fields').item.json.user_number }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-6176, 1632],
+      "id": "2a2b555b-bad6-4a58-8e11-3ce472a98179",
+      "name": "Redis2",
+      "credentials": {"redis": {"id": "CWeplbmVYOzcByi9", "name": "Redis account"}}
+    },
+    {
+      "parameters": {"fieldToSplitOut": "=message", "options": {}},
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [-5968, 1632],
+      "id": "873193c6-35c5-4358-9c99-7d02260dfd85",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ (() => { try { return JSON.parse($json.message.trim()); } catch(e) { return { content: $json.message.trim(), message_id: '', updated_at: new Date().toISOString() }; } })() }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-5760, 1632],
+      "id": "64b77462-6ce1-4d05-941f-665bb95d9cf8",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "cond-texto", "leftValue": "={{ $('Set Fields').item.json.has_attachments }}", "rightValue": 0, "operator": {"type": "boolean", "operation": "false", "singleValue": true}}], "combinator": "and"}, "renameOutput": true, "outputKey": "Texto"},
+            {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "cond-audio", "leftValue": "={{ $('Set Fields').item.json.attachment_type }}", "rightValue": "audio", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "Audio"},
+            {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "cond-imagen", "leftValue": "={{ $('Set Fields').item.json.attachment_type }}", "rightValue": "image", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "Imagen"},
+            {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "cond-pdf", "leftValue": "={{ $('Set Fields').item.json.attachment_type }}", "rightValue": "application/pdf", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "PDF"},
+            {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "cond-otro", "leftValue": "={{ ($json.attachments ?? []).length }}", "rightValue": 0, "operator": {"type": "number", "operation": "gt"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "Otro Archivo"}
+          ]
+        },
+        "options": {"fallbackOutput": "extra"}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [-5536, 1632],
+      "id": "3c773150-1503-4767-b07c-3b97f3e36016",
+      "name": "Switch Tipo Contenido"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "7a137f4b-18f4-4f10-933f-de2fd491dcb8", "name": "content", "value": "={{ $json.content }}", "type": "string"},
+            {"id": "3e0c9624-08d9-4bee-bda3-7862546e268b", "name": "timestamp", "value": "={{ $json.updated_at }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-5296, 1424],
+      "id": "64aab2b7-cebd-4518-af6f-0198598f482d",
+      "name": "text content"
+    },
+    {
+      "parameters": {"sortFieldsUi": {"sortField": [{"fieldName": "timestamp"}]}, "options": {}},
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [-4560, 1632],
+      "id": "81413ff7-ac02-474b-a375-f6384ae104c8",
+      "name": "Sort"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {"fieldToAggregate": [{"fieldToAggregate": "content", "renameField": true, "outputFieldName": "messages"}]},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [-4384, 1632],
+      "id": "eb8ecb18-98ed-4216-a9f3-a2aa2f854339",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "intro_done",
+        "key": "=chatbot_intro:{{ $('Set Fields').item.json.user_number }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-4256, 1488],
+      "id": "redis-check-intro",
+      "name": "Redis Check Intro",
+      "credentials": {"redis": {"id": "CWeplbmVYOzcByi9", "name": "Redis account"}}
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "chat-input-build",
+              "name": "chat_input",
+              "value": "={{ (() => {\n  const messages = $('Aggregate1').item.json.messages.join('\\n');\n  const introDone = $json.intro_done;\n  const primerContacto = (!introDone || introDone === 'null' || introDone === null) ? 'SI' : 'NO';\n  const ahora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));\n  const hora = ahora.getHours();\n  const nombre = $('Set Fields').item.json.user_name || '';\n  return `[PRIMER_CONTACTO: ${primerContacto}]\\n[HORA: ${hora}]\\n[NOMBRE: ${nombre}]\\n${messages}`;\n})() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-4064, 1488],
+      "id": "c4a8d065-23d1-4fac-993e-180263cbceb0",
+      "name": "chat input"
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=chatbot_intro:{{ $('Set Fields').item.json.user_number }}",
+        "value": "1",
+        "expire": true,
+        "ttl": 86400
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [-2640, 1760],
+      "id": "redis-set-intro",
+      "name": "Redis Set Intro",
+      "credentials": {"redis": {"id": "CWeplbmVYOzcByi9", "name": "Redis account"}}
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT value FROM chatbot_config WHERE key = 'system_prompt' LIMIT 1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-4064, 1280],
+      "id": "ee30cf0a-be84-4226-9f19-21640cc8c10e",
+      "name": "Execute a SQL query",
+      "credentials": {"postgres": {"id": "nwnTHWt70EHj2kzw", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(json_agg(json_build_object('id', id, 'nombre', nombre, 'descripcion', descripcion) ORDER BY created_at), '[]'::json) as audios FROM bot_audios",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-3920, 1280],
+      "id": "b71a81fb-9496-47ab-9e74-4cbb430968b2",
+      "name": "Get Bot Audios",
+      "credentials": {"postgres": {"id": "nwnTHWt70EHj2kzw", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "merge-prompt-audios",
+              "name": "value",
+              "value": "=={{ (() => { const audios = $('Get Bot Audios').item.json.audios; const lista = Array.isArray(audios) && audios.length > 0 ? '\\n\\n[AUDIOS DISPONIBLES PARA ENVIAR]\\nPodés enviar estos audios pregrabados usando el tool enviar_audio(audio_id). No repitas un audio ya enviado salvo que el usuario lo pida explícitamente.\\n' + audios.map(a => `- ID ${a.id}: \"${a.nombre}\" — ${a.descripcion}`).join('\\n') : ''; return $('Execute a SQL query').item.json.value + lista; })() }}\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-3728, 1280],
+      "id": "ba713ae0-25fd-48e9-b58a-66ec6ad8e06f",
+      "name": "Merge Prompt With Audios"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "d7f99e39-c544-40f7-98d7-0d708dffa5e5", "name": "output", "value": "={{ $json.output }}", "type": "object"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-3568, 1504],
+      "id": "2d3c3c5d-9ec6-4c5f-9276-feff58efb2f3",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "escalation-check", "leftValue": "={{ $json.output.Parte1 }}", "rightValue": "[ESCALAR_HUMANO]", "operator": {"type": "string", "operation": "contains"}}], "combinator": "and"},
+              "renameOutput": true, "outputKey": "Escalar"
+            },
+            {
+              "conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2}, "conditions": [{"id": "normal-check", "leftValue": "={{ $json.output.Parte1 }}", "rightValue": "[ESCALAR_HUMANO]", "operator": {"type": "string", "operation": "notContains"}}], "combinator": "and"},
+              "renameOutput": true, "outputKey": "Normal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [-3344, 1472],
+      "id": "96166030-8ee4-4c0c-a7c5-6c3dc632ed42",
+      "name": "Switch Escalation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://whatsapp-crm.countrylife.online/api/escalate-to-human",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone_number: $('Set Fields').item.json.user_number }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-3104, 1440],
+      "id": "2ae22ade-507b-4b4a-b3cb-4992e710b316",
+      "name": "Call Escalate API"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "clean-parte1", "name": "output.Parte1", "value": "={{ $('Edit Fields4').item.json.output.Parte1.replace('[ESCALAR_HUMANO] ', '').replace('[ESCALAR_HUMANO]', '') }}", "type": "string"},
+            {"id": "065cf0e8-d017-4d08-84f8-bdc8fd8d9ec4", "name": "output.Parte2", "value": "={{ $('Edit Fields4').item.json.output.Parte2 }}", "type": "string"},
+            {"id": "0cdab887-3ed8-42f0-83d2-5a35f90989d2", "name": "output.Parte3", "value": "={{ $('Edit Fields4').item.json.output.Parte3 }}", "type": "string"},
+            {"id": "98d2165e-b605-456d-9b6a-298754aa19d8", "name": "output.Parte4", "value": "={{ $('Edit Fields4').item.json.output.Parte4 }}", "type": "string"},
+            {"id": "clean-parte5", "name": "output.Parte5", "value": "={{ $('Edit Fields4').item.json.output.Parte5 }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-2880, 1424],
+      "id": "3fffb80b-02b0-4ec2-972d-69a1c49ad5ae",
+      "name": "Clean Escalation Message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [{"id": "b3e8e056-123c-453a-a379-b2f365377879", "leftValue": "={{ $('Edit Fields4').item.json.output.Parte2 }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty", "singleValue": true}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-2352, 1552],
+      "id": "1b79cefd-b2d9-446e-93d8-6f95f46096e8",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://whatsapp-crm.countrylife.online/api/whatsapp/send-text\n",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{}]},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "text", "value": "={{ $('Edit Fields4').item.json.output.Parte2.replace(/\\[audio_id:\\d+\\]/g, '').trim() }}\n"},
+            {"name": "to", "value": "={{ $('Set Fields').item.json.user_number.replace('+', '') }}\n"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-2032, 1520],
+      "id": "a8e58dbc-cfaf-4a8b-9b61-8b6e7109166e",
+      "name": "Send Message1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [{"id": "086d31b9-6d5d-494b-83c8-57f0933db336", "leftValue": "={{ $('Edit Fields4').item.json.output.Parte3 }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty", "singleValue": true}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1824, 1488],
+      "id": "776ca593-798b-4fc4-b7ca-1641a6064659",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://whatsapp-crm.countrylife.online/api/whatsapp/send-text\n",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{}]},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "text", "value": "={{ $('Edit Fields4').item.json.output.Parte3.replace(/\\[audio_id:\\d+\\]/g, '').trim() }}\n"},
+            {"name": "to", "value": "={{ $('Set Fields').item.json.user_number.replace('+', '') }}\n"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1472, 1456],
+      "id": "05b0ee9a-f82d-47db-8288-0b24edd1f7c0",
+      "name": "Send Message2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [{"id": "if3-check", "leftValue": "={{ $('Edit Fields4').item.json.output.Parte4 }}", "rightValue": "[audio_id:", "operator": {"type": "string", "operation": "contains"}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1248, 1488],
+      "id": "6302c2de-6929-446c-9058-398ad7e52fca",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://whatsapp-crm.countrylife.online/api/bot/send-audio",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{}]},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "audio_id", "value": "={{ $('Edit Fields4').item.json.output.Parte4.match(/\\[audio_id:(\\d+)\\]/)?.[1] }}"},
+            {"name": "phone_number", "value": "={{ $('Set Fields').item.json.user_number }}"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-896, 1456],
+      "id": "0310bbae-93f0-47c8-a587-c723f07e46df",
+      "name": "Send Audio"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [{"id": "if4-check", "leftValue": "={{ $('Edit Fields4').item.json.output.Parte5 }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty", "singleValue": true}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-640, 1488],
+      "id": "if4-parte5",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://whatsapp-crm.countrylife.online/api/whatsapp/send-text\n",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{}]},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "text", "value": "={{ $('Edit Fields4').item.json.output.Parte5.replace(/\\[audio_id:\\d+\\]/g, '').trim() }}\n"},
+            {"name": "to", "value": "={{ $('Set Fields').item.json.user_number.replace('+', '') }}\n"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-288, 1456],
+      "id": "send-message4-parte5",
+      "name": "Send Message4"
+    },
+    {
+      "parameters": {"amount": 7},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-2192, 1536],
+      "id": "9484e183-6953-48f9-8b95-97ef9be34479",
+      "name": "Wait1",
+      "webhookId": "a71a1fca-7d93-4661-a2f8-a0c39bc02552"
+    },
+    {
+      "parameters": {"amount": 7},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-1616, 1488],
+      "id": "9de3e300-6c7e-4515-bc56-0c755dc7ca84",
+      "name": "Wait2",
+      "webhookId": "16d66712-66af-4ef2-9341-a6940cf1159c"
+    },
+    {
+      "parameters": {"amount": 7},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-1040, 1488],
+      "id": "0949b930-b430-4303-8b42-030f5c92d5d9",
+      "name": "Wait3",
+      "webhookId": "wait3-webhook-id"
+    },
+    {
+      "parameters": {"amount": 7},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-432, 1488],
+      "id": "wait4-parte5",
+      "name": "Wait4",
+      "webhookId": "wait4-webhook-id"
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [-3360, 1296],
+      "id": "4e1af4c9-b252-4f95-ac1c-24fc80112e38",
+      "name": "Embeddings OpenAI2",
+      "credentials": {"openAiApi": {"id": "92K8qFb4g0dIwi0g", "name": "OpenAI account"}}
+    },
+    {
+      "parameters": {"topN": 4},
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [-3248, 1296],
+      "id": "25d57b67-e351-4069-a91e-8514ba3cf6c8",
+      "name": "Reranker Cohere",
+      "credentials": {"cohereApi": {"id": "BMUGkwmMKXvwJooT", "name": "Cohere account"}}
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use RAG to look up information in the knowledgebase.",
+        "tableName": "documents_pg",
+        "topK": 10,
+        "useReranker": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [-3392, 1056],
+      "id": "cd0a85ba-af92-420d-9d3c-590fdacc8ad4",
+      "name": "Postgres PGVector Store",
+      "credentials": {"postgres": {"id": "nwnTHWt70EHj2kzw", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {"url": "={{ $('Set Fields').item.json.attachment_url }}", "options": {}},
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5296, 1632],
+      "id": "0148dc29-0fff-4de2-a304-c37a1bc5273e",
+      "name": "Descargar Audio"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {"language": "es"}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [-5088, 1632],
+      "id": "6879aeae-7c2f-4dfd-bcea-40b17e464244",
+      "name": "OpenAI Whisper",
+      "credentials": {"openAiApi": {"id": "92K8qFb4g0dIwi0g", "name": "OpenAI account"}}
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "audio-content", "name": "content", "value": "=[Audio transcrito]: {{ $json.text }}", "type": "string"},
+            {"id": "audio-timestamp", "name": "timestamp", "value": "={{ $('Edit Fields').item.json.updated_at }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-4880, 1632],
+      "id": "77ac94e6-b5ca-48b0-8eac-e70df2a9c912",
+      "name": "Set Audio Content"
+    },
+    {
+      "parameters": {"url": "={{ $('Set Fields').item.json.attachment_url }}", "options": {}},
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5296, 1840],
+      "id": "bcafc8d9-f74d-444d-b0cf-ff74490a6d0f",
+      "name": "Descargar Imagen"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {"__rl": true, "value": "gpt-4o", "mode": "list", "cachedResultName": "gpt-4o"},
+        "text": "Analiza esta imagen en detalle. Si contiene texto, transcríbelo completamente. Si es un documento o formulario, extrae toda la información relevante. Si es una foto, descríbela. Responde en español de forma clara y estructurada.",
+        "inputType": "base64",
+        "options": {"maxTokens": 2000}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [-5088, 1840],
+      "id": "268873c0-c811-457e-a624-b7aca99a609a",
+      "name": "OpenAI Vision",
+      "credentials": {"openAiApi": {"id": "92K8qFb4g0dIwi0g", "name": "OpenAI account"}}
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "image-content", "name": "content", "value": "=[Imagen recibida]: {{ $json.content }}\n{{ $('Edit Fields').item.json.content ? '[Mensaje del usuario]: ' + $('Edit Fields').item.json.content : '' }}", "type": "string"},
+            {"id": "image-timestamp", "name": "timestamp", "value": "={{ $('Edit Fields').item.json.updated_at }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-4880, 1840],
+      "id": "3cc10a18-461e-4d5e-b01a-9ee7967bff86",
+      "name": "Set Image Content"
+    },
+    {
+      "parameters": {"url": "={{ $('Set Fields').item.json.attachment_url }}", "options": {}},
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5296, 2048],
+      "id": "d91302af-df52-4757-b105-978de118723b",
+      "name": "Descargar PDF"
+    },
+    {
+      "parameters": {"operation": "pdf", "options": {}},
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [-5088, 2048],
+      "id": "f9d81bcb-4367-46dd-bdab-a32d7f1eb908",
+      "name": "Extraer Texto PDF"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "pdf-content", "name": "content", "value": "=[Documento PDF recibido]: {{ $json.text.substring(0, 4000) }}{{ $json.text.length > 4000 ? '... (documento truncado)' : '' }}\n{{ $('Edit Fields').item.json.content ? '[Consulta del usuario]: ' + $('Edit Fields').item.json.content : '' }}", "type": "string"},
+            {"id": "pdf-timestamp", "name": "timestamp", "value": "={{ $('Edit Fields').item.json.updated_at }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-4880, 2048],
+      "id": "8ac986de-dbcb-439c-bf01-24227fb92db4",
+      "name": "Set PDF Content"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "otro-content", "name": "content", "value": "=[Archivo no soportado]: El usuario envió un archivo de tipo {{ $json.attachments[0].content_type ?? 'desconocido' }} que no puedo procesar. Por favor, solicita al usuario que envíe su consulta en texto, imagen, audio o PDF.", "type": "string"},
+            {"id": "otro-timestamp", "name": "timestamp", "value": "={{ $json.updated_at }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-5296, 2256],
+      "id": "62acff68-53db-46dd-9bb1-23b0914b20e1",
+      "name": "Set Otro Content"
+    },
+    {
+      "parameters": {
+        "url": "=https://whatsapp-crm.countrylife.online/api/contact/{{ $('Set Fields').item.json.user_number }}/bot-status",
+        "options": {"timeout": 5000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-7184, 1552],
+      "id": "b3bb9c6e-e418-4a8c-a22f-a1487d3bf20d",
+      "name": "Check Bot Status"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2}, "conditions": [{"id": "bot-active-check", "leftValue": "={{ $json.bot_active }}", "rightValue": true, "operator": {"type": "boolean", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "Bot Activo"},
+            {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2}, "conditions": [{"id": "bot-paused-check", "leftValue": "={{ $json.bot_active }}", "rightValue": false, "operator": {"type": "boolean", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "Bot Pausado"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [-7040, 1808],
+      "id": "add25d31-3eef-4454-b559-e75c1adffbf3",
+      "name": "Switch Bot Active"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-6832, 1920],
+      "id": "7e6e4d3b-9b3d-42a2-869b-97cf7f97f864",
+      "name": "No Operation Bot Pausado"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Usá esta herramienta para etiquetar la localidad del cliente ÚNICAMENTE cuando ya confirmaste su ciudad y estás por escalar a humano. Tags disponibles exactos: \"Salta\", \"Córdoba\", \"Otra localidad\". El campo phone_number ya está configurado automáticamente. Solo necesitás pasar el tag_name correcto.",
+        "method": "POST",
+        "url": "https://whatsapp-crm.countrylife.online/api/contacts/assign-tag",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "phone_number", "value": "={{ $('Webhook').item.json.body.user_number }}"},
+            {"name": "tag_name", "value": "={{ $fromAI('tag_name', 'Tag exacto: Salta, Córdoba, Otra localidad') }}"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [-3680, 1840],
+      "id": "7e224dd7-0250-4802-b108-949d28f00ce3",
+      "name": "Asignar Tag de Localidad"
+    },
+    {
+      "parameters": {
+        "toolDescription": "\"Consulta el catálogo actualizado de productos de CountryLife con nombre, precio y disponibilidad de stock. Usá esta tool SIEMPRE que el cliente pregunte por precios, productos disponibles o stock. No uses precios de memoria, siempre consultá esta tool.\"",
+        "url": "https://whatsapp-crm.countrylife.online/api/bot/catalog",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [-3552, 1856],
+      "id": "17e03cc0-a94c-4335-bb45-8ca340e9c981",
+      "name": "obtener_catalogo"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM n8n_chat_histories\nWHERE session_id = '{{ $('Set Fields').item.json.user_number }}'\nAND id NOT IN (\n  SELECT id FROM n8n_chat_histories\n  WHERE session_id = '{{ $('Set Fields').item.json.user_number }}'\n  ORDER BY id DESC\n  LIMIT 20\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-2480, 1552],
+      "id": "3e2de964-b1e4-4694-8308-6a436c5b1dff",
+      "name": "Eliminar mensajes viejos",
+      "credentials": {"postgres": {"id": "nwnTHWt70EHj2kzw", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "toolDescription": "Envía un audio pregrabado al usuario. Llamá este tool cuando la conversación lo justifique según las instrucciones del sistema. REGLAS: 1) Solo enviá UN audio por conversación. 2) NUNCA enviés un audio que ya aparezca en el historial de esta conversación como enviado. 3) El parámetro phone_number ya está configurado automáticamente.",
+        "method": "POST",
+        "url": "https://whatsapp-crm.countrylife.online/api/bot/send-audio",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "audio_id", "value": "={{ $fromAI('audio_id', 'El ID numérico del audio a enviar según la lista de audios disponibles') }}"},
+            {"name": "phone_number", "value": "={{ $('Webhook').item.json.body.user_number }}"}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [-3424, 1840],
+      "id": "01fae499-69e6-4cb2-b2ec-3c277cdbf455",
+      "name": "enviar_audio"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {"main": [[{"node": "Edit Fields4", "type": "main", "index": 0}]]},
+    "Switch Escalation": {
+      "main": [
+        [{"node": "Call Escalate API", "type": "main", "index": 0}],
+        [{"node": "Send Message", "type": "main", "index": 0}]
+      ]
+    },
+    "Call Escalate API": {"main": [[{"node": "Clean Escalation Message", "type": "main", "index": 0}]]},
+    "Clean Escalation Message": {"main": [[{"node": "Send Message", "type": "main", "index": 0}]]},
+    "List Documents": {"ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]},
+    "Get File Contents": {"ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]},
+    "Query Document Rows": {"ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]},
+    "OpenAI Chat Model": {"ai_languageModel": [[{"node": "AI Agent", "type": "ai_languageModel", "index": 0}]]},
+    "Webhook": {"main": [[{"node": "Set Fields", "type": "main", "index": 0}]]},
+    "Set Fields": {"main": [[{"node": "Switch", "type": "main", "index": 0}]]},
+    "Switch": {"main": [[{"node": "Check Bot Status", "type": "main", "index": 0}]]},
+    "Check Bot Status": {"main": [[{"node": "Switch Bot Active", "type": "main", "index": 0}]]},
+    "Switch Bot Active": {
+      "main": [
+        [{"node": "Redis", "type": "main", "index": 0}],
+        [{"node": "No Operation Bot Pausado", "type": "main", "index": 0}]
+      ]
+    },
+    "Redis": {"main": [[{"node": "Redis1", "type": "main", "index": 0}]]},
+    "Redis1": {"main": [[{"node": "Switch2", "type": "main", "index": 0}]]},
+    "Switch2": {
+      "main": [
+        [{"node": "No Operation, do nothing", "type": "main", "index": 0}],
+        [{"node": "Redis2", "type": "main", "index": 0}],
+        [{"node": "Wait", "type": "main", "index": 0}]
+      ]
+    },
+    "Wait": {"main": [[{"node": "Redis1", "type": "main", "index": 0}]]},
+    "Redis2": {"main": [[{"node": "Split Out", "type": "main", "index": 0}]]},
+    "Split Out": {"main": [[{"node": "Edit Fields", "type": "main", "index": 0}]]},
+    "Edit Fields": {"main": [[{"node": "Switch Tipo Contenido", "type": "main", "index": 0}]]},
+    "Switch Tipo Contenido": {
+      "main": [
+        [{"node": "text content", "type": "main", "index": 0}],
+        [{"node": "Descargar Audio", "type": "main", "index": 0}],
+        [{"node": "Descargar Imagen", "type": "main", "index": 0}],
+        [{"node": "Descargar PDF", "type": "main", "index": 0}],
+        [{"node": "Set Otro Content", "type": "main", "index": 0}]
+      ]
+    },
+    "text content": {"main": [[{"node": "Sort", "type": "main", "index": 0}]]},
+    "Descargar Audio": {"main": [[{"node": "OpenAI Whisper", "type": "main", "index": 0}]]},
+    "OpenAI Whisper": {"main": [[{"node": "Set Audio Content", "type": "main", "index": 0}]]},
+    "Set Audio Content": {"main": [[{"node": "Sort", "type": "main", "index": 0}]]},
+    "Descargar Imagen": {"main": [[{"node": "OpenAI Vision", "type": "main", "index": 0}]]},
+    "OpenAI Vision": {"main": [[{"node": "Set Image Content", "type": "main", "index": 0}]]},
+    "Set Image Content": {"main": [[{"node": "Sort", "type": "main", "index": 0}]]},
+    "Descargar PDF": {"main": [[{"node": "Extraer Texto PDF", "type": "main", "index": 0}]]},
+    "Extraer Texto PDF": {"main": [[{"node": "Set PDF Content", "type": "main", "index": 0}]]},
+    "Set PDF Content": {"main": [[{"node": "Sort", "type": "main", "index": 0}]]},
+    "Set Otro Content": {"main": [[{"node": "Sort", "type": "main", "index": 0}]]},
+    "Sort": {"main": [[{"node": "Aggregate1", "type": "main", "index": 0}]]},
+    "Aggregate1": {"main": [[{"node": "Redis Check Intro", "type": "main", "index": 0}]]},
+    "Redis Check Intro": {"main": [[{"node": "chat input", "type": "main", "index": 0}]]},
+    "chat input": {"main": [[{"node": "Execute a SQL query", "type": "main", "index": 0}]]},
+    "Execute a SQL query": {"main": [[{"node": "Get Bot Audios", "type": "main", "index": 0}]]},
+    "Get Bot Audios": {"main": [[{"node": "Merge Prompt With Audios", "type": "main", "index": 0}]]},
+    "Merge Prompt With Audios": {"main": [[{"node": "AI Agent", "type": "main", "index": 0}]]},
+    "Edit Fields4": {"main": [[{"node": "Switch Escalation", "type": "main", "index": 0}]]},
+    "Send Message": {"main": [[{"node": "Redis Set Intro", "type": "main", "index": 0}]]},
+    "Redis Set Intro": {"main": [[{"node": "Eliminar mensajes viejos", "type": "main", "index": 0}]]},
+    "Eliminar mensajes viejos": {"main": [[{"node": "If", "type": "main", "index": 0}]]},
+    "If": {"main": [[{"node": "Wait1", "type": "main", "index": 0}]]},
+    "Wait1": {"main": [[{"node": "Send Message1", "type": "main", "index": 0}]]},
+    "Send Message1": {"main": [[{"node": "If1", "type": "main", "index": 0}]]},
+    "If1": {"main": [[{"node": "Wait2", "type": "main", "index": 0}]]},
+    "Wait2": {"main": [[{"node": "Send Message2", "type": "main", "index": 0}]]},
+    "Send Message2": {"main": [[{"node": "If2", "type": "main", "index": 0}]]},
+    "If2": {"main": [[{"node": "Wait3", "type": "main", "index": 0}]]},
+    "Wait3": {"main": [[{"node": "Send Message3", "type": "main", "index": 0}]]},
+    "Send Message3": {"main": [[{"node": "If3", "type": "main", "index": 0}]]},
+    "If3": {"main": [[{"node": "Wait4", "type": "main", "index": 0}]]},
+    "Wait4": {"main": [[{"node": "Send Message4", "type": "main", "index": 0}]]},
+    "Embeddings OpenAI2": {"ai_embedding": [[{"node": "Postgres PGVector Store", "type": "ai_embedding", "index": 0}]]},
+    "Reranker Cohere": {"ai_reranker": [[{"node": "Postgres PGVector Store", "type": "ai_reranker", "index": 0}]]},
+    "Postgres PGVector Store": {"ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]},
+    "Postgres Chat Memory": {"ai_memory": [[{"node": "AI Agent", "type": "ai_memory", "index": 0}]]},
+    "Asignar Tag de Localidad": {"ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]},
+    "obtener_catalogo": {"ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]},
+    "enviar_audio": {"ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1", "binaryMode": "separate"},
+  "versionId": "01dbe518-851a-4b1d-bf38-5e9d08bf3eed",
+  "meta": {"templateCredsSetupCompleted": true, "instanceId": "8c4aeb606fce65a7ce352f60f950f86378c32367ac9f260c5efa40b81819f358"},
+  "id": "mxzaoWj83C81U71u",
+  "tags": []
+}
