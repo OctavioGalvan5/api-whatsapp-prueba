@@ -743,6 +743,8 @@ class Order(db.Model):
     city = db.Column(db.String(100), nullable=True)
     province = db.Column(db.String(100), nullable=True)
     postal_code = db.Column(db.String(20), nullable=True)
+    discount_type = db.Column(db.String(20), nullable=True)   # 'percentage' | 'fixed' | None
+    discount_value = db.Column(db.Numeric(12, 2), nullable=True)
 
     contact = db.relationship('Contact', backref=db.backref('orders', passive_deletes=True))
     items = db.relationship('OrderItem', backref='order', cascade='all, delete-orphan', lazy='select')
@@ -812,6 +814,8 @@ class Order(db.Model):
             'city': self.city,
             'province': self.province,
             'postal_code': self.postal_code,
+            'discount_type': self.discount_type,
+            'discount_value': float(self.discount_value) if self.discount_value is not None else None,
             'items': [i.to_dict() for i in self.items],
         }
 
@@ -827,8 +831,16 @@ class OrderItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_price = db.Column(db.Numeric(12, 2), nullable=False)
     currency = db.Column(db.String(10), default='ARS')
+    discount_type = db.Column(db.String(20), nullable=True)   # 'percentage' | 'fixed' | None
+    discount_value = db.Column(db.Numeric(12, 2), nullable=True)
 
     def to_dict(self):
+        gross = float(self.unit_price * self.quantity) if self.unit_price is not None else 0
+        disc = 0.0
+        if self.discount_type == 'percentage' and self.discount_value:
+            disc = gross * float(self.discount_value) / 100
+        elif self.discount_type == 'fixed' and self.discount_value:
+            disc = min(float(self.discount_value), gross)
         return {
             'id': self.id,
             'order_id': self.order_id,
@@ -837,7 +849,10 @@ class OrderItem(db.Model):
             'quantity': self.quantity,
             'unit_price': float(self.unit_price) if self.unit_price is not None else None,
             'currency': self.currency,
-            'subtotal': float(self.unit_price * self.quantity) if self.unit_price is not None else None,
+            'discount_type': self.discount_type,
+            'discount_value': float(self.discount_value) if self.discount_value is not None else None,
+            'discount_amount': round(disc, 2),
+            'subtotal': round(gross - disc, 2),
         }
 
 

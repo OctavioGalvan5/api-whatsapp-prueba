@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_campaigns (
     name VARCHAR(200) NOT NULL,
     template_name VARCHAR(100) NOT NULL,
     template_language VARCHAR(10) DEFAULT 'es_AR',
-    tag_id INTEGER NOT NULL REFERENCES whatsapp_tags(id),
+    tag_id INTEGER REFERENCES whatsapp_tags(id),  -- legacy nullable, usar whatsapp_campaign_tags
     status VARCHAR(20) DEFAULT 'draft',
     variables JSON,
     scheduled_at TIMESTAMP,
@@ -235,6 +235,18 @@ CREATE TABLE IF NOT EXISTS whatsapp_campaigns (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(100)
 );
+
+-- ==========================================
+-- WHATSAPP CAMPAIGN TAGS (many-to-many)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS whatsapp_campaign_tags (
+    campaign_id INTEGER NOT NULL REFERENCES whatsapp_campaigns(id) ON DELETE CASCADE,
+    tag_id      INTEGER NOT NULL REFERENCES whatsapp_tags(id)      ON DELETE CASCADE,
+    PRIMARY KEY (campaign_id, tag_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_tags_campaign ON whatsapp_campaign_tags(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_tags_tag      ON whatsapp_campaign_tags(tag_id);
 
 -- ==========================================
 -- WHATSAPP CAMPAIGN LOGS
@@ -438,7 +450,9 @@ CREATE TABLE IF NOT EXISTS orders (
     address TEXT,
     city VARCHAR(100),
     province VARCHAR(100),
-    postal_code VARCHAR(20)
+    postal_code VARCHAR(20),
+    discount_type VARCHAR(20),      -- 'percentage' | 'fixed' | NULL
+    discount_value NUMERIC(12, 2)   -- valor del descuento a nivel orden
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_contact ON orders(contact_id);
@@ -456,7 +470,9 @@ CREATE TABLE IF NOT EXISTS order_items (
     product_name VARCHAR(255) NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 1,
     unit_price NUMERIC(12, 2) NOT NULL,
-    currency VARCHAR(10) DEFAULT 'ARS'
+    currency VARCHAR(10) DEFAULT 'ARS',
+    discount_type VARCHAR(20),      -- 'percentage' | 'fixed' | NULL
+    discount_value NUMERIC(12, 2)   -- valor del descuento sobre este item
 );
 
 -- ==========================================

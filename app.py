@@ -6644,6 +6644,27 @@ def api_orders_export():
     )
 
 
+def _apply_item_discount(unit_price, quantity, discount_type, discount_value):
+    """Calcula el subtotal de un item aplicando su descuento."""
+    gross = float(unit_price or 0) * int(quantity or 1)
+    disc = 0.0
+    if discount_type == 'percentage' and discount_value:
+        disc = gross * float(discount_value) / 100
+    elif discount_type == 'fixed' and discount_value:
+        disc = min(float(discount_value), gross)
+    return round(gross - disc, 2)
+
+
+def _apply_order_discount(items_subtotal, discount_type, discount_value):
+    """Aplica el descuento a nivel orden sobre el subtotal de items."""
+    disc = 0.0
+    if discount_type == 'percentage' and discount_value:
+        disc = items_subtotal * float(discount_value) / 100
+    elif discount_type == 'fixed' and discount_value:
+        disc = min(float(discount_value), items_subtotal)
+    return round(items_subtotal - disc, 2)
+
+
 @app.route("/api/orders", methods=["POST"])
 def api_orders_create():
     from models import Order, OrderItem, CatalogProduct
@@ -6701,12 +6722,14 @@ def api_orders_create():
 
     # Items
     items_data = data.get("items", [])
-    total = 0
+    items_subtotal = 0
     for item_data in items_data:
         rid = item_data.get("retailer_id", "")
         product = CatalogProduct.query.get(rid)
         unit_price = float(item_data.get("unit_price", product.price if product else 0) or 0)
         qty = int(item_data.get("quantity", 1))
+        disc_type = item_data.get("discount_type") or None
+        disc_val = float(item_data.get("discount_value") or 0) or None
         item = OrderItem(
             order_id=order.id,
             retailer_id=rid,
@@ -6714,15 +6737,24 @@ def api_orders_create():
             quantity=qty,
             unit_price=unit_price,
             currency=item_data.get("currency", order.currency),
+            discount_type=disc_type,
+            discount_value=disc_val,
         )
         db.session.add(item)
-        total += unit_price * qty
+        items_subtotal += _apply_item_discount(unit_price, qty, disc_type, disc_val)
 
-    # Total: usar el provisto o calcular de items
+    # Descuento a nivel orden
+    order_disc_type = data.get("discount_type") or None
+    order_disc_val = float(data.get("discount_value") or 0) or None
+    if order_disc_type:
+        order.discount_type = order_disc_type
+        order.discount_value = order_disc_val
+
+    # Total: usar el provisto o calcular de items con descuentos
     if data.get("total") is not None:
         order.total = float(data["total"])
     elif items_data:
-        order.total = total
+        order.total = _apply_order_discount(items_subtotal, order_disc_type, order_disc_val)
 
     db.session.commit()
 
@@ -6777,15 +6809,23 @@ def api_orders_update(order_id):
     if "total" in data:
         order.total = float(data["total"]) if data["total"] is not None else None
 
+    # Descuento a nivel orden
+    if "discount_type" in data:
+        order.discount_type = data["discount_type"] or None
+    if "discount_value" in data:
+        order.discount_value = float(data["discount_value"]) if data["discount_value"] not in (None, "") else None
+
     # Recalcular items si vienen
     if "items" in data:
         OrderItem.query.filter_by(order_id=order.id).delete()
-        total = 0
+        items_subtotal = 0
         for item_data in data["items"]:
             rid = item_data.get("retailer_id", "")
             product = CatalogProduct.query.get(rid)
             unit_price = float(item_data.get("unit_price", product.price if product else 0) or 0)
             qty = int(item_data.get("quantity", 1))
+            disc_type = item_data.get("discount_type") or None
+            disc_val = float(item_data.get("discount_value") or 0) or None
             item = OrderItem(
                 order_id=order.id,
                 retailer_id=rid,
@@ -6793,12 +6833,18 @@ def api_orders_update(order_id):
                 quantity=qty,
                 unit_price=unit_price,
                 currency=item_data.get("currency", order.currency),
+                discount_type=disc_type,
+                discount_value=disc_val,
             )
             db.session.add(item)
-            total += unit_price * qty
+            items_subtotal += _apply_item_discount(unit_price, qty, disc_type, disc_val)
         # Solo auto-calcular si el usuario no mandó total explícito
         if "total" not in data:
-            order.total = total
+            order.total = _apply_order_discount(
+                items_subtotal,
+                order.discount_type,
+                float(order.discount_value) if order.discount_value is not None else None
+            )
 
     order.last_edited_by_id = g.current_user.id
     order.updated_at = datetime.utcnow()
