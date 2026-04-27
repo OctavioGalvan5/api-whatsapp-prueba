@@ -2504,7 +2504,7 @@ def api_delete_tag(tag_name):
             return jsonify({'error': 'No se puede eliminar una etiqueta del sistema'}), 403
 
         # Verificar si hay campañas asociadas a este tag
-        campaigns_count = Campaign.query.filter_by(tag_id=tag.id).count()
+        campaigns_count = Campaign.query.filter(Campaign.tags.any(Tag.id == tag.id)).count()
         
         # Quitar tag de todos los contactos
         removed_count = db.session.execute(
@@ -3844,21 +3844,11 @@ def campaigns_page():
 
     if vis_tag_ids is not None:
         if vis_tag_ids:
-            campaigns_q = campaigns_q.filter(Campaign.tag_id.in_(vis_tag_ids))
+            campaigns_q = campaigns_q.filter(Campaign.tags.any(Tag.id.in_(vis_tag_ids)))
         else:
             campaigns_q = campaigns_q.filter(False)
 
     campaigns_with_stats = campaigns_q.order_by(Campaign.created_at.desc()).all()
-
-    # Cargar tags en batch (una sola query IN) para evitar N+1 lazy load en el template
-    tag_ids_used = list({c.tag_id for c, *_ in campaigns_with_stats if c.tag_id})
-    tags_by_id = {}
-    if tag_ids_used:
-        for t in Tag.query.filter(Tag.id.in_(tag_ids_used)).all():
-            tags_by_id[t.id] = t
-    for c, *_ in campaigns_with_stats:
-        if c.tag_id and c.tag_id in tags_by_id:
-            c.__dict__['tag'] = tags_by_id[c.tag_id]
 
     campaigns_data = []
     for c, total, sent, failed in campaigns_with_stats:
@@ -4228,7 +4218,10 @@ def api_list_campaigns():
     tag_ids = get_visible_tag_ids(g.current_user)
     q = Campaign.query
     if tag_ids is not None:
-        q = q.filter(Campaign.tag_id.in_(tag_ids)) if tag_ids else q.filter(False)
+        if tag_ids:
+            q = q.filter(Campaign.tags.any(Tag.id.in_(tag_ids)))
+        else:
+            q = q.filter(False)
     campaigns = q.order_by(Campaign.created_at.desc()).all()
 
     # Obtener templates para preview de mensajes
@@ -4258,11 +4251,13 @@ def api_list_campaigns():
         # Eliminar las variables {{1}}, {{2}}, etc. para el preview
         message_preview = re.sub(r'\{\{\d+\}\}', '...', message_preview)
 
+        tag_names = [t.name for t in c.tags]
         result.append({
             'id': c.id,
             'name': c.name,
             'status': c.status,
-            'tag': c.tag.name if c.tag else None,
+            'tags': tag_names,
+            'tag': tag_names[0] if tag_names else None,  # backwards compat
             'template_name': c.template_name,
             'message_preview': message_preview[:100] + ('...' if len(message_preview) > 100 else ''),
             'total': total,
@@ -4280,40 +4275,45 @@ def api_create_campaign():
     """Crea una nueva campaña."""
     data = request.json
     name = data.get('name')
-    tag_id = data.get('tag_id')
     template_name = data.get('template_name')
     template_language = data.get('template_language', 'es_AR')
     scheduled_at_str = data.get('scheduled_at')
     variables = data.get('variables') # Dict {"1": "first_name", ...}
 
+    # Aceptar tag_ids (lista) o tag_id (legado, entero)
+    tag_ids_input = data.get('tag_ids')
+    if not tag_ids_input:
+        single = data.get('tag_id')
+        tag_ids_input = [single] if single else []
+
     if not name or not template_name:
         return jsonify({'error': 'name y template_name requeridos'}), 400
 
-    if not tag_id:
-        return jsonify({'error': 'tag_id requerido'}), 400
+    if not tag_ids_input:
+        return jsonify({'error': 'Se requiere al menos una etiqueta (tag_ids)'}), 400
 
-    tag = Tag.query.get(tag_id)
-    if not tag:
-        return jsonify({'error': 'Tag no encontrado'}), 404
-        
+    selected_tags = Tag.query.filter(Tag.id.in_(tag_ids_input)).all()
+    if len(selected_tags) != len(tag_ids_input):
+        return jsonify({'error': 'Una o más etiquetas no encontradas'}), 404
+
     scheduled_at = None
     status = 'draft'
-    
+
     if scheduled_at_str:
         # Asumimos que viene en ISO format o timestamp
         try:
             # Si viene con timezone, convertir a UTC. Si no, asumir que es UTC o manejarlo.
             # Simplificación: el frontend debe enviar ISO string.
             dt = datetime.fromisoformat(scheduled_at_str.replace('Z', '+00:00'))
-            
+
             # Si es naive (no tiene timezone), asumir que es hora de Argentina
             if dt.tzinfo is None:
                 ar_tz = pytz.timezone('America/Argentina/Buenos_Aires')
                 dt = ar_tz.localize(dt)
-            
+
             # Convertir a UTC para almacenamiento
             dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-            
+
             scheduled_at = dt
             status = 'scheduled'
         except Exception as e:
@@ -4323,12 +4323,12 @@ def api_create_campaign():
         name=name,
         template_name=template_name,
         template_language=template_language,
-        tag_id=tag_id,
         status=status,
         scheduled_at=scheduled_at,
         variables=variables,
         created_by=session.get('username')
     )
+    campaign.tags = selected_tags
     try:
         db.session.add(campaign)
         db.session.commit()
@@ -4369,37 +4369,36 @@ def api_send_campaign(campaign_id):
     if campaign.status not in ('draft', 'scheduled'):
         return jsonify({'error': 'La campaña ya está en curso o completada'}), 400
 
-    if not campaign.tag_id:
-        return jsonify({'error': 'La campaña debe tener un tag asignado'}), 400
+    tids = [t.id for t in campaign.tags]
+    if not tids:
+        return jsonify({'error': 'La campaña debe tener al menos una etiqueta asignada'}), 400
 
-    # Contar contactos con el tag (rápido, sin cargar en memoria)
-    contact_count = Contact.query.filter(
-        Contact.tags.any(Tag.id == campaign.tag_id)
-    ).count()
+    # Contar contactos DISTINTOS con alguna de las etiquetas
+    contact_count = db.session.query(func.count(func.distinct(Contact.id))).filter(
+        Contact.tags.any(Tag.id.in_(tids))
+    ).scalar()
 
     if contact_count == 0:
-        return jsonify({'error': 'No hay contactos con ese tag'}), 400
+        return jsonify({'error': 'No hay contactos con esas etiquetas'}), 400
 
     # Actualizar estado
     campaign.status = 'sending'
     campaign.started_at = datetime.utcnow()
     db.session.commit()
 
-    # Crear logs pendientes - SUPER OPTIMIZADO CON SQL DIRECTO + ON CONFLICT
-    # Inserta todos los logs en una sola operación SQL sin cargar contactos en Python
+    # Crear logs pendientes — SQL directo con DISTINCT para evitar duplicados entre etiquetas
     now = datetime.utcnow()
     try:
-        # Usar ON CONFLICT DO NOTHING para evitar subconsulta NOT EXISTS (mucho más rápido)
         result = db.session.execute(text("""
             INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
-            SELECT :cid, c.id, c.phone_number, 'pending', :now
+            SELECT DISTINCT :cid, c.id, c.phone_number, 'pending', :now
             FROM whatsapp_contacts c
             JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
-            WHERE ct.tag_id = :tid
+            WHERE ct.tag_id = ANY(:tids)
             ON CONFLICT (campaign_id, contact_id) DO NOTHING
-        """), {'cid': campaign.id, 'tid': campaign.tag_id, 'now': now})
+        """), {'cid': campaign.id, 'tids': tids, 'now': now})
         db.session.commit()
-        logger.info(f"📊 Logs creados para campaña {campaign.id}, tag {campaign.tag_id}, contactos: {contact_count}, insertados: {result.rowcount}")
+        logger.info(f"📊 Logs creados para campaña {campaign.id}, tags {tids}, contactos: {contact_count}, insertados: {result.rowcount}")
     except Exception as e:
         db.session.rollback()
         logger.error(f"❌ Error creando logs con ON CONFLICT para campaña {campaign.id}: {e}")
@@ -4407,15 +4406,15 @@ def api_send_campaign(campaign_id):
         try:
             result = db.session.execute(text("""
                 INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
-                SELECT :cid, c.id, c.phone_number, 'pending', :now
+                SELECT DISTINCT :cid, c.id, c.phone_number, 'pending', :now
                 FROM whatsapp_contacts c
                 JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
-                WHERE ct.tag_id = :tid
+                WHERE ct.tag_id IN :tids
                 AND NOT EXISTS (
-                    SELECT 1 FROM whatsapp_campaign_logs cl 
+                    SELECT 1 FROM whatsapp_campaign_logs cl
                     WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
                 )
-            """), {'cid': campaign.id, 'tid': campaign.tag_id, 'now': now})
+            """), {'cid': campaign.id, 'tids': tuple(tids), 'now': now})
             db.session.commit()
             logger.info(f"📊 Logs creados con fallback SQL para campaña {campaign.id}, insertados: {result.rowcount}")
         except Exception as e2:
@@ -4616,33 +4615,41 @@ def run_scheduler():
                 for camp in pending:
                     logger.info(f"🚀 Ejecutando campaña programada: {camp.name}")
                     
-                    # Contar contactos con el tag
-                    contact_count = Contact.query.filter(
-                        Contact.tags.any(Tag.id == camp.tag_id)
-                    ).count()
-                    
+                    # Contar contactos DISTINTOS con alguna de las etiquetas
+                    tids = [t.id for t in camp.tags]
+                    if not tids:
+                        camp.status = 'failed'
+                        camp.completed_at = now
+                        logger.warning(f"Campaña {camp.name} fallida: Sin etiquetas asignadas")
+                        db.session.commit()
+                        continue
+
+                    contact_count = db.session.query(func.count(func.distinct(Contact.id))).filter(
+                        Contact.tags.any(Tag.id.in_(tids))
+                    ).scalar()
+
                     if contact_count == 0:
                         camp.status = 'failed'
                         camp.completed_at = now
                         logger.warning(f"Campaña {camp.name} fallida: Sin contactos")
                         db.session.commit()
                         continue
-                        
+
                     # Pasar a sending
                     camp.status = 'sending'
                     camp.started_at = now
                     db.session.commit()
-                    
-                    # Crear logs - SUPER OPTIMIZADO CON SQL DIRECTO + ON CONFLICT
+
+                    # Crear logs — SQL directo con DISTINCT para evitar duplicados entre etiquetas
                     try:
                         db.session.execute(text("""
                             INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
-                            SELECT :cid, c.id, c.phone_number, 'pending', :now
+                            SELECT DISTINCT :cid, c.id, c.phone_number, 'pending', :now
                             FROM whatsapp_contacts c
                             JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
-                            WHERE ct.tag_id = :tid
+                            WHERE ct.tag_id = ANY(:tids)
                             ON CONFLICT (campaign_id, contact_id) DO NOTHING
-                        """), {'cid': camp.id, 'tid': camp.tag_id, 'now': now})
+                        """), {'cid': camp.id, 'tids': tids, 'now': now})
                         db.session.commit()
                     except Exception as e:
                         db.session.rollback()
@@ -4650,15 +4657,15 @@ def run_scheduler():
                         # Fallback sin ON CONFLICT
                         db.session.execute(text("""
                             INSERT INTO whatsapp_campaign_logs (campaign_id, contact_id, contact_phone, status, created_at)
-                            SELECT :cid, c.id, c.phone_number, 'pending', :now
+                            SELECT DISTINCT :cid, c.id, c.phone_number, 'pending', :now
                             FROM whatsapp_contacts c
                             JOIN whatsapp_contact_tags ct ON c.id = ct.contact_id
-                            WHERE ct.tag_id = :tid
+                            WHERE ct.tag_id IN :tids
                             AND NOT EXISTS (
-                                SELECT 1 FROM whatsapp_campaign_logs cl 
+                                SELECT 1 FROM whatsapp_campaign_logs cl
                                 WHERE cl.campaign_id = :cid AND cl.contact_id = c.id
                             )
-                        """), {'cid': camp.id, 'tid': camp.tag_id, 'now': now})
+                        """), {'cid': camp.id, 'tids': tuple(tids), 'now': now})
                         db.session.commit()
                     
                     # Lanzar thread de envío
@@ -4750,7 +4757,7 @@ def api_get_campaign_stats_preview(campaign_id):
         'name': campaign.name,
         'status': campaign.status,
         'template_name': campaign.template_name,
-        'tag_name': campaign.tag.name if campaign.tag else '??',
+        'tag_name': ', '.join(t.name for t in campaign.tags) or '??',
         'created_at': format_utc_iso(campaign.created_at),
         'scheduled_at': format_utc_iso(campaign.scheduled_at),
         'started_at': format_utc_iso(campaign.started_at),
@@ -4898,7 +4905,7 @@ def api_campaign_details(campaign_id):
             'status': campaign.status,
             'template_name': campaign.template_name,
             'template_content': template_content,
-            'tag_name': campaign.tag.name if campaign.tag else 'N/A',
+            'tag_name': ', '.join(t.name for t in campaign.tags) or 'N/A',
             'created_at': format_utc_iso(campaign.created_at),
             'started_at': format_utc_iso(campaign.started_at),
             'completed_at': format_utc_iso(campaign.completed_at),

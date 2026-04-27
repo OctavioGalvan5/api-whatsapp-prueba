@@ -147,6 +147,12 @@ contact_tags = db.Table('whatsapp_contact_tags',
     db.Index('idx_contact_tags_tag', 'tag_id')  # Índice para JOIN en campañas
 )
 
+# Tabla de asociación Campaña-Etiqueta (many-to-many)
+campaign_tags = db.Table('whatsapp_campaign_tags',
+    db.Column('campaign_id', db.Integer, db.ForeignKey('whatsapp_campaigns.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('whatsapp_tags.id', ondelete='CASCADE'), primary_key=True),
+)
+
 class Tag(db.Model):
     """Modelo para etiquetas de contactos (normalizado)."""
     __tablename__ = 'whatsapp_tags'
@@ -221,7 +227,7 @@ class Campaign(db.Model):
     name = db.Column(db.String(200), nullable=False)
     template_name = db.Column(db.String(100), nullable=False)
     template_language = db.Column(db.String(10), default='es_AR')
-    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id'), nullable=False)
+    tag_id = db.Column(db.Integer, db.ForeignKey('whatsapp_tags.id'), nullable=True)  # legacy, nullable tras migración
     status = db.Column(db.String(20), default='draft')  # draft, sending, completed, failed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     started_at = db.Column(db.DateTime, nullable=True)
@@ -230,16 +236,18 @@ class Campaign(db.Model):
     variables = db.Column(db.JSON, nullable=True)  # Mapping {"1": "first_name", "2": "custom_field_1"}
     created_by = db.Column(db.String(100), nullable=True)
 
-    tag = db.relationship('Tag', backref='campaigns')
+    tags = db.relationship('Tag', secondary='whatsapp_campaign_tags', lazy='joined')
     logs = db.relationship('CampaignLog', backref='campaign', lazy='select')
 
     def to_dict(self):
+        tag_names = [t.name for t in self.tags]
         return {
             'id': self.id,
             'name': self.name,
             'template_name': self.template_name,
             'template_language': self.template_language,
-            'tag_name': self.tag.name if self.tag else None,
+            'tag_names': tag_names,
+            'tag_name': ', '.join(tag_names) if tag_names else None,
             'status': self.status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'started_at': self.started_at.isoformat() if self.started_at else None,

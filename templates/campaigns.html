@@ -121,7 +121,7 @@
                         <div class="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
                             <span class="flex items-center gap-1">
                                 <span class="material-symbols-outlined text-sm">label</span>
-                                {{ item.campaign.tag.name if item.campaign.tag else 'Sin tag' }}
+                                {% if item.campaign.tags %}{{ item.campaign.tags | map(attribute='name') | join(', ') }}{% else %}Sin etiqueta{% endif %}
                             </span>
                             <span class="flex items-center gap-1">
                                 <span class="material-symbols-outlined text-sm">message</span>
@@ -231,15 +231,19 @@
                     class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" />
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Etiqueta
-                    (destinatarios)</label>
-                <select id="camp-tag"
-                    class="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:border-primary">
-                    <option value="">Selecciona una etiqueta...</option>
+                <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Etiquetas
+                    (destinatarios — seleccioná una o más)</label>
+                <div id="camp-tags-container"
+                    class="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg p-2 space-y-1 custom-scrollbar">
                     {% for tag in tags %}
-                    <option value="{{ tag.id }}">{{ tag.name }}</option>
+                    <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer text-sm">
+                        <input type="checkbox" name="camp-tag" value="{{ tag.id }}"
+                            class="rounded border-gray-300 dark:border-gray-600 accent-primary" />
+                        {{ tag.name }}
+                    </label>
                     {% endfor %}
-                </select>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Los contactos deben tener al menos una de las etiquetas.</p>
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Template
@@ -341,15 +345,15 @@
     // Create campaign
     async function createCampaign() {
         const name = document.getElementById('camp-name').value.trim();
-        const tagId = document.getElementById('camp-tag').value;
+        const tagIds = Array.from(document.querySelectorAll('input[name="camp-tag"]:checked')).map(cb => parseInt(cb.value));
         const templateVal = document.getElementById('camp-template').value;
         const scheduledAt = document.getElementById('camp-schedule').value;
         const errorDiv = document.getElementById('create-error');
         errorDiv.classList.add('hidden');
 
-        if (!name || !tagId || !templateVal) {
+        if (!name || tagIds.length === 0 || !templateVal) {
             errorDiv.classList.remove('hidden');
-            errorDiv.textContent = 'Todos los campos son requeridos';
+            errorDiv.textContent = 'Nombre, al menos una etiqueta y template son requeridos';
             return;
         }
 
@@ -373,7 +377,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name,
-                    tag_id: parseInt(tagId),
+                    tag_ids: tagIds,
                     template_name: templateName,
                     template_language: templateLang,
                     scheduled_at: scheduledAt || null,
