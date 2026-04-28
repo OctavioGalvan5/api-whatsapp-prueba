@@ -211,11 +211,24 @@
 
                     <div x-show="headerType === 'IMAGE' || headerType === 'VIDEO' || headerType === 'DOCUMENT'"
                         x-transition
-                        class="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
-                        <span class="material-symbols-outlined text-4xl text-gray-400 mb-2"
-                            x-text="headerType === 'IMAGE' ? 'image' : headerType === 'VIDEO' ? 'videocam' : 'description'"></span>
-                        <p class="text-gray-500 text-sm">El archivo se proporcionara al enviar el mensaje</p>
-                        <p class="text-gray-400 text-xs mt-1">Vista previa de placeholder</p>
+                        class="space-y-3">
+                        <label
+                            class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-primary transition-colors"
+                            :class="headerHandle ? 'border-green-500 bg-green-50 dark:bg-green-900/10' : ''">
+                            <span class="material-symbols-outlined text-4xl mb-2"
+                                :class="headerHandle ? 'text-green-500' : 'text-gray-400'"
+                                x-text="headerHandle ? 'check_circle' : (headerType === 'IMAGE' ? 'image' : headerType === 'VIDEO' ? 'videocam' : 'description')"></span>
+                            <p class="text-sm font-medium" x-text="headerHandle ? headerFileName : 'Haz clic para seleccionar un archivo'"></p>
+                            <p class="text-xs text-gray-400 mt-1"
+                                x-text="headerType === 'IMAGE' ? 'JPG, PNG, WEBP (máx. 5MB)' : headerType === 'VIDEO' ? 'MP4, 3GP (máx. 16MB)' : 'PDF, DOCX (máx. 100MB)'"></p>
+                            <input type="file" class="hidden" x-ref="headerFileInput"
+                                :accept="headerType === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : headerType === 'VIDEO' ? 'video/mp4,video/3gpp' : 'application/pdf,.docx,.doc'"
+                                @change="uploadHeaderFile($event)">
+                        </label>
+                        <div x-show="isUploadingHeader" class="flex items-center gap-2 text-sm text-gray-500">
+                            <span class="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+                            Subiendo archivo a WhatsApp...
+                        </div>
                     </div>
                 </div>
             </div>
@@ -415,8 +428,9 @@
                                     <div x-show="headerType !== 'NONE'">
                                         <!-- Image Header -->
                                         <div x-show="headerType === 'IMAGE'"
-                                            class="w-full h-32 bg-gray-200 rounded-t-lg flex items-center justify-center">
-                                            <span class="material-symbols-outlined text-4xl text-gray-400">image</span>
+                                            class="w-full h-32 bg-gray-200 rounded-t-lg flex items-center justify-center overflow-hidden">
+                                            <span x-show="!headerHandle" class="material-symbols-outlined text-4xl text-gray-400">image</span>
+                                            <span x-show="headerHandle" class="text-xs text-green-600 font-medium px-2 text-center" x-text="headerFileName"></span>
                                         </div>
                                         <!-- Video Header -->
                                         <div x-show="headerType === 'VIDEO'"
@@ -505,6 +519,8 @@
             language: 'es_AR',
             headerType: 'NONE',
             headerText: '',
+            headerHandle: '',
+            headerFileName: '',
             bodyText: '',
             footerText: '',
             buttons: [],
@@ -513,6 +529,7 @@
             // UI State
             showEmojiPicker: false,
             isSubmitting: false,
+            isUploadingHeader: false,
             alert: {
                 show: false,
                 type: 'success',
@@ -521,8 +538,43 @@
 
             // Initialize
             init() {
-                // Watch for body text changes to extract variables
                 this.$watch('bodyText', () => this.extractVariables());
+                // Resetear el handle al cambiar tipo de header
+                this.$watch('headerType', () => {
+                    this.headerHandle = '';
+                    this.headerFileName = '';
+                });
+            },
+
+            // Subir archivo de header
+            async uploadHeaderFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.isUploadingHeader = true;
+                this.headerHandle = '';
+                this.headerFileName = '';
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/api/whatsapp/upload-template-header', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (response.ok && result.handle) {
+                        this.headerHandle = result.handle;
+                        this.headerFileName = file.name;
+                    } else {
+                        this.showAlert('error', result.error || 'Error al subir el archivo');
+                    }
+                } catch (err) {
+                    this.showAlert('error', 'Error de conexión al subir el archivo');
+                } finally {
+                    this.isUploadingHeader = false;
+                }
             },
 
             // Extract variables from body text
@@ -699,6 +751,13 @@
                     payload.header = { format: this.headerType };
                     if (this.headerType === 'TEXT' && this.headerText) {
                         payload.header.text = this.headerText;
+                    } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(this.headerType)) {
+                        if (!this.headerHandle) {
+                            this.showAlert('error', 'Debes subir un archivo para el encabezado de tipo ' + this.headerType);
+                            this.isSubmitting = false;
+                            return;
+                        }
+                        payload.header.handle = this.headerHandle;
                     }
                 }
 

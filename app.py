@@ -3463,6 +3463,8 @@ def api_create_template():
         header_component = {"type": "HEADER", "format": header["format"]}
         if header["format"] == "TEXT" and header.get("text"):
             header_component["text"] = header["text"]
+        elif header["format"] in ("IMAGE", "VIDEO", "DOCUMENT") and header.get("handle"):
+            header_component["example"] = {"header_handle": [header["handle"]]}
         components.append(header_component)
 
     # Body (requerido)
@@ -3505,6 +3507,23 @@ def api_create_template():
     if result.get("error"):
         return jsonify(result), 400
     return jsonify(result)
+
+@app.route("/api/whatsapp/upload-template-header", methods=["POST"])
+def api_upload_template_header():
+    """Sube un archivo a WhatsApp y devuelve el handle para usar en header de plantilla."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No se envió archivo"}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({"error": "Archivo sin nombre"}), 400
+
+    file_bytes = file.read()
+    mime_type = file.content_type or 'application/octet-stream'
+    result = whatsapp_api.upload_template_header_media(file_bytes, mime_type, file.filename)
+
+    if not result.get("success"):
+        return jsonify({"error": result.get("error", "Error al subir archivo")}), 500
+    return jsonify({"handle": result["handle"]})
 
 @app.route("/api/whatsapp/send-template", methods=["POST"])
 def api_send_template():

@@ -512,6 +512,16 @@ class WhatsAppAPI:
                 logger.error(f"Error subiendo media: {e}")
             return {"error": str(e), "detail": error_detail}
     
+    def upload_template_header_media(self, file_bytes, mime_type, filename):
+        """
+        Sube un archivo a WhatsApp para usarlo como header_handle en una plantilla.
+        Usa el mismo endpoint que upload_media pero devuelve el handle listo para templates.
+        """
+        result = self.upload_media(file_bytes, mime_type, filename)
+        if result.get("success"):
+            return {"success": True, "handle": result["media_id"]}
+        return result
+
     def send_media_message(self, to_phone, media_type, media_id, caption=None, filename=None):
         """
         Envía un mensaje multimedia usando un media_id previamente subido.
