@@ -4699,14 +4699,19 @@ def run_scheduler():
         categorize_counter += 1
         if categorize_counter >= 5:
             categorize_counter = 0
-            try:
-                run_categorization(app.app_context())
-            except Exception as e:
-                logger.error(f"Error en categorización: {e}")
-            try:
-                run_auto_tagger(app.app_context())
-            except Exception as e:
-                logger.error(f"Error en auto tagger: {e}")
+            with app.app_context():
+                categorizer_on = ChatbotConfig.get('categorizer_enabled', 'true') == 'true'
+            if categorizer_on:
+                try:
+                    run_categorization(app.app_context())
+                except Exception as e:
+                    logger.error(f"Error en categorización: {e}")
+                try:
+                    run_auto_tagger(app.app_context())
+                except Exception as e:
+                    logger.error(f"Error en auto tagger: {e}")
+            else:
+                logger.debug("Categorizador desactivado, saltando.")
 
         # Follow-up sender: corre cada minuto
         try:
@@ -5422,8 +5427,9 @@ def chatbot_page():
     """Página de gestión del chatbot."""
     documents = RagDocument.query.order_by(RagDocument.created_at.desc()).all()
     chatbot_enabled = ChatbotConfig.get('enabled', 'true') == 'true'
+    categorizer_enabled = ChatbotConfig.get('categorizer_enabled', 'true') == 'true'
     system_prompt = ChatbotConfig.get('system_prompt', '')
-    return render_template('chatbot.html', documents=documents, chatbot_enabled=chatbot_enabled, system_prompt=system_prompt)
+    return render_template('chatbot.html', documents=documents, chatbot_enabled=chatbot_enabled, categorizer_enabled=categorizer_enabled, system_prompt=system_prompt)
 
 
 @app.route("/reengagement")
@@ -5814,6 +5820,15 @@ def api_toggle_chatbot():
         'enabled': new_value == 'true',
         'n8n_workflow': n8n_result
     })
+
+
+@app.route("/api/categorizer/toggle", methods=["POST"])
+def api_toggle_categorizer():
+    """Enciende/apaga el categorizador de conversaciones."""
+    data = request.get_json()
+    enabled = data.get('enabled', True)
+    ChatbotConfig.set('categorizer_enabled', 'true' if enabled else 'false')
+    return jsonify({'success': True, 'enabled': enabled})
 
 
 # ==========================================

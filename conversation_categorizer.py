@@ -277,15 +277,29 @@ EJEMPLOS DE VERDADEROS POSITIVOS:
                 {"role": "system", "content": "Eres un analizador experto de conversaciones de atención al cliente. Tu trabajo es clasificar conversaciones con alta precisión, evitando falsos positivos. Sé muy selectivo al marcar conversaciones que requieren asistencia humana. Responde siempre en JSON válido."},
                 {"role": "user", "content": prompt}
             ],
-            max_completion_tokens=400
+            max_completion_tokens=400,
+            response_format={"type": "json_object"}
         )
-        
-        result_text = response.choices[0].message.content.strip()
-        
+
+        result_text = (response.choices[0].message.content or "").strip()
+
+        if not result_text:
+            finish_reason = response.choices[0].finish_reason if response.choices else "unknown"
+            logger.warning(f"OpenAI returned empty content for {phone} (finish_reason={finish_reason}), skipping session")
+            return
+
         # Clean JSON if wrapped in markdown
-        if result_text.startswith("```"):
-            result_text = result_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        
+        import re
+        if "```" in result_text:
+            match = re.search(r"```(?:json)?\s*(.*?)\s*```", result_text, re.DOTALL | re.IGNORECASE)
+            if match:
+                result_text = match.group(1).strip()
+            else:
+                result_text = result_text.replace("```json", "").replace("```", "").strip()
+
+        if not result_text:
+            raise ValueError("Empty response after cleaning markdown")
+
         result = json.loads(result_text)
         
         # Find matching topic
@@ -335,7 +349,26 @@ EJEMPLOS DE VERDADEROS POSITIVOS:
 
         logger.info(f"Categorized session for {phone}: {topic_name} / {result.get('rating')} ({len(messages)} msgs) | human={needs_human}")
         
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse OpenAI response: {e}")
     except Exception as e:
-        logger.error(f"Error categorizing conversation: {e}")
+        logger.error(f"Error categorizing conversation for {phone}: {e}")
+        try:
+            from models import ConversationSession
+            # Create a fallback session to prevent infinite retry loops
+            session = ConversationSession(
+                phone_number=phone,
+                topic_id=None,
+                rating="neutral",
+                started_at=started_at,
+                ended_at=ended_at,
+                message_count=len(messages),
+                summary="Error en categorización automática",
+                auto_categorized=True,
+                has_unanswered_questions=False,
+                escalated_to_human=False
+            )
+            db.session.add(session)
+            db.session.commit()
+            logger.info(f"Saved fallback session for {phone} to prevent retry loop.")
+        except Exception as db_e:
+            db.session.rollback()
+            logger.error(f"Failed to save fallback session for {phone}: {db_e}")

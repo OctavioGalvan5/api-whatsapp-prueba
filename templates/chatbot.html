@@ -23,6 +23,17 @@
                         {% if chatbot_enabled %}Activo{% else %}Inactivo{% endif %}
                     </span>
                 </div>
+                <!-- Toggle Categorizador -->
+                <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span class="hidden sm:inline text-sm font-medium text-gray-600 dark:text-gray-300">Categorizador</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="categorizer-toggle" class="sr-only peer" {% if categorizer_enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                    </label>
+                    <span id="categorizer-status" class="text-sm font-medium {% if categorizer_enabled %}text-primary{% else %}text-gray-400{% endif %}">
+                        {% if categorizer_enabled %}Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </div>
             </div>
         </div>
     </header>
@@ -328,6 +339,31 @@
                 statusEl.textContent = enabled ? 'Activo' : 'Inactivo';
                 statusEl.className = 'text-sm font-medium ' + (enabled ? 'text-primary' : 'text-gray-400');
                 showToast('Chatbot ' + (enabled ? 'activado' : 'desactivado'), 'success');
+            } else {
+                this.checked = !enabled;
+                showToast(data.error || 'Error al cambiar estado', 'error');
+            }
+        } catch (e) {
+            this.checked = !enabled;
+            showToast('Error: ' + e.message, 'error');
+        }
+    });
+
+    // Categorizer toggle
+    document.getElementById('categorizer-toggle').addEventListener('change', async function() {
+        const enabled = this.checked;
+        const statusEl = document.getElementById('categorizer-status');
+        try {
+            const resp = await fetch('/api/categorizer/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                statusEl.textContent = enabled ? 'Activo' : 'Inactivo';
+                statusEl.className = 'text-sm font-medium ' + (enabled ? 'text-primary' : 'text-gray-400');
+                showToast('Categorizador ' + (enabled ? 'activado' : 'desactivado'), 'success');
             } else {
                 this.checked = !enabled;
                 showToast(data.error || 'Error al cambiar estado', 'error');
