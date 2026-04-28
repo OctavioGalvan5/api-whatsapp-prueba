@@ -975,7 +975,7 @@
           <span class="flex-1 truncate font-medium">${it.product_name}</span>
           <input type="number" min="1" value="${it.quantity}"
             onchange="createItems[${idx}].quantity=parseInt(this.value)||1;createRenderItems()"
-            class="w-10 text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent focus:outline-none py-0.5">
+            class="w-10 text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none py-0.5">
           <span class="w-16 text-right">${Number(net).toLocaleString('es-AR')} ${discBadge}</span>
           <button onclick="createItems.splice(${idx},1);createRenderItems()" class="text-gray-300 hover:text-red-400">
             <span class="material-symbols-outlined text-[14px]">close</span>

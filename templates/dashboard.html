@@ -3399,7 +3399,7 @@ function omRenderItems() {
     return `<div class="flex flex-col gap-0.5 py-1 border-b border-gray-50 dark:border-gray-800 text-xs">
       <div class="flex items-center gap-2">
         <span class="flex-1 truncate font-medium">${it.product_name}</span>
-        <input type="number" min="1" value="${it.quantity}" onchange="omItems[${idx}].quantity=parseInt(this.value)||1;omRenderItems()" class="w-10 text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent focus:outline-none py-0.5">
+        <input type="number" min="1" value="${it.quantity}" onchange="omItems[${idx}].quantity=parseInt(this.value)||1;omRenderItems()" class="w-10 text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none py-0.5">
         <span class="w-16 text-right">${Number(net).toLocaleString('es-AR')} ${discBadge}</span>
         <button onclick="omItems.splice(${idx},1);omRenderItems()" class="text-gray-300 hover:text-red-400"><span class="material-symbols-outlined text-[14px]">close</span></button>
       </div>
