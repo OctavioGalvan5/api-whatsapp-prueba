@@ -5292,7 +5292,8 @@ def _safe_text(text):
 @app.route("/sessions")
 def sessions_page():
     """Página para ver sesiones de conversación categorizadas."""
-    return render_template('sessions.html')
+    categorizer_enabled = ChatbotConfig.get('categorizer_enabled', 'true') == 'true'
+    return render_template('sessions.html', categorizer_enabled=categorizer_enabled)
 
 
 @app.route("/api/conversation-sessions", methods=["GET"])
