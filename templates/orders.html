@@ -973,10 +973,12 @@
       return `<div class="flex flex-col gap-0.5 py-1 border-b border-gray-50 dark:border-gray-800 text-xs">
         <div class="flex items-center gap-2">
           <span class="flex-1 truncate font-medium">${it.product_name}</span>
-          <input type="number" min="1" value="${it.quantity}"
-            onchange="createItems[${idx}].quantity=parseInt(this.value)||1;createRenderItems()"
-            class="w-12 text-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none py-1 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
-          <span class="w-16 text-right">${Number(net).toLocaleString('es-AR')} ${discBadge}</span>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="createItems[${idx}].quantity=Math.max(1,(createItems[${idx}].quantity||1)-1);createRenderItems()" class="w-5 h-5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold text-sm leading-none">−</button>
+            <span class="w-6 text-center font-medium text-gray-900 dark:text-white">${it.quantity}</span>
+            <button onclick="createItems[${idx}].quantity=(createItems[${idx}].quantity||1)+1;createRenderItems()" class="w-5 h-5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold text-sm leading-none">+</button>
+          </div>
+          <span class="w-16 text-right shrink-0">${Number(net).toLocaleString('es-AR')} ${discBadge}</span>
           <button onclick="createItems.splice(${idx},1);createRenderItems()" class="text-gray-300 hover:text-red-400">
             <span class="material-symbols-outlined text-[14px]">close</span>
           </button>
