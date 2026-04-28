@@ -248,34 +248,18 @@ PREGUNTAS (respondé cada una con SÍ o NO):
 Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "NO" como valor. Ejemplo:
 {{"123": "SI", "456": "NO"}}"""
 
-    # Construir schema dinámico con los IDs de las condiciones
-    schema_properties = {rule_id: {"type": "string", "enum": ["SI", "NO"]} for rule_id in conditions}
-
-    response = client.responses.create(
-        model="gpt-5.4-mini",
-        reasoning={"effort": "none"},
-        input=[
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
             {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con un JSON de SI/NO por cada pregunta."},
             {"role": "user", "content": prompt}
         ],
-        max_output_tokens=800,
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "auto_tag_response",
-                "strict": True,
-                "schema": {
-                    "type": "object",
-                    "properties": schema_properties,
-                    "required": list(conditions.keys()),
-                    "additionalProperties": False
-                }
-            }
-        }
+        max_tokens=800,
+        response_format={"type": "json_object"}
     )
 
     import json
-    raw = (response.output_text or "").strip()
+    raw = (response.choices[0].message.content or "").strip()
     try:
         parsed = json.loads(raw)
         return {k: (str(v).upper().startswith("S")) for k, v in parsed.items()}
