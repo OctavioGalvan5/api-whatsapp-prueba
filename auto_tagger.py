@@ -249,7 +249,7 @@ Respondé ÚNICAMENTE con un JSON válido con el mismo ID como clave y "SI" o "N
 {{"123": "SI", "456": "NO"}}"""
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5.4-mini",
         messages=[
             {"role": "system", "content": "Eres un analizador de conversaciones. Respondés únicamente con un JSON de SI/NO por cada pregunta."},
             {"role": "user", "content": prompt}

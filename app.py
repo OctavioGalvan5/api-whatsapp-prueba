@@ -4463,6 +4463,7 @@ def send_campaign_bg(app_context, cid):
         
         # Pre-cargar el texto del template para usarlo en el historial de cada contacto
         template_body_text = None
+        template_header_format = None
         try:
             templates_result = whatsapp_api.get_templates()
             for t in templates_result.get("templates", []):
@@ -4470,7 +4471,8 @@ def send_campaign_bg(app_context, cid):
                     for comp in t.get("components", []):
                         if comp.get("type") == "BODY":
                             template_body_text = comp.get("text", "")
-                            break
+                        elif comp.get("type") == "HEADER":
+                            template_header_format = comp.get("format")
                     break
         except Exception as e:
             logger.warning(f"No se pudo obtener texto del template para campaña {cid}: {e}")
@@ -4516,14 +4518,23 @@ def send_campaign_bg(app_context, cid):
                             header_params = []
                             for idx in sorted(header_vars.keys()):
                                 field = header_vars[idx]
-                                value = "-"
-                                if field == 'phone_number':
-                                    value = contact.phone_number if contact else log.contact_phone
-                                elif contact:
-                                    val = getattr(contact, field, None)
-                                    if val:
-                                        value = str(val)
-                                header_params.append({"type": "text", "text": value})
+                                
+                                if template_header_format in ('IMAGE', 'VIDEO', 'DOCUMENT'):
+                                    # It is a media URL!
+                                    header_params.append({
+                                        "type": template_header_format.lower(),
+                                        template_header_format.lower(): {"link": field}
+                                    })
+                                else:
+                                    # It is a text variable
+                                    value = "-"
+                                    if field == 'phone_number':
+                                        value = contact.phone_number if contact else log.contact_phone
+                                    elif contact:
+                                        val = getattr(contact, field, None)
+                                        if val:
+                                            value = str(val)
+                                    header_params.append({"type": "text", "text": value})
                             components.append({"type": "header", "parameters": header_params})
                         
                         # Build body parameters
