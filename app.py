@@ -4626,10 +4626,13 @@ def run_scheduler():
                 now = datetime.utcnow()
                 # Buscar campañas programadas que ya deberían salir
                 # skip_locked=True evita que el scheduler intente procesar algo que ya está bloqueado por el usuario
-                pending = Campaign.query.filter(
+                # Primero obtener IDs con lock (sin joins que causen error con FOR UPDATE)
+                pending_ids = db.session.query(Campaign.id).filter(
                     Campaign.status == 'scheduled',
                     Campaign.scheduled_at <= now
                 ).with_for_update(skip_locked=True).all()
+                pending_ids = [pid for (pid,) in pending_ids]
+                pending = Campaign.query.filter(Campaign.id.in_(pending_ids)).all() if pending_ids else []
                 
                 for camp in pending:
                     logger.info(f"🚀 Ejecutando campaña programada: {camp.name}")
